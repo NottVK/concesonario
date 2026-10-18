@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   Entity,
   Index,
@@ -16,12 +17,13 @@ export enum AppointmentStatus {
   CANCELLED = 'cancelada',
 }
 
-/** Un vehículo no puede tener dos citas activas a la misma hora (RF4). */
+/**
+ * Cita de test-drive. Los solapes (RF4) los impide la BD con dos restricciones de
+ * exclusión creadas en la migración AppointmentOverlap: `ex_citas_vehiculo_solape` y
+ * `ex_citas_cliente_solape` (TypeORM no las modela, por eso no aparecen aquí).
+ */
 @Entity('citas')
-@Index('uq_citas_vehiculo_fecha_activa', ['vehicleId', 'scheduledAt'], {
-  unique: true,
-  where: "estado <> 'cancelada'",
-})
+@Check('CHK_citas_duracion', '"duracion_min" BETWEEN 15 AND 240')
 export class Appointment {
   @PrimaryGeneratedColumn()
   id: number;
@@ -43,6 +45,10 @@ export class Appointment {
 
   @Column({ name: 'fecha_hora', type: 'timestamptz' })
   scheduledAt: Date;
+
+  /** Duración en minutos; hoy siempre 60. */
+  @Column({ name: 'duracion_min', type: 'int', default: 60 })
+  durationMin: number;
 
   @Column({
     name: 'estado',
