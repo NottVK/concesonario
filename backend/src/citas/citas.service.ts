@@ -89,7 +89,14 @@ export class CitasService {
         `No se puede pasar una cita de ${appointment.status} a ${dto.status}`,
       );
     }
-    await this.appointments.update(id, { status: dto.status });
+    // Condicionado al estado leído: si otra petición lo cambió en medio, no se pisa en silencio.
+    const result = await this.appointments.update(
+      { id, status: appointment.status },
+      { status: dto.status },
+    );
+    if (!result.affected) {
+      throw new ConflictException('La cita cambió de estado mientras la procesábamos; reintenta');
+    }
     return this.findOne(id);
   }
 

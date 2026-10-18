@@ -1,124 +1,75 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AutoMax — Backend (NestJS)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST del concesionario: NestJS + TypeScript estricto + TypeORM + PostgreSQL 16. Todas las rutas llevan el prefijo `/api`.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Puesta en marcha
 
 ```bash
-$ npm install
+docker compose up -d          # desde la raíz: PostgreSQL 16 + pgvector
+cp ../.env.example ../.env    # y cambia JWT_SECRET, DB_PASSWORD, SEED_DEMO_PASSWORD
+npm install
+npm run migration:run         # esquema
+npm run seed                  # 10 marcas, 60 vehículos, usuarios demo
+npm run start:dev             # http://localhost:8000/api
 ```
 
-## Compile and run the project
+`JWT_SECRET` es obligatorio (mínimo 16 caracteres); sin él la API no arranca. Genera uno con `openssl rand -hex 32`.
+
+## Autenticación y roles
+
+- `POST /api/auth/login` → `{ accessToken, user }`. El token dura `JWT_EXPIRES_IN` (1 h por defecto). Se envía como `Authorization: Bearer <token>`.
+- Roles: `admin` y `vendedor`. Las rutas son privadas por defecto; las abiertas llevan `@Public()`.
+- Usuarios demo (del seed): `admin@automax.co` y `vendedor@automax.co`, con la contraseña de `SEED_DEMO_PASSWORD`.
+
+## Endpoints
+
+| Ruta | Quién |
+|---|---|
+| `POST /auth/login` | público (5 intentos/min) |
+| `GET /auth/me` | autenticado |
+| `GET /marcas`, `GET /marcas/:id` | público |
+| `POST/PUT/DELETE /marcas` | admin |
+| `GET /vehiculos` (filtros + paginación), `GET /vehiculos/:id`, `GET /vehiculos/comparar?ids=1,2,3` | público |
+| `POST/PUT/DELETE /vehiculos` | admin |
+| `POST /clientes` | público (solo devuelve `{ id }`) |
+| `GET /clientes`, `GET /clientes/:id`, `PUT /clientes/:id` | vendedor, admin |
+| `POST /citas` | público (no devuelve datos del cliente) |
+| `GET /citas`, `GET /citas/:id`, `PATCH /citas/:id/estado` | vendedor, admin |
+| `POST /ventas`, `GET /ventas`, `GET /ventas/:id` | vendedor, admin |
+| `POST /financiacion/simular` | público |
+
+**Filtros de `GET /vehiculos`:** `marca`, `modelo`, `anioMin`, `anioMax`, `precioMin`, `precioMax`, `combustible`, `transmision`, `estado` (nuevo/usado), `orden` (`recientes`, `precio_asc`, `precio_desc`, `anio_desc`, `anio_asc`), `page`, `limit` (máx. 50). Los vendidos nunca salen en el catálogo. Respuesta: `{ data, meta: { total, page, limit, pages } }`.
+
+**Agendar una cita** (`POST /citas`): `{ "vehicleId": 1, "scheduledAt": "2026-11-03T10:00:00-05:00", "customer": { "name": "Ana", "email": "ana@correo.co" } }`.
+- La fecha debe llevar zona horaria. Dura 60 min, de lunes a sábado entre 8:00 y 18:00 (hora de Bogotá) y debe terminar antes del cierre.
+- Un vehículo y un cliente no pueden tener dos citas activas que se crucen (409). Lo garantiza PostgreSQL con restricciones de exclusión, no solo el código.
+- Estados: `pendiente → confirmada | cancelada`, `confirmada → cancelada`. Una cancelada no se reactiva y libera el horario.
+
+**Registrar una venta** (`POST /ventas`): `{ "vehicleId", "customerId", "finalPrice": "115000000.50", "payment": "contado|credito|leasing" }`. El vendedor sale del token. En una sola transacción se bloquea el vehículo (`FOR UPDATE`), se registra la venta, se marca `vendido` y se cancelan sus citas abiertas. Venderlo dos veces da 409.
+
+**Simulador** (`POST /financiacion/simular`): `{ "valor": "100000000", "cuotaInicial": "20000000", "plazoMeses": 60, "tasaEA": 0.18 }`. Plazo de 12 a 84 meses; `tasaEA` es opcional (usa `FINANCING_DEFAULT_RATE_EA`). La cuota se redondea hacia arriba al centavo.
+
+Dinero: siempre `string` con hasta 2 decimales, en COP.
+
+## Límites de peticiones
+
+100 por minuto por IP en general (`THROTTLE_LIMIT`); login 5/min; `POST /clientes`, `POST /citas` 10/min; simulador 30/min.
+
+## Pruebas
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm test            # unitarias (Vitest)
+npm run test:e2e    # e2e (Supertest) contra la BD concesionario_test
+npm run lint
 ```
 
-## Run tests
+Las pruebas e2e crean `concesionario_test` solas (con las migraciones) en el mismo PostgreSQL de Docker y usan la base real: no hay mocks de BD, porque lo que se prueba son transacciones, bloqueos y restricciones.
+
+## Migraciones
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run migration:run
+npm run migration:revert
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ npm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Las decisiones de arquitectura están en `../docs/DECISIONES.md`.

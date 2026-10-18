@@ -166,6 +166,17 @@ describe('Clientes y citas (e2e)', () => {
       expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
     });
 
+    it('mismo cliente en dos vehículos a la misma hora, a la vez: una gana y la otra recibe 409', async () => {
+      const when = bogotaSlot(TUESDAY, 14);
+      const dual = { name: 'Dual Pérez', email: 'dual@correo.co' };
+      const results = await Promise.all([
+        book(bookBody(carA.id, when, dual)),
+        book(bookBody(carB.id, when, dual)),
+      ]);
+      expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
+      expect(await ctx.dataSource.getRepository(Customer).countBy({ email: dual.email })).toBe(1);
+    });
+
     it('una cita cancelada libera el horario', async () => {
       const when = bogotaSlot(WEDNESDAY, 16);
       const first = await book(bookBody(carB.id, when, luis)).expect(201);
@@ -191,6 +202,14 @@ describe('Clientes y citas (e2e)', () => {
       expect(onlyB.body.data.every((a: Appointment) => a.vehicleId === carB.id)).toBe(true);
       await request(ctx.server).get('/api/citas?estado=nada').set(auth(sellerToken)).expect(400);
       await request(ctx.server).get('/api/citas?desde=ayer').set(auth(sellerToken)).expect(400);
+    });
+
+    it('dos cambios de estado simultáneos sobre la misma cita: uno se aplica y el otro recibe 409', async () => {
+      const created = await book(bookBody(carA.id, bogotaSlot(THURSDAY, 12), luis)).expect(201);
+      const confirm = () =>
+        request(ctx.server).patch(`/api/citas/${created.body.id}/estado`).set(auth(sellerToken)).send({ status: 'confirmada' });
+      const results = await Promise.all([confirm(), confirm()]);
+      expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([200, 409]);
     });
 
     it('sigue la máquina de estados: pendiente → confirmada → cancelada, sin volver atrás', async () => {

@@ -96,6 +96,31 @@ describe('Ventas (e2e)', () => {
     expect(await ctx.dataSource.getRepository(Sale).countBy({ vehicleId: vehicle.id })).toBe(1);
   });
 
+  it('FOR UPDATE: la venta espera a la transacción que tiene el vehículo y luego respeta su estado', async () => {
+    // Aquí el índice único NO puede decidir: la otra transacción marca el vehículo como vendido
+    // sin crear ninguna venta. Sin el bloqueo, la venta leería "nuevo" y respondería 201.
+    const vehicle = await newVehicle();
+    const holder = ctx.dataSource.createQueryRunner();
+    await holder.connect();
+    await holder.startTransaction();
+    await holder.manager.findOne(Vehicle, { where: { id: vehicle.id }, lock: { mode: 'pessimistic_write' } });
+
+    let settled = false;
+    const pending = sell(sellerToken, saleBody(vehicle.id, customerA.id)).then((res) => {
+      settled = true;
+      return res;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(settled).toBe(false);
+
+    await holder.manager.update(Vehicle, vehicle.id, { status: VehicleStatus.SOLD });
+    await holder.commitTransaction();
+    await holder.release();
+
+    expect((await pending).status).toBe(409);
+    expect(await ctx.dataSource.getRepository(Sale).countBy({ vehicleId: vehicle.id })).toBe(0);
+  });
+
   it('ráfaga de 6 ventas simultáneas del mismo vehículo: exactamente una se registra', async () => {
     const vehicle = await newVehicle();
     const results = await Promise.all(
