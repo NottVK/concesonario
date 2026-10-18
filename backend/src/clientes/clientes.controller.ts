@@ -1,14 +1,25 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public, Roles } from '../common/decorators.js';
 import type { Paginated } from '../common/pagination.js';
+import { ApiPaginatedResponse } from '../common/swagger.js';
 import { publicThrottle } from '../common/throttle.js';
 import { UserRole } from '../usuarios/entities/user.entity.js';
 import { ClientesService } from './clientes.service.js';
-import { CustomerDto } from './dto/customer.dto.js';
+import { CreatedIdDto, CustomerDto } from './dto/customer.dto.js';
 import { CustomerQueryDto } from './dto/customer-query.dto.js';
 import { Customer } from './entities/customer.entity.js';
 
+@ApiTags('clientes')
 @Controller('clientes')
 export class ClientesController {
   constructor(private readonly customers: ClientesService) {}
@@ -17,24 +28,37 @@ export class ClientesController {
   @Public()
   @Throttle(publicThrottle(10))
   @Post()
-  create(@Body() dto: CustomerDto): Promise<Pick<Customer, 'id'>> {
+  @ApiOperation({ summary: 'Registrar un cliente (público, 10 por minuto); solo devuelve el id' })
+  @ApiCreatedResponse({ type: CreatedIdDto })
+  @ApiConflictResponse({ description: 'Ya existe un cliente con ese correo' })
+  create(@Body() dto: CustomerDto): Promise<CreatedIdDto> {
     return this.customers.create(dto).then(({ id }) => ({ id }));
   }
 
   @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @ApiBearerAuth()
   @Get()
+  @ApiOperation({ summary: 'Listar y buscar clientes (vendedor, admin)' })
+  @ApiPaginatedResponse(Customer)
   findAll(@Query() query: CustomerQueryDto): Promise<Paginated<Customer>> {
     return this.customers.findAll(query);
   }
 
   @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @ApiBearerAuth()
   @Get(':id')
+  @ApiOperation({ summary: 'Detalle de un cliente (vendedor, admin)' })
+  @ApiOkResponse({ type: Customer })
+  @ApiNotFoundResponse()
   findOne(@Param('id', ParseIntPipe) id: number): Promise<Customer> {
     return this.customers.findOne(id);
   }
 
   @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @ApiBearerAuth()
   @Put(':id')
+  @ApiOperation({ summary: 'Reemplazar los datos de un cliente (vendedor, admin)' })
+  @ApiOkResponse({ type: Customer })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: CustomerDto): Promise<Customer> {
     return this.customers.update(id, dto);
   }

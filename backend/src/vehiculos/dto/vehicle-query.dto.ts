@@ -1,69 +1,74 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 import { MONEY_REGEX } from '../../common/money.js';
 import { PaginationDto } from '../../common/pagination.js';
 import { FuelType, Transmission, VehicleStatus } from '../entities/vehicle.entity.js';
 
-export const VEHICLE_SORTS = [
-  'recientes',
-  'precio_asc',
-  'precio_desc',
-  'anio_desc',
-  'anio_asc',
-] as const;
+export const VEHICLE_SORTS = ['newest', 'price_asc', 'price_desc', 'year_desc', 'year_asc'] as const;
 export type VehicleSort = (typeof VEHICLE_SORTS)[number];
 
-// Los nombres de los filtros son el contrato público del catálogo (en español, según el PRD).
+/** Filtros de GET /vehiculos. Todos son opcionales y se combinan con AND. */
 export class VehicleQueryDto extends PaginationDto {
-  /** Nombre de la marca, sin distinguir mayúsculas. */
+  @ApiPropertyOptional({ description: 'Id de la marca', example: 1 })
   @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  marca?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  brandId?: number;
 
+  @ApiPropertyOptional({ description: 'Texto contenido en el modelo, sin distinguir mayúsculas', example: 'coro' })
   @IsOptional()
   @IsString()
   @MaxLength(80)
-  modelo?: string;
+  model?: string;
 
+  @ApiPropertyOptional({ description: 'Año mínimo', example: 2020 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1990)
-  anioMin?: number;
+  yearMin?: number;
 
+  @ApiPropertyOptional({ description: 'Año máximo', example: 2024 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1990)
-  anioMax?: number;
+  yearMax?: number;
 
+  @ApiPropertyOptional({ description: 'Precio mínimo en COP', example: '50000000' })
   @IsOptional()
-  @Matches(MONEY_REGEX, { message: 'precioMin debe ser un monto en COP' })
-  precioMin?: string;
+  @Matches(MONEY_REGEX, { message: 'priceMin debe ser un monto en COP' })
+  priceMin?: string;
 
+  @ApiPropertyOptional({ description: 'Precio máximo en COP', example: '120000000' })
   @IsOptional()
-  @Matches(MONEY_REGEX, { message: 'precioMax debe ser un monto en COP' })
-  precioMax?: string;
+  @Matches(MONEY_REGEX, { message: 'priceMax debe ser un monto en COP' })
+  priceMax?: string;
 
+  @ApiPropertyOptional({ enum: FuelType })
   @IsOptional()
-  @IsIn(Object.values(FuelType), {
-    message: `combustible debe ser: ${Object.values(FuelType).join(', ')}`,
-  })
-  combustible?: FuelType;
+  @IsIn(Object.values(FuelType), { message: `fuel debe ser: ${Object.values(FuelType).join(', ')}` })
+  fuel?: FuelType;
 
+  @ApiPropertyOptional({ enum: Transmission })
   @IsOptional()
   @IsIn(Object.values(Transmission), {
-    message: `transmision debe ser: ${Object.values(Transmission).join(', ')}`,
+    message: `transmission debe ser: ${Object.values(Transmission).join(', ')}`,
   })
-  transmision?: Transmission;
+  transmission?: Transmission;
 
-  /** El catálogo nunca lista vendidos, por eso solo se aceptan nuevo y usado. */
+  @ApiPropertyOptional({
+    enum: [VehicleStatus.NEW, VehicleStatus.USED],
+    description: 'El catálogo nunca lista vendidos, por eso solo se aceptan nuevo y usado',
+  })
   @IsOptional()
-  @IsIn([VehicleStatus.NEW, VehicleStatus.USED], { message: 'estado debe ser nuevo o usado' })
-  estado?: VehicleStatus.NEW | VehicleStatus.USED;
+  @IsIn([VehicleStatus.NEW, VehicleStatus.USED], { message: 'status debe ser nuevo o usado' })
+  status?: VehicleStatus.NEW | VehicleStatus.USED;
 
+  @ApiPropertyOptional({ enum: VEHICLE_SORTS, default: 'newest' })
   @IsOptional()
-  @IsIn(VEHICLE_SORTS, { message: `orden debe ser: ${VEHICLE_SORTS.join(', ')}` })
-  orden: VehicleSort = 'recientes';
+  @IsIn(VEHICLE_SORTS, { message: `sort debe ser: ${VEHICLE_SORTS.join(', ')}` })
+  sort: VehicleSort = 'newest';
 }

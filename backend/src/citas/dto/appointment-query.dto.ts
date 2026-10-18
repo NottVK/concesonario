@@ -1,26 +1,30 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsISO8601, IsOptional, Min } from 'class-validator';
 import { PaginationDto } from '../../common/pagination.js';
 import { AppointmentStatus } from '../entities/appointment.entity.js';
 
-// Los nombres de los filtros son el contrato público (en español, como en el catálogo).
+/** Filtros de GET /citas. Se ordenan por fecha ascendente. */
 export class AppointmentQueryDto extends PaginationDto {
+  @ApiPropertyOptional({ enum: AppointmentStatus })
   @IsOptional()
-  @IsEnum(AppointmentStatus, { message: 'estado debe ser pendiente, confirmada o cancelada' })
-  estado?: AppointmentStatus;
+  @IsEnum(AppointmentStatus, { message: 'status debe ser pendiente, confirmada o cancelada' })
+  status?: AppointmentStatus;
 
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  vehiculoId?: number;
+  vehicleId?: number;
 
-  /** Citas desde este instante (ISO 8601). */
+  @ApiPropertyOptional({ description: 'Citas desde este instante (ISO 8601)', example: '2026-11-01T00:00:00-05:00' })
   @IsOptional()
   @IsISO8601({ strict: true })
-  desde?: string;
+  from?: string;
 
+  @ApiPropertyOptional({ description: 'Citas hasta este instante (ISO 8601)', example: '2026-11-30T23:59:59-05:00' })
   @IsOptional()
   @IsISO8601({ strict: true })
-  hasta?: string;
+  to?: string;
 }

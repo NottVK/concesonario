@@ -5,23 +5,11 @@ import bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import type { JwtPayload } from '../common/auth.types.js';
 import { User } from '../usuarios/entities/user.entity.js';
-import type { LoginDto } from './dto/login.dto.js';
+import type { LoginDto, LoginResultDto, PublicUserDto } from './dto/login.dto.js';
 
 // Hash válido de una contraseña aleatoria: se compara cuando el correo no existe
 // para que la respuesta tarde igual y no revele qué correos están registrados.
 const DUMMY_HASH = bcrypt.hashSync('contrasena-inexistente-no-usar', 10);
-
-export interface PublicUser {
-  id: number;
-  name: string;
-  email: string;
-  role: User['role'];
-}
-
-export interface LoginResult {
-  accessToken: string;
-  user: PublicUser;
-}
 
 @Injectable()
 export class AuthService {
@@ -30,7 +18,7 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  async login(dto: LoginDto): Promise<LoginResult> {
+  async login(dto: LoginDto): Promise<LoginResultDto> {
     const user = await this.users
       .createQueryBuilder('u')
       .addSelect('u.passwordHash')
@@ -44,13 +32,13 @@ export class AuthService {
     return { accessToken: await this.jwt.signAsync(payload), user: this.toPublic(user) };
   }
 
-  async me(userId: number): Promise<PublicUser> {
+  async me(userId: number): Promise<PublicUserDto> {
     const user = await this.users.findOneBy({ id: userId });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     return this.toPublic(user);
   }
 
-  private toPublic(user: User): PublicUser {
+  private toPublic(user: User): PublicUserDto {
     return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 }

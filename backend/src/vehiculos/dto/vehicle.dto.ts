@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
@@ -20,54 +21,66 @@ const MANUAL_STATUSES: VehicleStatusType[] = [VehicleStatus.NEW, VehicleStatus.U
 
 /** Cuerpo de POST y PUT /vehiculos (PUT reemplaza todos los campos). */
 export class VehicleDto {
+  @ApiProperty({ example: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
   brandId: number;
 
+  @ApiProperty({ example: 'Corolla' })
   @IsString()
   @MaxLength(80)
   model: string;
 
+  @ApiProperty({ example: 2024, minimum: 1990, maximum: 2100 })
   @Type(() => Number)
   @IsInt()
   @Min(1990, { message: 'year debe estar entre 1990 y 2100' })
   @Max(2100, { message: 'year debe estar entre 1990 y 2100' })
   year: number;
 
+  @ApiProperty({ example: 'XEI' })
   @IsString()
   @MaxLength(80)
   version: string;
 
   /** Precio en COP como texto (hasta 2 decimales), mayor que cero. */
+  @ApiProperty({ example: '95000000', description: 'Precio en COP como texto, hasta 2 decimales, mayor que cero' })
   @Matches(POSITIVE_MONEY_REGEX, { message: 'price debe ser un monto en COP mayor que cero' })
   price: string;
 
+  @ApiProperty({ example: 0, minimum: 0 })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   mileage: number;
 
+  @ApiProperty({ enum: FuelType })
   @IsIn(Object.values(FuelType), { message: `fuel debe ser: ${Object.values(FuelType).join(', ')}` })
   fuel: FuelType;
 
+  @ApiProperty({ enum: Transmission })
   @IsIn(Object.values(Transmission), {
     message: `transmission debe ser: ${Object.values(Transmission).join(', ')}`,
   })
   transmission: Transmission;
 
+  @ApiProperty({ example: 'Blanco' })
   @IsString()
   @MaxLength(40)
   color: string;
 
+  @ApiProperty({ enum: MANUAL_STATUSES, description: '`vendido` solo lo asigna una venta' })
   @IsIn(MANUAL_STATUSES, { message: 'status debe ser nuevo o usado' })
   status: VehicleStatusType;
 
+  @ApiPropertyOptional({ maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   description?: string;
 
+  @ApiPropertyOptional({ type: [String], maxItems: 10, example: ['/autos/toyota-corolla.webp'] })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(10)

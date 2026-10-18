@@ -21,6 +21,12 @@ npm run start:dev             # http://localhost:8000/api
 - Roles: `admin` y `vendedor`. Las rutas son privadas por defecto; las abiertas llevan `@Public()`.
 - Usuarios demo (del seed): `admin@automax.co` y `vendedor@automax.co`, con la contraseña de `SEED_DEMO_PASSWORD`.
 
+## Documentación de la API (Swagger)
+
+Con la API corriendo: **http://localhost:8000/api/docs** (JSON OpenAPI en `/api/docs-json`). Ahí están todos los endpoints, parámetros, esquemas y cuáles exigen sesión; usa el botón *Authorize* con el `accessToken` del login para probar las rutas privadas. Es la fuente de verdad del contrato; la tabla de abajo es solo un resumen.
+
+**Convención:** rutas en español, parámetros y campos JSON en inglés `camelCase`; los valores de los enums y los mensajes de error van en español. Los nombres antiguos en español dan 400.
+
 ## Endpoints
 
 | Ruta | Quién |
@@ -38,7 +44,7 @@ npm run start:dev             # http://localhost:8000/api
 | `POST /ventas`, `GET /ventas`, `GET /ventas/:id` | vendedor, admin |
 | `POST /financiacion/simular` | público |
 
-**Filtros de `GET /vehiculos`:** `marca`, `modelo`, `anioMin`, `anioMax`, `precioMin`, `precioMax`, `combustible`, `transmision`, `estado` (nuevo/usado), `orden` (`recientes`, `precio_asc`, `precio_desc`, `anio_desc`, `anio_asc`), `page`, `limit` (máx. 50). Los vendidos nunca salen en el catálogo. Respuesta: `{ data, meta: { total, page, limit, pages } }`.
+**Filtros de `GET /vehiculos`:** `brandId`, `model`, `yearMin`, `yearMax`, `priceMin`, `priceMax`, `fuel`, `transmission`, `status` (nuevo/usado), `sort` (`newest`, `price_asc`, `price_desc`, `year_desc`, `year_asc`), `page`, `limit` (máx. 50). Los vendidos nunca salen en el catálogo. Respuesta: `{ data, meta: { total, page, limit, pages } }`. `GET /citas` filtra por `status`, `vehicleId`, `from` y `to`.
 
 **Agendar una cita** (`POST /citas`): `{ "vehicleId": 1, "scheduledAt": "2026-11-03T10:00:00-05:00", "customer": { "name": "Ana", "email": "ana@correo.co" } }`.
 - La fecha debe llevar zona horaria. Dura 60 min, de lunes a sábado entre 8:00 y 18:00 (hora de Bogotá) y debe terminar antes del cierre.
@@ -47,7 +53,7 @@ npm run start:dev             # http://localhost:8000/api
 
 **Registrar una venta** (`POST /ventas`): `{ "vehicleId", "customerId", "finalPrice": "115000000.50", "payment": "contado|credito|leasing" }`. El vendedor sale del token. En una sola transacción se bloquea el vehículo (`FOR UPDATE`), se registra la venta, se marca `vendido` y se cancelan sus citas abiertas. Venderlo dos veces da 409.
 
-**Simulador** (`POST /financiacion/simular`): `{ "valor": "100000000", "cuotaInicial": "20000000", "plazoMeses": 60, "tasaEA": 0.18 }`. Plazo de 12 a 84 meses; `tasaEA` es opcional (usa `FINANCING_DEFAULT_RATE_EA`). La cuota se redondea hacia arriba al centavo.
+**Simulador** (`POST /financiacion/simular`): `{ "amount": "100000000", "downPayment": "20000000", "months": 60, "annualRate": 0.18 }` → `financed`, `monthlyRate`, `monthlyPayment`, `totalPayment`, `totalInterest`. Plazo de 12 a 84 meses; `annualRate` (efectiva anual, `0.18` = 18 %) es opcional y usa `FINANCING_DEFAULT_RATE_EA`. La cuota se redondea hacia arriba al centavo.
 
 Dinero: siempre `string` con hasta 2 decimales, en COP.
 

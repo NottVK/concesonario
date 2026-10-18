@@ -16,11 +16,11 @@ import type { VehicleQueryDto, VehicleSort } from './dto/vehicle-query.dto.js';
 import { Vehicle, VehicleStatus } from './entities/vehicle.entity.js';
 
 const SORTS: Record<VehicleSort, [string, 'ASC' | 'DESC']> = {
-  recientes: ['v.id', 'DESC'],
-  precio_asc: ['v.price', 'ASC'],
-  precio_desc: ['v.price', 'DESC'],
-  anio_desc: ['v.year', 'DESC'],
-  anio_asc: ['v.year', 'ASC'],
+  newest: ['v.id', 'DESC'],
+  price_asc: ['v.price', 'ASC'],
+  price_desc: ['v.price', 'DESC'],
+  year_desc: ['v.year', 'DESC'],
+  year_asc: ['v.year', 'ASC'],
 };
 
 @Injectable()
@@ -31,8 +31,8 @@ export class VehiculosService {
   ) {}
 
   async findAll(query: VehicleQueryDto): Promise<Paginated<Vehicle>> {
-    if (query.anioMin && query.anioMax && query.anioMin > query.anioMax) {
-      throw new BadRequestException('anioMin no puede ser mayor que anioMax');
+    if (query.yearMin && query.yearMax && query.yearMin > query.yearMax) {
+      throw new BadRequestException('yearMin no puede ser mayor que yearMax');
     }
     const qb = this.vehicles
       .createQueryBuilder('v')
@@ -40,8 +40,10 @@ export class VehiculosService {
       .where('v.status <> :sold', { sold: VehicleStatus.SOLD });
     this.applyFilters(qb, query);
 
-    const [column, direction] = SORTS[query.orden];
-    qb.orderBy(column, direction).addOrderBy('v.id', 'ASC');
+    const [column, direction] = SORTS[query.sort];
+    qb.orderBy(column, direction);
+    // Desempate estable para paginar; no se agrega si ya se ordena por id (TypeORM lo sobrescribiría).
+    if (column !== 'v.id') qb.addOrderBy('v.id', 'ASC');
     const [data, total] = await qb
       .skip((query.page - 1) * query.limit)
       .take(query.limit)
@@ -89,17 +91,17 @@ export class VehiculosService {
   }
 
   private applyFilters(qb: SelectQueryBuilder<Vehicle>, q: VehicleQueryDto): void {
-    if (q.marca) qb.andWhere('LOWER(b.name) = LOWER(:marca)', { marca: q.marca });
-    if (q.modelo) {
-      qb.andWhere("v.model ILIKE :modelo ESCAPE '\\'", { modelo: `%${escapeLike(q.modelo)}%` });
+    if (q.brandId) qb.andWhere('v.brandId = :brandId', { brandId: q.brandId });
+    if (q.model) {
+      qb.andWhere("v.model ILIKE :model ESCAPE '\\'", { model: `%${escapeLike(q.model)}%` });
     }
-    if (q.anioMin) qb.andWhere('v.year >= :anioMin', { anioMin: q.anioMin });
-    if (q.anioMax) qb.andWhere('v.year <= :anioMax', { anioMax: q.anioMax });
-    if (q.precioMin) qb.andWhere('v.price >= :precioMin', { precioMin: q.precioMin });
-    if (q.precioMax) qb.andWhere('v.price <= :precioMax', { precioMax: q.precioMax });
-    if (q.combustible) qb.andWhere('v.fuel = :combustible', { combustible: q.combustible });
-    if (q.transmision) qb.andWhere('v.transmission = :transmision', { transmision: q.transmision });
-    if (q.estado) qb.andWhere('v.status = :estado', { estado: q.estado });
+    if (q.yearMin) qb.andWhere('v.year >= :yearMin', { yearMin: q.yearMin });
+    if (q.yearMax) qb.andWhere('v.year <= :yearMax', { yearMax: q.yearMax });
+    if (q.priceMin) qb.andWhere('v.price >= :priceMin', { priceMin: q.priceMin });
+    if (q.priceMax) qb.andWhere('v.price <= :priceMax', { priceMax: q.priceMax });
+    if (q.fuel) qb.andWhere('v.fuel = :fuel', { fuel: q.fuel });
+    if (q.transmission) qb.andWhere('v.transmission = :transmission', { transmission: q.transmission });
+    if (q.status) qb.andWhere('v.status = :status', { status: q.status });
   }
 
   private toFields(dto: VehicleDto): Partial<Vehicle> {

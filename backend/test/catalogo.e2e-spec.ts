@@ -101,43 +101,71 @@ describe('Marcas y vehículos (e2e)', () => {
     const models = (body: { data: Vehicle[] }) => body.data.map((v) => v.model).sort();
 
     it('pagina y excluye los vendidos', async () => {
-      const body = await list('limit=2&page=1&orden=precio_asc');
+      const body = await list('limit=2&page=1&sort=price_asc');
       expect(body.meta).toEqual({ total: 4, page: 1, limit: 2, pages: 2 });
       expect(body.data.map((v: Vehicle) => v.model)).toEqual(['Yaris', 'Corolla']);
-      const page2 = await list('limit=2&page=2&orden=precio_asc');
+      const page2 = await list('limit=2&page=2&sort=price_asc');
       expect(page2.data.map((v: Vehicle) => v.model)).toEqual(['Sportage', 'Hilux']);
     });
 
     it('incluye la marca y no expone embedding', async () => {
-      const body = await list('marca=kia');
+      const body = await list(`brandId=${kia.id}`);
       expect(body.data[0].brand.name).toBe('Kia');
       expect(body.data[0]).not.toHaveProperty('embedding');
     });
 
-    it('filtra por marca, modelo, año, precio, combustible, transmisión y estado', async () => {
-      expect(models(await list('marca=TOYOTA'))).toEqual(['Corolla', 'Hilux', 'Yaris']);
-      expect(models(await list('modelo=oro'))).toEqual(['Corolla']);
-      expect(models(await list('anioMin=2022&anioMax=2023'))).toEqual(['Corolla', 'Sportage']);
-      expect(models(await list('precioMin=60000000&precioMax=150000000'))).toEqual(['Corolla', 'Sportage', 'Yaris']);
-      expect(models(await list('combustible=diesel'))).toEqual(['Hilux']);
-      expect(models(await list('transmision=manual'))).toEqual(['Yaris']);
-      expect(models(await list('estado=usado'))).toEqual(['Yaris']);
+    it('filtra por brandId, model, year, price, fuel, transmission y status', async () => {
+      expect(models(await list(`brandId=${toyota.id}`))).toEqual(['Corolla', 'Hilux', 'Yaris']);
+      expect(models(await list('model=oro'))).toEqual(['Corolla']);
+      expect(models(await list('yearMin=2022&yearMax=2023'))).toEqual(['Corolla', 'Sportage']);
+      expect(models(await list('priceMin=60000000&priceMax=150000000'))).toEqual(['Corolla', 'Sportage', 'Yaris']);
+      expect(models(await list('fuel=diesel'))).toEqual(['Hilux']);
+      expect(models(await list('transmission=manual'))).toEqual(['Yaris']);
+      expect(models(await list('status=usado'))).toEqual(['Yaris']);
+    });
+
+    it('ordena por year_desc, price_desc y newest', async () => {
+      const first = async (sort: string) => (await list(`sort=${sort}&limit=1`)).data[0].model;
+      expect(await first('year_desc')).toBe('Hilux');
+      expect(await first('price_desc')).toBe('Hilux');
+      expect(await first('year_asc')).toBe('Yaris');
+      // "newest" = id más alto entre los no vendidos (el orden de ids del insert en lote no está garantizado).
+      const newest = await ctx.dataSource
+        .getRepository(Vehicle)
+        .createQueryBuilder('v')
+        .where('v.status <> :sold', { sold: VehicleStatus.SOLD })
+        .orderBy('v.id', 'DESC')
+        .getOneOrFail();
+      expect(await first('newest')).toBe(newest.model);
+    });
+
+    it('combina filtros con AND', async () => {
+      expect(models(await list(`brandId=${toyota.id}&fuel=gasolina&status=nuevo`))).toEqual(['Corolla']);
+      expect((await list(`brandId=${kia.id}&fuel=diesel`)).data).toHaveLength(0);
     });
 
     it('trata % y _ del modelo como texto literal', async () => {
-      expect((await list('modelo=%25')).data).toHaveLength(0);
+      expect((await list('model=%25')).data).toHaveLength(0);
     });
 
     it('valida la consulta con 400', async () => {
-      for (const bad of ['limit=51', 'page=0', 'combustible=agua', 'orden=azar', 'estado=vendido',
-        'precioMin=abc', 'anioMin=2025&anioMax=2020', 'desconocido=1']) {
+      for (const bad of ['limit=51', 'page=0', 'fuel=agua', 'sort=azar', 'status=vendido',
+        'priceMin=abc', 'yearMin=2025&yearMax=2020', 'brandId=abc', 'brandId=0', 'desconocido=1']) {
         await request(ctx.server).get(`/api/vehiculos?${bad}`).expect(400);
       }
     });
 
+    it('rechaza los nombres antiguos en español (el contrato es solo en inglés)', async () => {
+      for (const old of ['marca=1', 'modelo=x', 'anioMin=2020', 'anioMax=2020', 'precioMin=1', 'precioMax=1',
+        'combustible=diesel', 'transmision=manual', 'estado=nuevo', 'orden=recientes']) {
+        await request(ctx.server).get(`/api/vehiculos?${old}`).expect(400);
+      }
+    });
+
     it('resiste inyección SQL en los filtros', async () => {
-      const body = await list(`marca=${encodeURIComponent("x' OR '1'='1")}`);
+      const body = await list(`model=${encodeURIComponent("x' OR '1'='1")}`);
       expect(body.data).toHaveLength(0);
+      await request(ctx.server).get(`/api/vehiculos?brandId=${encodeURIComponent('1 OR 1=1')}`).expect(400);
     });
   });
 

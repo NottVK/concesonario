@@ -13,17 +13,9 @@ import { Vehicle, VehicleStatus } from '../vehiculos/entities/vehicle.entity.js'
 import { APPOINTMENT_DURATION_MIN, canTransition, validateSlot } from './appointment-rules.js';
 import type { AppointmentQueryDto } from './dto/appointment-query.dto.js';
 import type { CreateAppointmentDto } from './dto/create-appointment.dto.js';
+import type { PublicAppointmentDto } from './dto/public-appointment.dto.js';
 import type { UpdateStatusDto } from './dto/update-status.dto.js';
 import { Appointment, AppointmentStatus } from './entities/appointment.entity.js';
-
-/** Lo único que ve quien agenda: nada del cliente, para no filtrar datos de terceros. */
-export interface PublicAppointment {
-  id: number;
-  vehicleId: number;
-  scheduledAt: Date;
-  endsAt: Date;
-  status: AppointmentStatus;
-}
 
 @Injectable()
 export class CitasService {
@@ -32,7 +24,7 @@ export class CitasService {
     @InjectRepository(Appointment) private readonly appointments: Repository<Appointment>,
   ) {}
 
-  async create(dto: CreateAppointmentDto, now = new Date()): Promise<PublicAppointment> {
+  async create(dto: CreateAppointmentDto, now = new Date()): Promise<PublicAppointmentDto> {
     const start = new Date(dto.scheduledAt);
     const problem = validateSlot(start, APPOINTMENT_DURATION_MIN, now);
     if (problem) throw new BadRequestException(problem);
@@ -61,10 +53,10 @@ export class CitasService {
       .innerJoinAndSelect('v.brand', 'b')
       .orderBy('a.scheduledAt', 'ASC')
       .addOrderBy('a.id', 'ASC');
-    if (query.estado) qb.andWhere('a.status = :estado', { estado: query.estado });
-    if (query.vehiculoId) qb.andWhere('a.vehicleId = :vid', { vid: query.vehiculoId });
-    if (query.desde) qb.andWhere('a.scheduledAt >= :desde', { desde: new Date(query.desde) });
-    if (query.hasta) qb.andWhere('a.scheduledAt <= :hasta', { hasta: new Date(query.hasta) });
+    if (query.status) qb.andWhere('a.status = :status', { status: query.status });
+    if (query.vehicleId) qb.andWhere('a.vehicleId = :vehicleId', { vehicleId: query.vehicleId });
+    if (query.from) qb.andWhere('a.scheduledAt >= :from', { from: new Date(query.from) });
+    if (query.to) qb.andWhere('a.scheduledAt <= :to', { to: new Date(query.to) });
 
     const [data, total] = await qb
       .skip((query.page - 1) * query.limit)
@@ -149,7 +141,7 @@ export class CitasService {
     }
   }
 
-  private toPublic(appointment: Appointment): PublicAppointment {
+  private toPublic(appointment: Appointment): PublicAppointmentDto {
     return {
       id: appointment.id,
       vehicleId: appointment.vehicleId,

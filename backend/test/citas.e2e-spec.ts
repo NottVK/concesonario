@@ -198,10 +198,21 @@ describe('Clientes y citas (e2e)', () => {
       const all = await request(ctx.server).get('/api/citas?limit=3').set(auth(sellerToken)).expect(200);
       expect(all.body.data).toHaveLength(3);
       expect(all.body.data[0]).toMatchObject({ customer: { email: expect.any(String) }, vehicle: { brand: { name: 'Mazda' } } });
-      const onlyB = await request(ctx.server).get(`/api/citas?vehiculoId=${carB.id}`).set(auth(sellerToken)).expect(200);
+      const onlyB = await request(ctx.server).get(`/api/citas?vehicleId=${carB.id}`).set(auth(sellerToken)).expect(200);
       expect(onlyB.body.data.every((a: Appointment) => a.vehicleId === carB.id)).toBe(true);
-      await request(ctx.server).get('/api/citas?estado=nada').set(auth(sellerToken)).expect(400);
-      await request(ctx.server).get('/api/citas?desde=ayer').set(auth(sellerToken)).expect(400);
+      const cancelled = await request(ctx.server).get('/api/citas?status=cancelada').set(auth(sellerToken)).expect(200);
+      expect(cancelled.body.data.every((a: Appointment) => a.status === 'cancelada')).toBe(true);
+      const future = await request(ctx.server)
+        .get(`/api/citas?from=${encodeURIComponent('2999-01-01T00:00:00Z')}`).set(auth(sellerToken)).expect(200);
+      expect(future.body.data).toHaveLength(0);
+      const upToNow = await request(ctx.server)
+        .get(`/api/citas?to=${encodeURIComponent('2000-01-01T00:00:00Z')}`).set(auth(sellerToken)).expect(200);
+      expect(upToNow.body.data).toHaveLength(0);
+      await request(ctx.server).get('/api/citas?status=nada').set(auth(sellerToken)).expect(400);
+      await request(ctx.server).get('/api/citas?from=ayer').set(auth(sellerToken)).expect(400);
+      for (const old of ['estado=pendiente', 'vehiculoId=1', 'desde=2026-01-01', 'hasta=2026-01-01']) {
+        await request(ctx.server).get(`/api/citas?${old}`).set(auth(sellerToken)).expect(400);
+      }
     });
 
     it('dos cambios de estado simultáneos sobre la misma cita: uno se aplica y el otro recibe 409', async () => {

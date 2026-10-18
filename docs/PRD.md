@@ -64,18 +64,33 @@ bots_externos(id, nombre, url, api_key, activo)
 intercambios_bots(id, bot_id, direccion, pregunta, respuesta, creado_en)
 ```
 
-## 5. API (principales)
+## 5. API
+Documentación interactiva y siempre al día en **`/api/docs`** (JSON OpenAPI en `/api/docs-json`); es la fuente de verdad del contrato. Resumen:
 ```
-GET/POST        /api/vehiculos        GET/PUT/DELETE /api/vehiculos/{id}
-GET             /api/marcas
-GET/POST        /api/clientes
-GET/POST/PATCH  /api/citas
-POST            /api/ventas
+POST            /api/auth/login                 GET /api/auth/me
+GET/POST        /api/marcas                     GET/PUT/DELETE /api/marcas/{id}
+GET/POST        /api/vehiculos                  GET/PUT/DELETE /api/vehiculos/{id}
+GET             /api/vehiculos/comparar?ids=1,2,3
+GET/POST        /api/clientes                   GET/PUT /api/clientes/{id}
+GET/POST        /api/citas                      GET /api/citas/{id}   PATCH /api/citas/{id}/estado
+GET/POST        /api/ventas                     GET /api/ventas/{id}
 POST            /api/financiacion/simular
-POST            /api/chat             {sesion_id, mensaje}
-GET             /.well-known/agent.json
-POST            /a2a/tasks
+POST            /api/chat             {sesion_id, mensaje}      (Fase 4)
+GET             /.well-known/agent.json                         (Fase 6)
+POST            /a2a/tasks                                      (Fase 6)
 ```
+
+### 5.1 Convenciones del contrato
+- **Rutas** en español (`/vehiculos`, `/citas`…); **nombres de parámetros y campos JSON en inglés** y en `camelCase` (`brandId`, `priceMax`, `scheduledAt`). Los **valores** de los enums (`nuevo`, `gasolina`, `pendiente`…) y los **mensajes de error** van en español.
+- **Dinero:** siempre `string` en COP con hasta 2 decimales (`"95000000.00"`), nunca número.
+- **Paginación:** `?page=1&limit=12` (máx. 50) → `{ data, meta: { total, page, limit, pages } }`.
+- **Fechas:** ISO 8601; para agendar, con zona horaria obligatoria.
+- **Filtros de `GET /vehiculos`:** `brandId`, `model`, `yearMin`, `yearMax`, `priceMin`, `priceMax`, `fuel`, `transmission`, `status` (`nuevo`|`usado`), `sort` (`newest`, `price_asc`, `price_desc`, `year_desc`, `year_asc`), `page`, `limit`. Los vendidos no se listan.
+- **Filtros de `GET /citas`:** `status`, `vehicleId`, `from`, `to`, `page`, `limit`.
+- **Simulador** `POST /financiacion/simular`: `{ amount, downPayment, months (12–84), annualRate? }` → `{ amount, downPayment, financed, months, annualRate, monthlyRate, monthlyPayment, totalPayment, totalInterest }`.
+- **Agendar** `POST /citas` (público): `{ vehicleId, scheduledAt, customer: { name, email, phone? } }`; la respuesta no incluye datos del cliente.
+- **Errores:** 400 validación, 401 sin sesión, 403 rol insuficiente, 404 no existe, 409 conflicto (cruce de citas, vehículo vendido, duplicado), 429 límite de peticiones.
+- Los nombres de la base de datos (tablas y columnas del modelo de la sección 4) siguen en español; la API no los expone.
 
 ## 6. Requisitos no funcionales
 - Respuesta de API < 300 ms (sin chat). Chat: primer token < 5 s en equipo local.
