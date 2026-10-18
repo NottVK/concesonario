@@ -24,7 +24,7 @@ export class BotExchange {
   @Column({ name: 'bot_id', type: 'int' })
   botId: number;
 
-  @ManyToOne(() => ExternalBot, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ExternalBot, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'bot_id' })
   bot: Relation<ExternalBot>;
 

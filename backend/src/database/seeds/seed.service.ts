@@ -66,23 +66,40 @@ async function seedBrands(ds: DataSource): Promise<Brand[]> {
 }
 
 async function seedVehicles(ds: DataSource, brands: Brand[]): Promise<void> {
-  const repo = ds.getRepository(Vehicle);
   const rows = brands.flatMap((brand) =>
     (VEHICLES[brand.name] ?? []).map((row) => toVehicle(brand, row)),
   );
-  await repo.upsert(rows, ['brandId', 'model', 'year', 'version']);
+  // Al repetir el seed solo se refrescan datos de catálogo; precio, km y estado
+  // no se tocan para no revivir vehículos vendidos ni pisar cambios comerciales.
+  await ds
+    .createQueryBuilder()
+    .insert()
+    .into(Vehicle)
+    .values(rows)
+    .orUpdate(
+      ['color', 'combustible', 'transmision', 'descripcion', 'imagenes'],
+      ['marca_id', 'modelo', 'anio', 'version'],
+    )
+    .execute();
 }
 
 async function seedUsers(ds: DataSource): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Los usuarios demo no se cargan en producción (NODE_ENV=production)');
+  }
   const password = process.env.SEED_DEMO_PASSWORD;
   if (!password) {
     throw new Error('Falta SEED_DEMO_PASSWORD en el archivo .env');
   }
   const passwordHash = await bcrypt.hash(password, 10);
-  await ds.getRepository(User).upsert(
-    DEMO_USERS.map((u) => ({ ...u, passwordHash })),
-    ['email'],
-  );
+  // orIgnore: si el usuario ya existe no se reemplaza su contraseña.
+  await ds
+    .createQueryBuilder()
+    .insert()
+    .into(User)
+    .values(DEMO_USERS.map((u) => ({ ...u, passwordHash })))
+    .orIgnore()
+    .execute();
 }
 
 /** Carga marcas, vehículos y usuarios demo. Es idempotente: se puede correr varias veces. */

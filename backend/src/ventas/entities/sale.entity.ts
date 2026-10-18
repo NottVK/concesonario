@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -19,6 +20,7 @@ export enum PaymentMethod {
 }
 
 @Entity('ventas')
+@Check('CHK_ventas_precio_final', '"precio_final" > 0')
 export class Sale {
   @PrimaryGeneratedColumn()
   id: number;

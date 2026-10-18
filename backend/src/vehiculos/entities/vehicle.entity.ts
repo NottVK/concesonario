@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   Entity,
   Index,
@@ -28,6 +29,9 @@ export enum VehicleStatus {
 }
 
 @Entity('vehiculos')
+@Check('CHK_vehiculos_precio', '"precio" > 0')
+@Check('CHK_vehiculos_km', '"km" >= 0')
+@Check('CHK_vehiculos_anio', '"anio" BETWEEN 1990 AND 2100')
 @Index(['brandId', 'model', 'year', 'version'], { unique: true })
 export class Vehicle {
   @PrimaryGeneratedColumn()

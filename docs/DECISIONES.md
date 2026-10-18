@@ -15,6 +15,13 @@
 11. **Ruta de seeds:** `backend/src/database/seeds/` (corregida en CLAUDE.md §4).
 12. **`mcp.json`** sigue con ese nombre; CLAUDE.md menciona `.mcp.json`. Pendiente de decidir si se renombra.
 
+## Revisión cruzada con Codex (Fase 1)
+Corregido: el seed ya no pisa `precio`, `km` ni `estado` al repetirse; los usuarios demo no se cargan con `NODE_ENV=production` ni se reemplazan si existen; el `down` de la extensión `vector` es no-op; migración `AddConstraints` con CHECK (precio > 0, km >= 0, año 1990–2100, precio_final > 0) declarados también en las entidades; `intercambios_bots.bot_id` pasa a `ON DELETE RESTRICT` para conservar la auditoría.
+
 ## Pendientes registrados
+- **Fase 2 (ventas):** registrar la venta y pasar el vehículo a `vendido` en una sola transacción con bloqueo de fila (`FOR UPDATE`) y verificando que no esté ya vendido.
+- **Fase 2 (citas):** definir la duración de la cita y evitar solapes (restricción de exclusión con `btree_gist` o comprobación transaccional); hoy el índice solo evita la misma hora exacta.
+- **Fase 6 (A2A):** `bots_externos.api_key` está en texto plano; cifrarla con una clave fuera de la BD o guardar solo su hash.
+- **`mcp.json`:** contiene la contraseña de desarrollo de la BD; mover a variable de entorno.
 - Imágenes WebP en `frontend/public/autos/` (Fase 3); los seeds ya apuntan a `/autos/<marca>-<modelo>.webp`.
 - Logos de marcas en `/autos/marcas/<marca>.svg` (Fase 3).
