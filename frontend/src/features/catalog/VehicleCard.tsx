@@ -1,6 +1,6 @@
 import { Calendar, Cog, Fuel, Gauge } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import type { VehicleWithBrand } from '@/api/types'
 import { CarImage } from '@/components/CarImage'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,10 +20,13 @@ function Spec({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 
 export function VehicleCard({ vehicle }: { vehicle: VehicleWithBrand }) {
   const title = `${vehicle.brand.name} ${vehicle.model}`
+  // El detalle recuerda los filtros para que "Volver al catálogo" no los pierda.
+  const { search } = useLocation()
   return (
     <li>
       <Link
         to={`/catalogo/${vehicle.id}`}
+        state={{ fromSearch: search }}
         className="group block overflow-hidden rounded-xl border border-border bg-surface transition-colors duration-200 hover:border-muted"
       >
         <div className="relative">

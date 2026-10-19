@@ -68,6 +68,14 @@ Codex no pudo leer el repositorio (su `exec_command` está bloqueado por políti
 14. **Playwright** (`@playwright/test` + Chromium) se instaló para revisar el aspecto en navegador real; los e2e formales llegan en el cierre de la fase.
 15. **`msw` 3:** la opción para peticiones sin manejar se llama `onUnhandledFrame` (antes `onUnhandledRequest`); las pruebas la usan en `'error'` para que ninguna petición real se cuele.
 
+16. **Montos con separador de miles** (`GroupedInput`): se muestra `900.000.000` y se guarda/envía el número limpio. Máximo 10 dígitos, que es lo que acepta la API (`MONEY_REGEX`); los años (4 dígitos) no llevan separador. La URL descarta precios de más de 10 dígitos para no provocar un 400.
+17. **Paginación:** con 7 páginas o menos se muestran todas; con más se abrevia con "…".
+18. **Detalle (pantalla 2):** el id de la URL solo se consulta si es un entero positivo. 404 e id inválido muestran "No encontramos este vehículo" (sin reintentos); un vehículo `vendido` muestra "Este vehículo ya fue vendido" con enlaces a la marca y al catálogo, sin precio ni simulador (la API sí devuelve vendidos en `GET /vehiculos/:id`). "Volver al catálogo" conserva los filtros y la página (estado de navegación).
+19. **Simulador:** consulta solo al pulsar "Calcular cuota" (no con cada tecla), ignora clics mientras calcula, borra el resultado al cambiar un dato y valida en el cliente que la cuota inicial sea menor que el valor. No deja editar la tasa: se usa la del concesionario y se muestra la que devuelve la API. Un 429 se explica como "Hiciste varias simulaciones seguidas. Espera un minuto…", y un 400 sin mostrar nombres de campos técnicos. La cuota inicial arranca en el 30 % del valor.
+20. **Orden de lectura del Detalle:** el DOM sigue el orden móvil (título y precio, galería, simulador, ficha) y en escritorio las áreas de la rejilla lo reacomodan en dos columnas, con el simulador fijo al desplazarse. Así lectores de pantalla y teclado siguen el mismo orden que se ve, con un solo `h1` antes de los `h2`.
+21. **Galería:** cada imagen que falle cae al placeholder por separado; con una sola foto no se muestran miniaturas.
+22. **Botón "Agendar test-drive":** se agrega en la pantalla 3 junto con su formulario; no se dejó un botón sin función.
+
 ### Pendientes de la Fase 3
 - **Cookie `httpOnly` + `SameSite` en lugar de `sessionStorage`:** más resistente a XSS, pero exige cambiar el backend (emitir cookie, protección CSRF). Revisar antes de producción.
 - **Endpoints que faltan para el panel admin (pantalla 6):** no existe ninguna métrica agregada. Hay que crear en el backend, con pruebas, antes de esa pantalla: totales (vehículos en stock, citas pendientes, ventas y monto del mes), ventas por mes, stock por marca, y un listado admin de vehículos que incluya los `vendido` (`GET /vehiculos` los oculta).

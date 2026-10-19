@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/** Páginas visibles: primera, última y la vecindad de la actual, con "…" en los huecos. */
+/** Hasta 7 páginas se muestran todas; con más, primera, última y la vecindad de la actual, con "…" en los huecos. */
 export function pageItems(current: number, total: number): (number | 'gap')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const wanted = new Set([1, total, current - 1, current, current + 1])
   const pages = [...wanted].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b)
   const items: (number | 'gap')[] = []

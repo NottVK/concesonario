@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/api/types'
 import { Button } from '@/components/ui/button'
+import { GroupedInput } from '@/components/ui/grouped-input'
 import { FUEL_LABELS, TRANSMISSION_LABELS } from '@/lib/labels'
 import type { CatalogFilters } from './filters'
 
@@ -24,11 +25,13 @@ interface RangeProps {
   min: string
   max: string
   placeholders: [string, string]
+  /** Precio: muestra separador de miles (hasta 10 dígitos). Año: 4 dígitos sin separador. */
+  grouped?: boolean
   onCommit: (min: string, max: string) => void
 }
 
 /** Rango numérico: aplica al salir del campo o con Enter, para no consultar en cada tecla. */
-function RangeField({ label, minLabel, maxLabel, min, max, placeholders, onCommit }: RangeProps) {
+function RangeField({ label, minLabel, maxLabel, min, max, placeholders, grouped = false, onCommit }: RangeProps) {
   const [draft, setDraft] = useState({ min, max })
   // Si la URL cambia desde fuera (limpiar filtros, atrás), el borrador se sincroniza.
   const [seen, setSeen] = useState({ min, max })
@@ -36,7 +39,7 @@ function RangeField({ label, minLabel, maxLabel, min, max, placeholders, onCommi
     setSeen({ min, max })
     setDraft({ min, max })
   }
-  const clean = (value: string) => value.replace(/\D/g, '').slice(0, 12)
+  const maxLength = grouped ? 10 : 4
   const commit = () => onCommit(draft.min, draft.max)
   const onEnter = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter') commit()
@@ -45,22 +48,24 @@ function RangeField({ label, minLabel, maxLabel, min, max, placeholders, onCommi
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
-        <input
+        <GroupedInput
           aria-label={minLabel}
-          inputMode="numeric"
           placeholder={placeholders[0]}
           value={draft.min}
-          onChange={(e) => setDraft({ ...draft, min: clean(e.target.value) })}
+          maxLength={maxLength}
+          grouped={grouped}
+          onValueChange={(value) => setDraft({ ...draft, min: value })}
           onBlur={commit}
           onKeyDown={onEnter}
           className={control}
         />
-        <input
+        <GroupedInput
           aria-label={maxLabel}
-          inputMode="numeric"
           placeholder={placeholders[1]}
           value={draft.max}
-          onChange={(e) => setDraft({ ...draft, max: clean(e.target.value) })}
+          maxLength={maxLength}
+          grouped={grouped}
+          onValueChange={(value) => setDraft({ ...draft, max: value })}
           onBlur={commit}
           onKeyDown={onEnter}
           className={control}
@@ -107,6 +112,7 @@ export function FiltersPanel({ filters, brands, activeCount, onChange, onClear }
         min={filters.priceMin}
         max={filters.priceMax}
         placeholders={['Mínimo', 'Máximo']}
+        grouped
         onCommit={(priceMin, priceMax) => onChange({ priceMin, priceMax })}
       />
 

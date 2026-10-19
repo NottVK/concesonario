@@ -6,7 +6,7 @@ Plataforma de concesionario con API, base de datos y un chatbot local (Ollama). 
 - Fase 0 y 1 listas: Docker + PostgreSQL 16 con pgvector, backend NestJS, entidades, migraciones y seeds (10 marcas, 60 vehículos).
 
 - Fase 2 lista: API REST con JWT, pruebas e2e y Swagger en `/api/docs`.
-- Fase 3 en curso: frontend (listos: base, tema, cliente API tipado y Catálogo con filtros).
+- Fase 3 en curso: frontend (listos: base, tema, cliente API tipado y Catálogo con filtros y Detalle con simulador de crédito).
 
 ## Arranque rápido
 ```bash

@@ -43,7 +43,9 @@ const FUELS = ['gasolina', 'diesel', 'hibrido', 'electrico']
 const TRANSMISSIONS = ['manual', 'automatica']
 const STATUSES = ['nuevo', 'usado']
 
-const digits = (value: string | null): string => (value && /^\d{1,12}$/.test(value) ? value : '')
+/** Entero positivo sin ceros a la izquierda; 10 dígitos es el máximo que acepta la API en montos. */
+const digits = (value: string | null, maxLength = 10): string =>
+  value && value.length <= maxLength && /^[1-9]\d*$/.test(value) ? value : ''
 const oneOf = <T extends string>(value: string | null, allowed: readonly string[]): '' | T =>
   value && allowed.includes(value) ? (value as T) : ''
 
@@ -55,8 +57,8 @@ export function parseFilters(params: URLSearchParams): CatalogFilters {
     brandId: digits(params.get('brandId')),
     priceMin: digits(params.get('priceMin')),
     priceMax: digits(params.get('priceMax')),
-    yearMin: digits(params.get('yearMin')),
-    yearMax: digits(params.get('yearMax')),
+    yearMin: digits(params.get('yearMin'), 4),
+    yearMax: digits(params.get('yearMax'), 4),
     fuel: oneOf<Vehicle['fuel']>(params.get('fuel'), FUELS),
     transmission: oneOf<Vehicle['transmission']>(params.get('transmission'), TRANSMISSIONS),
     status: oneOf<'nuevo' | 'usado'>(params.get('status'), STATUSES),

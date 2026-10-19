@@ -82,6 +82,25 @@ describe('CatalogPage', () => {
     })
   })
 
+  it('el precio se muestra con separador de miles y se envía como número limpio', async () => {
+    const user = userEvent.setup()
+    renderCatalog()
+    await screen.findByRole('heading', { name: 'Toyota Corolla' })
+    await user.type(screen.getByLabelText('Precio mínimo'), '900000000')
+    expect(screen.getByLabelText('Precio mínimo')).toHaveValue('900.000.000')
+    await user.tab()
+    await waitFor(() => expect(requests.at(-1)?.searchParams.get('priceMin')).toBe('900000000'))
+    expect(screen.getByTestId('url')).toHaveTextContent('priceMin=900000000')
+  })
+
+  it('el año no lleva separador de miles', async () => {
+    const user = userEvent.setup()
+    renderCatalog()
+    await screen.findByRole('heading', { name: 'Toyota Corolla' })
+    await user.type(screen.getByLabelText('Año desde'), '2024')
+    expect(screen.getByLabelText('Año desde')).toHaveValue('2024')
+  })
+
   it('muestra un estado vacío con salida cuando no hay resultados', async () => {
     vehiclesResponse = () => HttpResponse.json({ data: [], meta: { total: 0, page: 1, limit: 12, pages: 0 } })
     renderCatalog('/catalogo?fuel=electrico')

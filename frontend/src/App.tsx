@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { CatalogPage } from '@/features/catalog/CatalogPage'
+import { VehicleDetailPage } from '@/features/detail/VehicleDetailPage'
 import { HomePage } from '@/pages/HomePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -17,6 +18,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="catalogo" element={<CatalogPage />} />
+            <Route path="catalogo/:id" element={<VehicleDetailPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

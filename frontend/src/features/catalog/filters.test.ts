@@ -31,9 +31,24 @@ describe('filtros del catálogo', () => {
   })
 })
 
+describe('límites de los filtros', () => {
+  it('descarta precios de más de 10 dígitos (la API respondería 400) y años de más de 4', () => {
+    const filters = parseFilters(new URLSearchParams('priceMin=12345678901&priceMax=9999999999&yearMin=20244&yearMax=2024'))
+    expect(filters).toMatchObject({ priceMin: '', priceMax: '9999999999', yearMin: '', yearMax: '2024' })
+  })
+  it('descarta ceros a la izquierda y el cero solo', () => {
+    expect(parseFilters(new URLSearchParams('priceMin=0&yearMin=0099'))).toMatchObject({ priceMin: '', yearMin: '' })
+  })
+})
+
 describe('pageItems', () => {
-  it('muestra todas las páginas si son pocas', () => {
-    expect(pageItems(1, 3)).toEqual([1, 2, 3])
+  it('con 7 páginas o menos las muestra todas, sin huecos', () => {
+    expect(pageItems(1, 5)).toEqual([1, 2, 3, 4, 5])
+    expect(pageItems(4, 7)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(pageItems(1, 1)).toEqual([1])
+  })
+  it('con 8 o más vuelve a abreviar', () => {
+    expect(pageItems(1, 8)).toEqual([1, 2, 'gap', 8])
   })
   it('usa "gap" en los huecos', () => {
     expect(pageItems(5, 10)).toEqual([1, 'gap', 4, 5, 6, 'gap', 10])
