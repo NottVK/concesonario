@@ -50,15 +50,6 @@ export function toCitasSearchParams(filters: CitasFilters): URLSearchParams {
   return params
 }
 
-export const MIN_CUSTOMER_SEARCH = 3
-export const CUSTOMER_SEARCH_MAX = 120
-
-/** Texto de búsqueda listo para el servidor: sin espacios sobrantes, y vacío si aún no llega al mínimo. */
-export function customerTerm(text: string): string {
-  const term = text.trim()
-  return term.length >= MIN_CUSTOMER_SEARCH ? term : ''
-}
-
 /**
  * Parámetros de `GET /citas`: los días se envían como instantes de Bogotá (-05:00), de principio a fin del día.
  * `customer` (nombre o correo) NO forma parte de los filtros de la URL: es un dato personal y vive solo en el estado de la página.

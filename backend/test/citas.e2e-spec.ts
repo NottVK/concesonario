@@ -77,7 +77,7 @@ describe('Clientes y citas (e2e)', () => {
       const id = list.body.data[0].id;
       await request(ctx.server).get(`/api/clientes/${id}`).set(auth(sellerToken)).expect(200);
       const updated = await request(ctx.server)
-        .put(`/api/clientes/${id}`).set(auth(adminToken)).send({ ...luis, name: 'Luis G. Gómez' }).expect(200);
+        .put(`/api/clientes/${id}`).set(auth(adminToken)).send({ ...luis, name: 'Luis G. Gómez', version: list.body.data[0].version }).expect(200);
       expect(updated.body.name).toBe('Luis G. Gómez');
       await request(ctx.server).get('/api/clientes/9999').set(auth(sellerToken)).expect(404);
     });

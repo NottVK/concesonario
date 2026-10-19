@@ -4,9 +4,11 @@ import { Repository } from 'typeorm';
 import { paginate } from '../common/pagination.js';
 import type { Paginated } from '../common/pagination.js';
 import { escapeLike } from '../common/sql.js';
-import type { CustomerDto } from './dto/customer.dto.js';
+import type { CustomerDto, UpdateCustomerDto } from './dto/customer.dto.js';
 import type { CustomerQueryDto } from './dto/customer-query.dto.js';
 import { Customer } from './entities/customer.entity.js';
+
+const STALE_MESSAGE = 'Otra persona modificó este cliente mientras lo editabas. Recarga para ver los cambios.';
 
 @Injectable()
 export class ClientesService {
@@ -37,11 +39,17 @@ export class ClientesService {
     return customer;
   }
 
-  async update(id: number, dto: CustomerDto): Promise<Customer> {
+  async update(id: number, dto: UpdateCustomerDto): Promise<Customer> {
     const customer = await this.findOne(id);
+    if (customer.version !== dto.version) throw new ConflictException(STALE_MESSAGE);
     if (customer.email !== dto.email.toLowerCase()) await this.assertEmailFree(dto.email);
-    Object.assign(customer, this.toFields(dto));
-    return this.customers.save(customer);
+    // Condicionado a la versión leída: si otra edición se coló en medio, no se pisa en silencio.
+    const result = await this.customers.update(
+      { id, version: dto.version },
+      { ...this.toFields(dto), version: () => 'version + 1' },
+    );
+    if (!result.affected) throw new ConflictException(STALE_MESSAGE);
+    return this.findOne(id);
   }
 
   /** El correo se guarda en minúsculas para que la unicidad no dependa de mayúsculas. */

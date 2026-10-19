@@ -19,6 +19,11 @@ export class Customer {
   @Column({ name: 'correo', type: 'varchar', length: 120, unique: true })
   email: string;
 
+  /** Sube en uno con cada edición; PUT /clientes/:id debe enviar la que leyó (409 si ya cambió). */
+  @ApiProperty({ example: 1, minimum: 1 })
+  @Column({ name: 'version', type: 'int', default: 1 })
+  version: number;
+
   @ApiProperty({ type: String, format: 'date-time' })
   @CreateDateColumn({ name: 'creado_en', type: 'timestamptz' })
   createdAt: Date;

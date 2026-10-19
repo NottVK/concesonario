@@ -16,7 +16,7 @@ import { ApiPaginatedResponse } from '../common/swagger.js';
 import { publicThrottle } from '../common/throttle.js';
 import { UserRole } from '../usuarios/entities/user.entity.js';
 import { ClientesService } from './clientes.service.js';
-import { CreatedIdDto, CustomerDto } from './dto/customer.dto.js';
+import { CreatedIdDto, CustomerDto, UpdateCustomerDto } from './dto/customer.dto.js';
 import { CustomerQueryDto } from './dto/customer-query.dto.js';
 import { Customer } from './entities/customer.entity.js';
 
@@ -58,9 +58,11 @@ export class ClientesController {
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ApiBearerAuth()
   @Put(':id')
-  @ApiOperation({ summary: 'Reemplazar los datos de un cliente (vendedor, admin)' })
+  @ApiOperation({ summary: 'Reemplazar los datos de un cliente (vendedor, admin); exige la versión leída' })
   @ApiOkResponse({ type: Customer })
-  update(@Param('id', ParseIdPipe) id: number, @Body() dto: CustomerDto): Promise<Customer> {
+  @ApiNotFoundResponse()
+  @ApiConflictResponse({ description: 'Otra persona lo editó (versión vieja) o el correo ya está en uso' })
+  update(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateCustomerDto): Promise<Customer> {
     return this.customers.update(id, dto);
   }
 }

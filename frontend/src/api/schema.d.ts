@@ -561,6 +561,13 @@ export interface components {
              */
             phone?: string;
         };
+        UpdateCustomerDto: components["schemas"]["CustomerDto"] & {
+            /**
+             * @description Versión del cliente que se leyó; si ya cambió, responde 409
+             * @example 1
+             */
+            version: number;
+        };
         CreatedIdDto: {
             /** @example 1 */
             id: number;
@@ -577,6 +584,11 @@ export interface components {
              * @example ana@correo.co
              */
             email: string;
+            /**
+             * @description Sube en uno con cada edición; PUT /clientes/:id debe enviar la que leyó (409 si ya cambió).
+             * @example 1
+             */
+            version: number;
             /** Format: date-time */
             createdAt: string;
         };
@@ -1201,7 +1213,7 @@ export interface operations {
                 page?: number;
                 /** @description Elementos por página */
                 limit?: number;
-                /** @description Texto a buscar en nombre o correo (distingue acentos) */
+                /** @description Texto a buscar en nombre o correo (mínimo 3 caracteres, distingue acentos) */
                 q?: string;
             };
             header?: never;
@@ -1291,7 +1303,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerDto"];
+                "application/json": components["schemas"]["UpdateCustomerDto"];
             };
         };
         responses: {

@@ -46,6 +46,8 @@ Con la API corriendo: **http://localhost:8000/api/docs** (JSON OpenAPI en `/api/
 
 **Filtros de `GET /vehiculos`:** `brandId`, `model`, `yearMin`, `yearMax`, `priceMin`, `priceMax`, `fuel`, `transmission`, `status` (nuevo/usado), `sort` (`newest`, `price_asc`, `price_desc`, `year_desc`, `year_asc`), `page`, `limit` (máx. 50). Los vendidos nunca salen en el catálogo. Respuesta: `{ data, meta: { total, page, limit, pages } }`. `GET /citas` filtra por `status`, `vehicleId`, `from`, `to` y `customer` (nombre o correo del cliente, mínimo 3 caracteres).
 
+**Clientes** (`/clientes`): no hay borrado (un cliente puede tener citas y ventas). `GET /clientes?q=` busca por nombre o correo (mínimo 3 caracteres) y pagina. `PUT /clientes/:id` exige la `version` que se leyó: si otra persona editó antes responde 409 y no cambia nada; cada edición sube la versión en uno. El teléfono es opcional y debe tener al menos 7 dígitos. Un correo repetido da 409 sin decir de quién es. Un carácter nulo (U+0000) en cuerpo o consulta da 400.
+
 **Agendar una cita** (`POST /citas`): `{ "vehicleId": 1, "scheduledAt": "2026-11-03T10:00:00-05:00", "customer": { "name": "Ana", "email": "ana@correo.co" } }`.
 - La fecha debe llevar zona horaria. Dura 60 min, de lunes a sábado entre 8:00 y 18:00 (hora de Bogotá) y debe terminar antes del cierre.
 - Un vehículo y un cliente no pueden tener dos citas activas que se crucen (409). Lo garantiza PostgreSQL con restricciones de exclusión, no solo el código.

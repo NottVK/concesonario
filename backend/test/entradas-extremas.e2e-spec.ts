@@ -43,7 +43,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
     if (path.includes('/citas/{id}/estado')) return { status: 'cancelada' };
     if (path.includes('/vehiculos/{id}')) return validVehicle();
     if (path.includes('/marcas/{id}')) return { name: 'X', country: 'Y' };
-    if (path.includes('/clientes/{id}')) return { name: 'Ana', email: 'a@b.co' };
+    if (path.includes('/clientes/{id}')) return { name: 'Ana', email: 'a@b.co', version: 1 };
     return method === 'POST' ? {} : undefined;
   };
 
@@ -232,7 +232,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
           (body) => request(ctx.server).put(`/api/vehiculos/${vehicleId}`).set(auth(adminToken)).send(body as object)),
         ...bodyTasks('PUT /marcas/:id', { name: 'Marca ' + Date.now(), country: 'País' }, ['name', 'country', 'logoUrl'],
           (body) => request(ctx.server).put(`/api/marcas/${brandId}`).set(auth(adminToken)).send(body as object)),
-        ...bodyTasks('PUT /clientes/:id', { name: 'Ana', email: 'ana@correo.co', phone: '3001234567' }, ['name', 'email', 'phone'],
+        ...bodyTasks('PUT /clientes/:id', { name: 'Ana', email: 'ana@correo.co', phone: '3001234567', version: 1 }, ['name', 'email', 'phone', 'version'],
           (body) => request(ctx.server).put(`/api/clientes/${customerId}`).set(auth(sellerToken)).send(body as object)),
         ...bodyTasks('PATCH /citas/:id/estado', { status: 'confirmada' }, ['status'],
           (body) => request(ctx.server).patch(`/api/citas/${appointmentId}/estado`).set(auth(sellerToken)).send(body as object)),

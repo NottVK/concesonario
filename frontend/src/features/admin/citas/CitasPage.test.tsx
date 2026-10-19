@@ -20,7 +20,7 @@ const FUTURE = (day: number, hourUtc = 15): string => `2099-11-${String(day).pad
 function cita(id: number, name: string, over: Partial<AppointmentRow> = {}): AppointmentRow {
   return {
     id, customerId: id, vehicleId: 100 + id, scheduledAt: FUTURE(id), durationMin: 60, status: 'pendiente',
-    customer: { id, name, email: `${name.split(' ')[0].toLowerCase()}@correo.co`, phone: id % 2 ? `300 123 45${id}` : null, createdAt: '2026-01-01T00:00:00.000Z' },
+    customer: { id, name, email: `${name.split(' ')[0].toLowerCase()}@correo.co`, phone: id % 2 ? `300 123 45${id}` : null, version: 1, createdAt: '2026-01-01T00:00:00.000Z' },
     vehicle: {
       id: 100 + id, brandId: 1, brand: { id: 1, name: 'Mazda', country: 'Japón', logoUrl: null }, model: `Modelo ${id}`, year: 2024,
       version: 'Touring', price: '100000000.00', mileage: 0, fuel: 'gasolina', transmission: 'manual', color: 'Gris',

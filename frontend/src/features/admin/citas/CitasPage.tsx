@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarX2, Search } from 'lucide-react'
+import { CalendarX2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { errorMessage } from '@/api/client'
@@ -8,14 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Pagination } from '@/features/catalog/Pagination'
 import { formatShortDate, formatTime } from '@/lib/bogota'
-import { useDebouncedValue } from '@/lib/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { citasQuery } from './api'
 import type { AppointmentRow } from './api'
 import {
-  CUSTOMER_SEARCH_MAX,
-  MIN_CUSTOMER_SEARCH,
-  customerTerm,
   isDefaultCitasFilters,
   parseCitasFilters,
   toCitasApiParams,
@@ -23,6 +19,7 @@ import {
   validDay,
 } from './filters'
 import type { CitasFilters, StatusFilter } from './filters'
+import { SearchBox, useSearchTerm } from '../search'
 import { StatusBadge } from './StatusBadge'
 import { StatusDialog } from './StatusDialog'
 import type { StatusTarget } from './StatusDialog'
@@ -42,7 +39,6 @@ function countLabel(total: number, status: StatusFilter): string {
   return `${total} ${noun} ${adjective}${total === 1 ? '' : 's'}`
 }
 
-const SEARCH_PAUSE_MS = 400
 const dateInput = 'h-10 rounded-md border border-border bg-background px-3 text-sm'
 const rowGrid = 'md:grid-cols-[12rem_minmax(0,1.3fr)_minmax(0,1.1fr)_8.5rem_12rem] md:items-start'
 
@@ -121,11 +117,7 @@ export function CitasPage() {
   const queryClient = useQueryClient()
   const [target, setTarget] = useState<StatusTarget | null>(null)
   const [done, setDone] = useState<string | null>(null)
-  // Texto de búsqueda: dato personal, solo en el estado de la página (nunca en la URL ni en almacenamiento).
-  const [search, setSearch] = useState('')
-  const pausedSearch = useDebouncedValue(search, SEARCH_PAUSE_MS)
-  // Escribir espera la pausa; borrar o quedarse corto quita el filtro al instante.
-  const term = customerTerm(search) === '' ? '' : customerTerm(pausedSearch)
+  const { text: search, setText: setSearch, term, tooShort: shortSearch } = useSearchTerm()
   // "Ahora" se fija al cargar la lista: sirve para marcar las citas que ya pasaron.
   const [now, setNow] = useState(() => Date.now())
 
@@ -182,7 +174,6 @@ export function CitasPage() {
     setSearch('')
     update({ status: 'pendiente', from: '', to: '' })
   }
-  const shortSearch = search.trim().length > 0 && search.trim().length < MIN_CUSTOMER_SEARCH
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -193,36 +184,18 @@ export function CitasPage() {
         </p>
       </header>
 
-      <div className="mb-4 max-w-md">
-        <label htmlFor="citas-search" className="mb-1 block text-sm text-muted">
-          Buscar por cliente
-        </label>
-        <div className="relative">
-          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            id="citas-search"
-            type="search"
-            role="searchbox"
-            autoComplete="off"
-            maxLength={CUSTOMER_SEARCH_MAX}
-            placeholder="Nombre o correo"
-            value={search}
-            onChange={(event) => {
-              setDone(null)
-              setSearch(event.target.value)
-              // Buscar otra cosa vuelve a la primera página.
-              if (filters.page > 1) setParams(toCitasSearchParams({ ...filters, page: 1 }), { replace: true })
-            }}
-            aria-describedby={shortSearch ? 'citas-search-hint' : undefined}
-            className={cn(dateInput, 'w-full pl-9')}
-          />
-        </div>
-        {shortSearch && (
-          <p id="citas-search-hint" className="mt-1 text-xs text-muted">
-            Escribe al menos {MIN_CUSTOMER_SEARCH} caracteres para buscar.
-          </p>
-        )}
-      </div>
+      <SearchBox
+        id="citas-search"
+        label="Buscar por cliente"
+        value={search}
+        tooShort={shortSearch}
+        onChange={(value) => {
+          setDone(null)
+          setSearch(value)
+          // Buscar otra cosa vuelve a la primera página.
+          if (filters.page > 1) setParams(toCitasSearchParams({ ...filters, page: 1 }), { replace: true })
+        }}
+      />
 
       <div className="mb-5 flex flex-wrap items-end gap-x-6 gap-y-4">
         <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
