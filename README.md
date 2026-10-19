@@ -5,6 +5,9 @@ Plataforma de concesionario con API, base de datos y un chatbot local (Ollama). 
 ## Estado
 - Fase 0 y 1 listas: Docker + PostgreSQL 16 con pgvector, backend NestJS, entidades, migraciones y seeds (10 marcas, 60 vehículos).
 
+- Fase 2 lista: API REST con JWT, pruebas e2e y Swagger en `/api/docs`.
+- Fase 3 en curso: frontend (paso 0 listo: base, tema, cliente API tipado).
+
 ## Arranque rápido
 ```bash
 cp .env.example .env            # y ajusta las claves
@@ -26,3 +29,18 @@ npm run start:dev               # API en http://localhost:8000/api
 | `npm run seed` | Carga datos de ejemplo (idempotente) |
 
 Usuarios demo: `admin@automax.co` y `vendedor@automax.co`, contraseña = `SEED_DEMO_PASSWORD` del `.env`.
+
+## Frontend (`frontend/`)
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:5173 (el proxy envía /api a http://localhost:8000)
+```
+| Comando | Qué hace |
+|---|---|
+| `npm run api:types` | Regenera `src/api/schema.d.ts` desde `/api/docs-json` (la API debe estar encendida). Ejecútalo cada vez que cambie el contrato. |
+| `npm run test` | Pruebas (Vitest + Testing Library) |
+| `npm run build` | Typecheck y build de producción |
+
+Si la API corre en otro puerto, define `VITE_API_TARGET` (ver `frontend/.env.example`).
+Mientras no haya fotos reales, los autos sin `.webp` en `frontend/public/autos/` muestran `placeholder.svg`.

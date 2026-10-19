@@ -1,0 +1,71 @@
+@import '@fontsource-variable/sora';
+@import '@fontsource-variable/inter';
+@import 'tailwindcss';
+
+/* Paleta de CLAUDE.md §12. Los componentes usan estos tokens, nunca colores sueltos. */
+:root {
+  --background: #fafafa;
+  --surface: #ffffff;
+  --border: #e5e5e5;
+  --foreground: #0a0a0a;
+  --muted: #525252;
+  --accent: #dc2626;
+  --accent-foreground: #fafafa;
+}
+
+:root.dark {
+  --background: #0a0a0a;
+  --surface: #171717;
+  --border: #262626;
+  --foreground: #fafafa;
+  --muted: #a3a3a3;
+  --accent: #dc2626;
+  --accent-foreground: #fafafa;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --font-display: 'Sora Variable', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  html:not(.dark) {
+    color-scheme: light;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  /* Foco visible para teclado (accesibilidad). */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

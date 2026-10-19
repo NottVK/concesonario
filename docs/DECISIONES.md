@@ -49,6 +49,22 @@ Codex no pudo leer el repositorio (su `exec_command` está bloqueado por políti
 
 **Descartado, con motivo:** la cuota fija con `total = cuota × n` es deliberada (sin ajustar la última cuota) y `Number` no pierde precisión hasta 10¹² centavos; la columna interpolada en el pre-chequeo de solape sale de un tipo cerrado (`'vehicleId' | 'customerId'`); no hay correos históricos con mayúsculas porque todo pasa por el servicio que los normaliza.
 
+## 2026-10-18 — Fase 3 (frontend)
+
+1. **Filtro `brand`** en `GET /vehiculos`: nombre exacto de la marca, sin distinguir mayúsculas ni espacios en los bordes. Complementa a `brandId` (se combinan con AND).
+2. **Tipos desde el contrato real:** `openapi-typescript` genera `src/api/schema.d.ts` desde `/api/docs-json` (`npm run api:types`) y el archivo se versiona. `src/api/types.ts` expone alias legibles; no se escriben tipos de respuesta a mano.
+3. **TypeScript 5.9 en el frontend** (la plantilla de Vite trae 6.0): `openapi-typescript` 7 exige TS 5 como peer. Se subirá cuando lo soporte.
+4. **Proxy de Vite:** `/api` → `VITE_API_TARGET` (por defecto `http://localhost:8000`). Axios usa `baseURL: '/api'`, sin CORS en desarrollo. En producción hará falta un proxy inverso (ver pendiente de `trust proxy`).
+5. **Token de login en memoria + `sessionStorage`**, no `localStorage`: se borra al cerrar la pestaña y sobrevive a recargar. Un 401 con sesión activa la limpia. El guard de rutas del cliente solo mejora la experiencia; los roles los verifica el backend. Sin `dangerouslySetInnerHTML` en todo el frontend.
+6. **Imagen de reemplazo:** `CarImage` cambia una sola vez a `/autos/placeholder.svg` si el `.webp` falla; `BrandLogo` cae a la inicial de la marca. Placeholders hasta tener fotos reales.
+7. **Componentes tipo shadcn escritos a mano** (`Button`, `Skeleton`) con `class-variance-authority`, `clsx` y `tailwind-merge`, en vez de ejecutar el CLI interactivo. Se agregan más componentes del mismo estilo cuando haga falta.
+8. **Pruebas del frontend:** Vitest + Testing Library + `msw` (dependencias de desarrollo; `msw` se usará para simular la API en las pantallas). Playwright queda para el cierre.
+9. **Modo claro:** los tokens existen (`:root`), pero el interruptor aún no; la app arranca en oscuro.
+
+### Pendientes de la Fase 3
+- **Cookie `httpOnly` + `SameSite` en lugar de `sessionStorage`:** más resistente a XSS, pero exige cambiar el backend (emitir cookie, protección CSRF). Revisar antes de producción.
+- **Endpoints que faltan para el panel admin (pantalla 6):** no existe ninguna métrica agregada. Hay que crear en el backend, con pruebas, antes de esa pantalla: totales (vehículos en stock, citas pendientes, ventas y monto del mes), ventas por mes, stock por marca, y un listado admin de vehículos que incluya los `vendido` (`GET /vehiculos` los oculta).
+
 ## Pendientes registrados
 - **Gestión de usuarios (cuando exista):** el JWT confía en `sub` y `role` hasta que expira (1 h). Al agregar desactivar usuarios o cambiar roles hay que validar el usuario en cada petición o añadir revocación/versión de sesión.
 - **Despliegue:** no hay `trust proxy` configurado; detrás de un proxy inverso todas las peticiones compartirían IP en el rate limit. Configurarlo al desplegar.
