@@ -8,6 +8,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Customer } from '../clientes/entities/customer.entity.js';
 import { paginate } from '../common/pagination.js';
+import { escapeLike } from '../common/sql.js';
 import type { Paginated } from '../common/pagination.js';
 import { Vehicle, VehicleStatus } from '../vehiculos/entities/vehicle.entity.js';
 import {
@@ -111,6 +112,11 @@ export class CitasService {
       .addOrderBy('a.id', 'ASC');
     if (query.status) qb.andWhere('a.status = :status', { status: query.status });
     if (query.vehicleId) qb.andWhere('a.vehicleId = :vehicleId', { vehicleId: query.vehicleId });
+    if (query.customer) {
+      qb.andWhere("(c.name ILIKE :customer ESCAPE '\\' OR c.email ILIKE :customer ESCAPE '\\')", {
+        customer: `%${escapeLike(query.customer)}%`,
+      });
+    }
     if (query.from) qb.andWhere('a.scheduledAt >= :from', { from: new Date(query.from) });
     if (query.to) qb.andWhere('a.scheduledAt <= :to', { to: new Date(query.to) });
 

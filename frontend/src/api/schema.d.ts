@@ -1318,6 +1318,8 @@ export interface operations {
                 from?: string;
                 /** @description Citas hasta este instante (ISO 8601) */
                 to?: string;
+                /** @description Texto a buscar en el nombre o el correo del cliente (mínimo 3 caracteres, sin distinguir mayúsculas) */
+                customer?: string;
             };
             header?: never;
             path?: never;

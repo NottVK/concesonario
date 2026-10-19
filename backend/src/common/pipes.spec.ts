@@ -50,4 +50,27 @@ describe('BodyShapePipe', () => {
     const wide = { items: Array.from({ length: 30_000 }, () => ({})) };
     expect(() => pipe.transform(wide, body)).toThrow(BadRequestException);
   });
+
+  describe('caracteres nulos (PostgreSQL no los admite en texto y daba 500)', () => {
+    const nul = String.fromCharCode(0);
+    const query = { type: 'query' } as never;
+
+    it('rechaza un NUL en el cuerpo, anidado, en listas y en nombres de campo', () => {
+      for (const value of [{ name: `a${nul}b` }, { customer: { name: nul } }, { tags: ['ok', `x${nul}`] }, { [`k${nul}`]: 1 }]) {
+        expect(() => pipe.transform(value, body)).toThrow(BadRequestException);
+      }
+    });
+
+    it('rechaza un NUL en la consulta, también en listas y objetos', () => {
+      for (const value of [{ customer: `${nul}abc` }, { q: [`a${nul}`] }, { q: { a: nul } }]) {
+        expect(() => pipe.transform(value, query)).toThrow(BadRequestException);
+      }
+    });
+
+    it('deja pasar texto normal, con acentos y emojis, en cuerpo y consulta', () => {
+      const value = { customer: 'Ñandú 😀', page: '2' };
+      expect(pipe.transform(value, query)).toBe(value);
+      expect(pipe.transform(value, body)).toBe(value);
+    });
+  });
 });

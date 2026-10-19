@@ -151,6 +151,21 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       expectNoFailures();
     });
 
+    it('búsqueda por cliente en citas: texto hostil nunca da 5xx', async () => {
+      const hostile = [
+        ...GARBAGE, '%00%00%00', '\u0000\u0000\u0000', '😀😀😀', 'ñññ', 'ÁÉÍ', '%E0%A4%A', '%', '%%%', '___', '\\\\\\', "'; DROP TABLE citas;--",
+        '" OR 1=1 --', '${7*7}', '{{7*7}}', '<script>alert(1)</script>', 'a'.repeat(120), 'a'.repeat(121), 'a'.repeat(5000), ' abc ', '\t\t\t\t', '\n\n\n\n',
+      ];
+      const raw = ['customer=%', 'customer=%E0%A4%A', 'customer=%ZZ%ZZ', 'customer=%00abc', 'customer', 'customer=&customer=', 'customer[]=abc', 'customer[a]=abc', 'customer[$ne]=abc', 'customer=abc&customer=def'];
+      const tasks = [
+        ...hostile.map((value) => () => check(`GET /citas?customer=${value.slice(0, 30)}`, () =>
+          request(ctx.server).get(`/api/citas?customer=${encodeURIComponent(value)}`).set(auth(sellerToken)))),
+        ...raw.map((query) => () => check(`GET /citas?${query}`, () => request(ctx.server).get(`/api/citas?${query}`).set(auth(sellerToken)))),
+      ];
+      await runAll(tasks);
+      expectNoFailures();
+    });
+
     it('rangos de fechas extremos en el listado de citas', async () => {
       const dates = ['0000-01-01T00:00:00Z', '9999-12-31T23:59:59Z', '275760-09-13T00:00:00.000Z', '-271821-04-20T00:00:00Z', '2026-02-30T00:00:00Z'];
       const tasks = dates.flatMap((from) => dates.map((to) => () =>

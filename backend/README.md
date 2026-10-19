@@ -44,7 +44,7 @@ Con la API corriendo: **http://localhost:8000/api/docs** (JSON OpenAPI en `/api/
 | `POST /ventas`, `GET /ventas`, `GET /ventas/:id` | vendedor, admin |
 | `POST /financiacion/simular` | público |
 
-**Filtros de `GET /vehiculos`:** `brandId`, `model`, `yearMin`, `yearMax`, `priceMin`, `priceMax`, `fuel`, `transmission`, `status` (nuevo/usado), `sort` (`newest`, `price_asc`, `price_desc`, `year_desc`, `year_asc`), `page`, `limit` (máx. 50). Los vendidos nunca salen en el catálogo. Respuesta: `{ data, meta: { total, page, limit, pages } }`. `GET /citas` filtra por `status`, `vehicleId`, `from` y `to`.
+**Filtros de `GET /vehiculos`:** `brandId`, `model`, `yearMin`, `yearMax`, `priceMin`, `priceMax`, `fuel`, `transmission`, `status` (nuevo/usado), `sort` (`newest`, `price_asc`, `price_desc`, `year_desc`, `year_asc`), `page`, `limit` (máx. 50). Los vendidos nunca salen en el catálogo. Respuesta: `{ data, meta: { total, page, limit, pages } }`. `GET /citas` filtra por `status`, `vehicleId`, `from`, `to` y `customer` (nombre o correo del cliente, mínimo 3 caracteres).
 
 **Agendar una cita** (`POST /citas`): `{ "vehicleId": 1, "scheduledAt": "2026-11-03T10:00:00-05:00", "customer": { "name": "Ana", "email": "ana@correo.co" } }`.
 - La fecha debe llevar zona horaria. Dura 60 min, de lunes a sábado entre 8:00 y 18:00 (hora de Bogotá) y debe terminar antes del cierre.

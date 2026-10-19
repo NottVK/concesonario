@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarX2 } from 'lucide-react'
+import { CalendarX2, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { errorMessage } from '@/api/client'
@@ -8,10 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Pagination } from '@/features/catalog/Pagination'
 import { formatShortDate, formatTime } from '@/lib/bogota'
+import { useDebouncedValue } from '@/lib/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { citasQuery } from './api'
 import type { AppointmentRow } from './api'
 import {
+  CUSTOMER_SEARCH_MAX,
+  MIN_CUSTOMER_SEARCH,
+  customerTerm,
   isDefaultCitasFilters,
   parseCitasFilters,
   toCitasApiParams,
@@ -38,6 +42,7 @@ function countLabel(total: number, status: StatusFilter): string {
   return `${total} ${noun} ${adjective}${total === 1 ? '' : 's'}`
 }
 
+const SEARCH_PAUSE_MS = 400
 const dateInput = 'h-10 rounded-md border border-border bg-background px-3 text-sm'
 const rowGrid = 'md:grid-cols-[12rem_minmax(0,1.3fr)_minmax(0,1.1fr)_8.5rem_12rem] md:items-start'
 
@@ -116,12 +121,17 @@ export function CitasPage() {
   const queryClient = useQueryClient()
   const [target, setTarget] = useState<StatusTarget | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  // Texto de búsqueda: dato personal, solo en el estado de la página (nunca en la URL ni en almacenamiento).
+  const [search, setSearch] = useState('')
+  const pausedSearch = useDebouncedValue(search, SEARCH_PAUSE_MS)
+  // Escribir espera la pausa; borrar o quedarse corto quita el filtro al instante.
+  const term = customerTerm(search) === '' ? '' : customerTerm(pausedSearch)
   // "Ahora" se fija al cargar la lista: sirve para marcar las citas que ya pasaron.
   const [now, setNow] = useState(() => Date.now())
 
   // Solo el personal con sesión pide datos de clientes (el backend lo exige igual).
   const allowed = auth.status === 'authenticated' && (auth.user?.role === 'admin' || auth.user?.role === 'vendedor')
-  const list = useQuery({ ...citasQuery(toCitasApiParams(filters)), enabled: allowed, placeholderData: keepPreviousData })
+  const list = useQuery({ ...citasQuery(toCitasApiParams(filters, term)), enabled: allowed, placeholderData: keepPreviousData })
 
   useEffect(() => {
     document.title = 'Citas | AutoMax'
@@ -167,7 +177,12 @@ export function CitasPage() {
   const rows = list.data?.data ?? []
   // Con placeholderData, mientras llega el nuevo filtro `list.data` aún es el anterior: no se muestra su total con la etiqueta nueva.
   const total = list.isPlaceholderData ? undefined : list.data?.meta.total
-  const filtered = !isDefaultCitasFilters(filters)
+  const filtered = !isDefaultCitasFilters(filters) || term !== ''
+  const clearAll = (): void => {
+    setSearch('')
+    update({ status: 'pendiente', from: '', to: '' })
+  }
+  const shortSearch = search.trim().length > 0 && search.trim().length < MIN_CUSTOMER_SEARCH
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -177,6 +192,37 @@ export function CitasPage() {
           {total === undefined ? (list.data ? 'Actualizando…' : 'Cargando citas…') : countLabel(total, filters.status)}
         </p>
       </header>
+
+      <div className="mb-4 max-w-md">
+        <label htmlFor="citas-search" className="mb-1 block text-sm text-muted">
+          Buscar por cliente
+        </label>
+        <div className="relative">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            id="citas-search"
+            type="search"
+            role="searchbox"
+            autoComplete="off"
+            maxLength={CUSTOMER_SEARCH_MAX}
+            placeholder="Nombre o correo"
+            value={search}
+            onChange={(event) => {
+              setDone(null)
+              setSearch(event.target.value)
+              // Buscar otra cosa vuelve a la primera página.
+              if (filters.page > 1) setParams(toCitasSearchParams({ ...filters, page: 1 }), { replace: true })
+            }}
+            aria-describedby={shortSearch ? 'citas-search-hint' : undefined}
+            className={cn(dateInput, 'w-full pl-9')}
+          />
+        </div>
+        {shortSearch && (
+          <p id="citas-search-hint" className="mt-1 text-xs text-muted">
+            Escribe al menos {MIN_CUSTOMER_SEARCH} caracteres para buscar.
+          </p>
+        )}
+      </div>
 
       <div className="mb-5 flex flex-wrap items-end gap-x-6 gap-y-4">
         <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
@@ -221,7 +267,7 @@ export function CitasPage() {
             />
           </label>
           {filtered && (
-            <Button variant="ghost" onClick={() => update({ status: 'pendiente', from: '', to: '' })}>
+            <Button variant="ghost" onClick={clearAll}>
               Limpiar filtros
             </Button>
           )}
@@ -256,9 +302,9 @@ export function CitasPage() {
             {filtered ? 'No hay citas con estos filtros' : 'No hay citas pendientes: todo está al día'}
           </p>
           <p className="mt-1 text-sm text-muted">
-            {filtered ? 'Prueba con otro estado o con otro rango de fechas.' : 'Cuando alguien agende un test-drive aparecerá aquí.'}
+            {filtered ? 'Prueba con otro texto, otro estado o con otro rango de fechas.' : 'Cuando alguien agende un test-drive aparecerá aquí.'}
           </p>
-          <Button variant="outline" className="mt-5" onClick={() => update(filtered ? { status: 'pendiente', from: '', to: '' } : { status: 'all' })}>
+          <Button variant="outline" className="mt-5" onClick={() => (filtered ? clearAll() : update({ status: 'all' }))}>
             {filtered ? 'Volver a las pendientes' : 'Ver todas las citas'}
           </Button>
         </div>

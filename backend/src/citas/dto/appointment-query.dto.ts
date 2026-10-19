@@ -1,7 +1,7 @@
 import { MAX_DB_INT, tooBig } from '../../common/limits.js';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsISO8601, IsOptional, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, Max, Min, MinLength } from 'class-validator';
 import { PaginationDto } from '../../common/pagination.js';
 import { AppointmentStatus } from '../entities/appointment.entity.js';
 
@@ -29,4 +29,17 @@ export class AppointmentQueryDto extends PaginationDto {
   @IsOptional()
   @IsISO8601({ strict: true })
   to?: string;
+
+  @ApiPropertyOptional({
+    description: 'Texto a buscar en el nombre o el correo del cliente (mínimo 3 caracteres, sin distinguir mayúsculas)',
+    example: 'ana',
+    minLength: 3,
+    maxLength: 120,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(3, { message: 'customer debe tener al menos 3 caracteres' })
+  @MaxLength(120)
+  customer?: string;
 }

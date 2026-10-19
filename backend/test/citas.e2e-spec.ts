@@ -224,6 +224,36 @@ describe('Clientes y citas (e2e)', () => {
       }
     });
 
+    it('busca por cliente (nombre o correo, sin mayúsculas) y exige al menos 3 caracteres', async () => {
+      const find = (q: string) => request(ctx.server).get(`/api/citas?customer=${encodeURIComponent(q)}&limit=50`).set(auth(sellerToken));
+      const byName = await find('ANA pér').expect(200);
+      expect(byName.body.data.length).toBeGreaterThan(0);
+      expect(byName.body.data.every((a: Appointment & { customer: Customer }) => a.customer.email === 'ana@correo.co')).toBe(true);
+      expect(byName.body.meta.total).toBe(byName.body.data.length);
+      const byEmail = await find('luis@corr').expect(200);
+      expect(byEmail.body.data.every((a: Appointment & { customer: Customer }) => a.customer.email === 'luis@correo.co')).toBe(true);
+      expect((await find('zzzzz').expect(200)).body.data).toHaveLength(0);
+      // Se combina con los demás filtros.
+      const combined = await request(ctx.server).get('/api/citas?customer=ana&status=cancelada').set(auth(sellerToken)).expect(200);
+      expect(combined.body.data.every((a: Appointment) => a.status === 'cancelada')).toBe(true);
+      for (const short of ['', 'an', '  a ', '   ']) await find(short).expect(400);
+      await find('x'.repeat(121)).expect(400);
+      await request(ctx.server).get('/api/citas?customer=ana&customer=luis').set(auth(sellerToken)).expect(400);
+    });
+
+    it('en la búsqueda por cliente % _ y barra invertida se tratan como texto, no como comodines', async () => {
+      // Control positivo: un % literal sí se encuentra (si el escape se rompiera, esto o lo de abajo fallaría).
+      await book(bookBody(carA.id, bogotaSlot(WEDNESDAY, 17), { name: 'Pepe 100% Real', email: 'pepe_x@correo.co' })).expect(201);
+      const literal = await request(ctx.server).get('/api/citas?customer=100%25').set(auth(sellerToken)).expect(200);
+      expect(literal.body.data).toHaveLength(1);
+      expect((await request(ctx.server).get('/api/citas?customer=pepe_x').set(auth(sellerToken)).expect(200)).body.data).toHaveLength(1);
+      expect((await request(ctx.server).get('/api/citas?customer=pepe-x').set(auth(sellerToken)).expect(200)).body.data).toHaveLength(0);
+      for (const wild of ['%%%', '___', 'a%a', '\\\\\\', "ana'--"]) {
+        const res = await request(ctx.server).get(`/api/citas?customer=${encodeURIComponent(wild)}`).set(auth(sellerToken)).expect(200);
+        expect(res.body.data, wild).toHaveLength(0);
+      }
+    });
+
     it('dos cambios de estado simultáneos sobre la misma cita: uno se aplica y el otro recibe 409', async () => {
       const created = await book(bookBody(carA.id, bogotaSlot(THURSDAY, 12), luis)).expect(201);
       const confirm = () =>

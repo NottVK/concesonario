@@ -129,7 +129,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
   it('GET /citas, GET /clientes y GET /vehiculos/comparar documentan sus parámetros', () => {
     const names = (method: string, path: string) =>
       (operation(method, path).parameters ?? []).map((p) => p.name).sort();
-    expect(names('get', '/api/citas')).toEqual(['from', 'limit', 'page', 'status', 'to', 'vehicleId']);
+    expect(names('get', '/api/citas')).toEqual(['customer', 'from', 'limit', 'page', 'status', 'to', 'vehicleId']);
     expect(names('get', '/api/clientes')).toEqual(['limit', 'page', 'q']);
     expect(names('get', '/api/vehiculos/comparar')).toEqual(['ids']);
     expect(names('get', '/api/ventas')).toEqual(['limit', 'page']);

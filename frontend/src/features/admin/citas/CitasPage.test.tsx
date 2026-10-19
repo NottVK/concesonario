@@ -77,7 +77,10 @@ const server = setupServer(
     const to = url.searchParams.get('to')
     const page = Number(url.searchParams.get('page') ?? 1)
     const limit = Number(url.searchParams.get('limit') ?? 12)
+    const customer = url.searchParams.get('customer')?.toLowerCase()
+    if (customer !== undefined && customer.length < 3) return HttpResponse.json({ message: ['customer debe tener al menos 3 caracteres'] }, { status: 400 })
     const filtered = db
+      .filter((row) => !customer || row.customer.name.toLowerCase().includes(customer) || row.customer.email.toLowerCase().includes(customer))
       .filter((row) => !status || row.status === status)
       .filter((row) => !from || new Date(row.scheduledAt) >= new Date(from))
       .filter((row) => !to || new Date(row.scheduledAt) <= new Date(to))
@@ -307,6 +310,91 @@ describe('lista de citas', () => {
     expect(lastCall().searchParams.get('from')).toBe('2099-11-01T00:00:00-05:00')
     expect(lastCall().searchParams.get('to')).toBe('2099-11-10T23:59:59-05:00')
     await waitFor(() => expect(where()).toBe('/admin/citas?status=all&from=2099-11-01&to=2099-11-10'))
+  })
+
+  describe('búsqueda por cliente', () => {
+    const search = () => screen.getByRole('searchbox', { name: 'Buscar por cliente' })
+    const withCustomer = () => listCalls.filter((call) => call.searchParams.has('customer'))
+
+    it('espera a que se deje de escribir y pide el texto al servidor (nunca filtra en el navegador)', async () => {
+      const user = userEvent.setup()
+      renderCitas()
+      await screen.findByRole('list', { name: 'Citas' })
+      await user.type(search(), 'marta')
+      await waitFor(() => expect(lastCall().searchParams.get('customer')).toBe('marta'))
+      // Con pausa: ni "mar" ni "mart" llegaron al servidor, solo el texto final.
+      expect(withCustomer().map((call) => call.searchParams.get('customer'))).toEqual(['marta'])
+      expect(await screen.findByText('1 cita pendiente')).toBeInTheDocument()
+      expect(names()).toEqual(['Marta Ruiz'])
+    })
+
+    it('busca también por correo, sin importar espacios alrededor', async () => {
+      const user = userEvent.setup()
+      renderCitas()
+      await screen.findByRole('list', { name: 'Citas' })
+      await user.type(search(), '  luis@corr  ')
+      await waitFor(() => expect(lastCall().searchParams.get('customer')).toBe('luis@corr'))
+      await waitFor(() => expect(names()).toEqual(['Luis Gómez']))
+    })
+
+    it('con menos de 3 caracteres no consulta y avisa; con 3 sí', async () => {
+      const user = userEvent.setup()
+      renderCitas()
+      await screen.findByRole('list', { name: 'Citas' })
+      const before = listCalls.length
+      await user.type(search(), 'an')
+      expect(await screen.findByText('Escribe al menos 3 caracteres para buscar.')).toBeInTheDocument()
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      expect(listCalls.length).toBe(before)
+      await user.type(search(), 'a')
+      await waitFor(() => expect(lastCall().searchParams.get('customer')).toBe('ana'))
+      expect(screen.queryByText('Escribe al menos 3 caracteres para buscar.')).not.toBeInTheDocument()
+    })
+
+    it('solo espacios no cuenta como búsqueda', async () => {
+      const user = userEvent.setup()
+      renderCitas()
+      await screen.findByRole('list', { name: 'Citas' })
+      await user.type(search(), '     ')
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      expect(withCustomer()).toHaveLength(0)
+    })
+
+    it('el texto vive solo en el estado de la página: no está en la URL, el historial ni los storages', async () => {
+      const user = userEvent.setup()
+      renderCitas()
+      await screen.findByRole('list', { name: 'Citas' })
+      await user.type(search(), 'perez')
+      await waitFor(() => expect(lastCall().searchParams.get('customer')).toBe('perez'))
+      const leaked = JSON.stringify({ url: where(), state: screen.getByTestId('history-state').textContent, session: { ...sessionStorage }, local: { ...localStorage } })
+      expect(leaked).not.toContain('perez')
+      expect(where()).toBe('/admin/citas')
+    })
+
+    it('al cambiar el texto vuelve a la página 1 y se combina con los demás filtros', async () => {
+      db = Array.from({ length: 13 }, (_, i) => cita(i + 1, `Ana Prueba${i + 1}`))
+      const user = userEvent.setup()
+      renderCitas('/admin/citas?page=2')
+      await screen.findByRole('list', { name: 'Citas' })
+      expect(lastCall().searchParams.get('page')).toBe('2')
+      await user.type(search(), 'ana')
+      await waitFor(() => expect(lastCall().searchParams.get('customer')).toBe('ana'))
+      expect(lastCall().searchParams.get('page')).toBe('1')
+      expect(lastCall().searchParams.get('status')).toBe('pendiente')
+      expect(where()).toBe('/admin/citas')
+    })
+
+    it('sin resultados lo dice y "Limpiar filtros" también borra el texto', async () => {
+      const user = userEvent.setup()
+      renderCitas()
+      await screen.findByRole('list', { name: 'Citas' })
+      await user.type(search(), 'zzzz')
+      expect(await screen.findByText('No hay citas con estos filtros')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+      await waitFor(() => expect(names()).toEqual(['Ana Pérez', 'Luis Gómez', 'Marta Ruiz']))
+      expect(search()).toHaveValue('')
+      expect(lastCall().searchParams.has('customer')).toBe(false)
+    })
   })
 
   it('pagina de a 12 y pide la página elegida', async () => {

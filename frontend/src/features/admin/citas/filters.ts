@@ -50,12 +50,25 @@ export function toCitasSearchParams(filters: CitasFilters): URLSearchParams {
   return params
 }
 
-/** Parámetros de `GET /citas`: los días se envían como instantes de Bogotá (-05:00), de principio a fin del día. */
-export function toCitasApiParams(filters: CitasFilters): Record<string, string | number> {
+export const MIN_CUSTOMER_SEARCH = 3
+export const CUSTOMER_SEARCH_MAX = 120
+
+/** Texto de búsqueda listo para el servidor: sin espacios sobrantes, y vacío si aún no llega al mínimo. */
+export function customerTerm(text: string): string {
+  const term = text.trim()
+  return term.length >= MIN_CUSTOMER_SEARCH ? term : ''
+}
+
+/**
+ * Parámetros de `GET /citas`: los días se envían como instantes de Bogotá (-05:00), de principio a fin del día.
+ * `customer` (nombre o correo) NO forma parte de los filtros de la URL: es un dato personal y vive solo en el estado de la página.
+ */
+export function toCitasApiParams(filters: CitasFilters, customer = ''): Record<string, string | number> {
   const params: Record<string, string | number> = { page: filters.page, limit: CITAS_PAGE_SIZE }
   if (filters.status !== 'all') params.status = filters.status
   if (filters.from) params.from = `${filters.from}T00:00:00-05:00`
   if (filters.to) params.to = `${filters.to}T23:59:59-05:00`
+  if (customer) params.customer = customer
   return params
 }
 
