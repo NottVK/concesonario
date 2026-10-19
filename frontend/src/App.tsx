@@ -7,6 +7,7 @@ import { AdminLayout } from '@/features/admin/AdminLayout'
 import { CitasPage } from '@/features/admin/citas/CitasPage'
 import { ClientesPage } from '@/features/admin/clientes/ClientesPage'
 import { LoginPage } from '@/features/admin/LoginPage'
+import { RegistrarVentaPage } from '@/features/admin/ventas/RegistrarVentaPage'
 import { CatalogPage } from '@/features/catalog/CatalogPage'
 import { ComparePage } from '@/features/compare/ComparePage'
 import { CompareProvider } from '@/features/compare/CompareContext'
@@ -44,6 +45,7 @@ export default function App() {
                 <Route index element={<Navigate to="citas" replace />} />
                 <Route path="citas" element={<CitasPage />} />
                 <Route path="clientes" element={<ClientesPage />} />
+                <Route path="ventas/nueva" element={<RegistrarVentaPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Routes>

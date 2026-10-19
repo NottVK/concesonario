@@ -17,6 +17,9 @@ export type PublicAppointment = Schemas['PublicAppointmentDto']
 export type Appointment = Schemas['Appointment']
 export type Customer = Schemas['Customer']
 export type UpdateCustomerInput = Schemas['UpdateCustomerDto']
+export type Sale = Schemas['Sale']
+export type CreateSaleInput = Schemas['CreateSaleDto']
+export type PaymentMethod = CreateSaleInput['payment']
 export type Availability = Schemas['AvailabilityDto']
 
 export interface Paginated<T> {

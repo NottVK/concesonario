@@ -18,6 +18,7 @@ interface NavItem {
 export const ADMIN_NAV: NavItem[] = [
   { to: '/admin/citas', label: 'Citas', roles: ['admin', 'vendedor'] },
   { to: '/admin/clientes', label: 'Clientes', roles: ['admin', 'vendedor'] },
+  { to: '/admin/ventas/nueva', label: 'Registrar venta', roles: ['admin', 'vendedor'] },
 ]
 
 export function AdminLayout() {

@@ -26,10 +26,11 @@ interface SearchBoxProps {
   label: string
   value: string
   tooShort: boolean
+  placeholder?: string
   onChange: (value: string) => void
 }
 
-export function SearchBox({ id, label, value, tooShort, onChange }: SearchBoxProps) {
+export function SearchBox({ id, label, value, tooShort, placeholder = 'Nombre o correo', onChange }: SearchBoxProps) {
   const hintId = `${id}-hint`
   return (
     <div className="mb-4 max-w-md">
@@ -44,7 +45,7 @@ export function SearchBox({ id, label, value, tooShort, onChange }: SearchBoxPro
           role="searchbox"
           autoComplete="off"
           maxLength={SEARCH_MAX}
-          placeholder="Nombre o correo"
+          placeholder={placeholder}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           aria-describedby={tooShort ? hintId : undefined}

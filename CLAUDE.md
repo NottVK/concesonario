@@ -61,6 +61,7 @@ Mínimo 5 modelos reales por marca en `backend/src/database/seeds/` (año, preci
 - Errores con excepciones de Nest (`NotFoundException`, `BadRequestException`...) y mensajes claros; nunca `catch {}` vacío.
 - Dinero en `numeric(12,2)` en BD y como `string`/centavos en código, moneda COP.
 - Axios para llamadas HTTP (chatbot y frontend).
+- `frontend/src/api/schema.d.ts` solo se genera con `npm run api:types`; nunca se edita a mano (si cambia el contrato, se regenera).
 
 ## 6. Chatbot (el corazón)
 - Corre 100% local con Ollama: `OLLAMA_HOST=http://localhost:11434`.

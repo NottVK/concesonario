@@ -84,6 +84,24 @@ describe('Clientes y citas (e2e)', () => {
   });
 
   describe('citas: agendar (público)', () => {
+    it('agendar crea al cliente en versión 1 y, si ya existía, NO lo modifica ni toca su versión (así una edición en curso no queda obsoleta)', async () => {
+      const customers = ctx.dataSource.getRepository(Customer);
+      const veraBody = { name: 'Vera Rojas', email: 'vera@correo.co', phone: '3001112233' };
+      await book(bookBody(carB.id, bogotaSlot(WEDNESDAY, 15), veraBody)).expect(201);
+      const created = await customers.findOneByOrFail({ email: veraBody.email });
+      expect(created.version).toBe(1);
+
+      // Mismo correo con otros datos: se reutiliza el cliente tal cual.
+      await book(bookBody(carA.id, bogotaSlot(WEDNESDAY, 16), { name: 'Otro Nombre', email: 'VERA@correo.co', phone: '3009998877' })).expect(201);
+      const reused = await customers.findOneByOrFail({ email: veraBody.email });
+      expect(reused).toMatchObject({ id: created.id, name: 'Vera Rojas', phone: '3001112233', version: 1 });
+      expect(await customers.countBy({ email: veraBody.email })).toBe(1);
+
+      // Una edición que leyó la versión 1 antes de agendar sigue siendo válida.
+      await request(ctx.server)
+        .put(`/api/clientes/${created.id}`).set(auth(sellerToken)).send({ ...veraBody, name: 'Vera R. Rojas', version: 1 }).expect(200);
+    });
+
     it('agenda sin sesión, crea al cliente y no filtra sus datos', async () => {
       const res = await book(bookBody(carA.id, bogotaSlot(TUESDAY, 10))).expect(201);
       expect(res.body).toMatchObject({ vehicleId: carA.id, status: 'pendiente' });
