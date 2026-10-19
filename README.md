@@ -20,6 +20,17 @@ npm run seed                    # carga marcas, vehículos y usuarios demo
 npm run start:dev               # API en http://localhost:8000/api
 ```
 
+## Recrear la base de desarrollo (cuando cambia el seed)
+El seed es idempotente: en una base que ya tiene vehículos **actualiza** datos de catálogo pero **no renumera los ids**. Por eso un cambio en el orden de inserción (por ejemplo el intercalado de marcas, que reparte entre marcas los "más recientes" que muestra la Home) solo se ve en una base nueva:
+```bash
+docker compose down -v          # ¡borra el volumen pgdata: TODA la base de desarrollo!
+docker compose up -d
+cd backend
+npm run migration:run
+npm run seed
+```
+`down -v` también elimina la base de pruebas (`concesionario_test`); se vuelve a crear sola al correr `npm run test:e2e`. Si tienes datos que quieres conservar, no lo hagas.
+
 ## Comandos del backend
 | Comando | Qué hace |
 |---|---|
@@ -27,7 +38,8 @@ npm run start:dev               # API en http://localhost:8000/api
 | `npm run test` | Pruebas unitarias (Vitest) |
 | `npm run migration:run` / `migration:revert` | Aplica / revierte migraciones |
 | `npm run migration:generate` | Genera una migración a partir de las entidades |
-| `npm run seed` | Carga datos de ejemplo (idempotente) |
+| `npm run seed` | Carga datos de ejemplo (idempotente; ver abajo cómo recrear la base) |
+| `npm run clean` | Borra `dist/` con `rimraf` (funciona igual en Windows, macOS y Linux) |
 
 Usuarios demo: `admin@automax.co` y `vendedor@automax.co`, contraseña = `SEED_DEMO_PASSWORD` del `.env`.
 
@@ -42,6 +54,7 @@ npm run dev          # http://localhost:5173 (el proxy envía /api a http://loca
 | `npm run api:types` | Regenera `src/api/schema.d.ts` desde `/api/docs-json` (la API debe estar encendida). Ejecútalo cada vez que cambie el contrato. |
 | `npm run test` | Pruebas (Vitest + Testing Library) |
 | `npm run build` | Typecheck y build de producción |
+| `npm run clean` | Borra `dist/` y la caché de TypeScript con `rimraf` |
 
 Si la API corre en otro puerto, define `VITE_API_TARGET` (ver `frontend/.env.example`).
 Mientras no haya fotos reales, los autos sin `.webp` en `frontend/public/autos/` muestran `placeholder.svg`.

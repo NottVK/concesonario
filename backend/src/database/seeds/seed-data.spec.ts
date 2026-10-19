@@ -1,5 +1,5 @@
 import { BRANDS, VEHICLES } from './seed-data.js';
-import { describeVehicle, slugify } from './seed.service.js';
+import { describeVehicle, interleavedVehicleSeeds, slugify } from './seed.service.js';
 
 const EXPECTED_BRANDS = [
   'Toyota', 'Chevrolet', 'Mazda', 'Renault', 'Kia',
@@ -47,3 +47,31 @@ describe('helpers del seed', () => {
     expect(describeVehicle('Toyota', row)).toContain('Toyota Corolla Cross');
   });
 });
+
+describe('orden de inserción intercalado', () => {
+  const ordered = interleavedVehicleSeeds();
+  const total = Object.values(VEHICLES).reduce((sum, rows) => sum + rows.length, 0);
+
+  it('inserta todos los vehículos, sin perder ni repetir ninguno', () => {
+    expect(ordered).toHaveLength(total);
+    const keys = ordered.map(({ brandName, row }) => `${brandName}|${row[0]}|${row[2]}|${row[1]}`);
+    expect(new Set(keys).size).toBe(total);
+  });
+
+  it('la primera ronda trae un vehículo de cada marca, en el orden de BRANDS', () => {
+    expect(ordered.slice(0, BRANDS.length).map((item) => item.brandName)).toEqual(BRANDS.map((b) => b.name));
+  });
+
+  it('los 7 últimos (los "más recientes" de la Home) son de 7 marcas distintas', () => {
+    const lastSeven = ordered.slice(-7).map((item) => item.brandName);
+    expect(new Set(lastSeven).size).toBe(7);
+  });
+
+  it('conserva el orden relativo de cada marca', () => {
+    for (const { name } of BRANDS) {
+      const models = ordered.filter((item) => item.brandName === name).map((item) => item.row[0]);
+      expect(models).toEqual(VEHICLES[name].map((row) => row[0]));
+    }
+  });
+});
+

@@ -65,12 +65,31 @@ async function seedBrands(ds: DataSource): Promise<Brand[]> {
   return repo.find();
 }
 
+/**
+ * Orden de inserción de los vehículos: una ronda por marca (el 1.º de cada marca, luego el 2.º…),
+ * en el orden de BRANDS. Así los ids, y por tanto "los más recientes" del catálogo, quedan repartidos
+ * entre marcas en lugar de agrupados (la Home muestra los más recientes como destacados).
+ */
+export function interleavedVehicleSeeds(): { brandName: string; row: VehicleRow }[] {
+  const groups = BRANDS.map(({ name }) => (VEHICLES[name] ?? []).map((row) => ({ brandName: name, row })));
+  const longest = Math.max(0, ...groups.map((group) => group.length));
+  const ordered: { brandName: string; row: VehicleRow }[] = [];
+  for (let round = 0; round < longest; round++) {
+    for (const group of groups) if (round < group.length) ordered.push(group[round]);
+  }
+  return ordered;
+}
+
 async function seedVehicles(ds: DataSource, brands: Brand[]): Promise<void> {
-  const rows = brands.flatMap((brand) =>
-    (VEHICLES[brand.name] ?? []).map((row) => toVehicle(brand, row)),
-  );
+  const byName = new Map(brands.map((brand) => [brand.name, brand]));
+  const rows = interleavedVehicleSeeds().map(({ brandName, row }) => {
+    const brand = byName.get(brandName);
+    if (!brand) throw new Error(`Falta la marca ${brandName} en la base`);
+    return toVehicle(brand, row);
+  });
   // Al repetir el seed solo se refrescan datos de catálogo; precio, km y estado
   // no se tocan para no revivir vehículos vendidos ni pisar cambios comerciales.
+  // Tampoco se renumeran los ids: el orden intercalado solo aplica a una base recién creada.
   await ds
     .createQueryBuilder()
     .insert()

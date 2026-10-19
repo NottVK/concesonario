@@ -53,6 +53,12 @@ Corregido: el seed ya no pisa `precio`, `km` ni `estado` al repetirse; los usuar
 8. **Pruebas que se verificaron rompiendo el código a propósito:** sin la zona horaria, sin excluir canceladas, sin `@Roles` y sin vendidos en el listado admin; en los cuatro casos fallan. La prueba del 429 fija `THROTTLE_PUBLIC_LIMIT=3` antes de cargar la app (el límite se lee al declarar el controlador) y está en su propio archivo.
 9. **Pruebas del frontend:** `asyncUtilTimeout` sube a 4 s en `setup.ts`; la primera prueba de cada archivo paga el arranque en frío y fallaba con el 1 s por defecto.
 
+## 2026-10-19 — Seed intercalado y scripts de limpieza
+
+1. **Seed intercalado por marca:** `interleavedVehicleSeeds()` inserta los vehículos en rondas (el 1.º de cada marca, luego el 2.º…) en el orden de `BRANDS`. Los ids, y con ellos "los más recientes" (`sort=newest` ordena por id), quedan repartidos entre marcas; los 7 últimos son de 7 marcas distintas (verificado en una base nueva: ids 60 a 53 son BMW, Volkswagen, Nissan, Ford, Hyundai, Kia, Renault y Mazda). Una prueba unitaria lo fija sin necesidad de BD.
+2. **Hay que recrear la base para verlo:** el seed hace `upsert` y no renumera ids, así que en una base ya sembrada el orden no cambia. El procedimiento (`docker compose down -v`, `up -d`, `migration:run`, `seed`) está en el README, con la advertencia de que borra toda la base de desarrollo y también la de pruebas.
+3. **`rimraf` para limpiar:** ningún script del repo usaba `rm -rf`; la única mención es la regla de bloqueo `Bash(rm -rf *)` de `.claude/settings.json`, que se deja como está. Se agregaron `npm run clean` en backend y frontend con `rimraf` (multiplataforma y permitido por la configuración). Es una dependencia de desarrollo pequeña.
+
 ## Revisión cruzada con Codex (Fase 2)
 Codex no pudo leer el repositorio (su `exec_command` está bloqueado por política en este entorno), así que se le pasó el diff completo en el prompt (`--prompt-file`). Cuando se repita la revisión, hay que hacerlo igual.
 
