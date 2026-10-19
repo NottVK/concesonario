@@ -10,7 +10,9 @@ import type { SelectQueryBuilder } from 'typeorm';
 import { paginate } from '../common/pagination.js';
 import type { Paginated } from '../common/pagination.js';
 import { escapeLike } from '../common/sql.js';
+import { Appointment } from '../citas/entities/appointment.entity.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
+import { Sale } from '../ventas/entities/sale.entity.js';
 import type { VehicleDto } from './dto/vehicle.dto.js';
 import type { VehicleFilters, VehicleSort } from './dto/vehicle-query.dto.js';
 import { Vehicle, VehicleStatus } from './entities/vehicle.entity.js';
@@ -84,8 +86,22 @@ export class VehiculosService {
     return this.findOne(id);
   }
 
+  /** Un vehículo con ventas o citas (aunque estén canceladas) es parte del historial y no se borra. */
   async remove(id: number): Promise<void> {
     const vehicle = await this.findOne(id);
+    const [sales, appointments] = await Promise.all([
+      this.vehicles.manager.countBy(Sale, { vehicleId: id }),
+      this.vehicles.manager.countBy(Appointment, { vehicleId: id }),
+    ]);
+    if (sales > 0 || appointments > 0) {
+      const parts = [
+        sales > 0 ? 'una venta registrada' : null,
+        appointments > 0 ? `${appointments} cita(s) (incluidas las canceladas)` : null,
+      ].filter(Boolean);
+      throw new ConflictException(
+        `No se puede borrar ${vehicle.model}: tiene ${parts.join(' y ')}. Los vehículos con historial no se borran.`,
+      );
+    }
     await this.vehicles.remove(vehicle);
   }
 

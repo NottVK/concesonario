@@ -281,12 +281,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listar ventas, las más recientes primero */
+        /** Listar ventas, las más recientes primero (admin) */
         get: operations["VentasController_findAll"];
         put?: never;
         /**
          * Registrar una venta (vendedor, admin)
-         * @description En una sola transacción bloquea el vehículo, registra la venta, lo marca vendido y cancela sus citas abiertas. El vendedor sale del token.
+         * @description En una sola transacción bloquea el vehículo, registra la venta, lo marca vendido y cancela sus citas abiertas. Quien la registra sale del token (nunca del cuerpo) y queda guardado en la venta. El precio final debe ser mayor que cero y no superar $ 5.000.000.000.
          */
         post: operations["VentasController_create"];
         delete?: never;
@@ -302,7 +302,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Detalle de una venta */
+        /** Detalle de una venta (admin) */
         get: operations["VentasController_findOne"];
         put?: never;
         post?: never;
@@ -653,7 +653,7 @@ export interface components {
             /** @example 1 */
             customerId: number;
             /**
-             * @description Precio final en COP como texto, hasta 2 decimales, mayor que cero
+             * @description Precio final en COP como texto, hasta 2 decimales, mayor que cero y no superior a 5.000.000.000
              * @example 115000000.50
              */
             finalPrice: string;
@@ -1528,6 +1528,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Sale"];
                 };
+            };
+            /** @description Precio final inválido (cero, negativo, con más de 2 decimales o sobre el tope) o campos extra */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description El vehículo o el cliente no existen */
             404: {

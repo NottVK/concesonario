@@ -8,6 +8,7 @@ import type { Paginated, PaginationDto } from '../common/pagination.js';
 import { Vehicle, VehicleStatus } from '../vehiculos/entities/vehicle.entity.js';
 import type { CreateSaleDto } from './dto/create-sale.dto.js';
 import { Sale } from './entities/sale.entity.js';
+import { assertFinalPrice } from './sale-rules.js';
 
 const SALE_RELATIONS = { vehicle: { brand: true }, customer: true, seller: true } as const;
 
@@ -24,6 +25,8 @@ export class VentasService {
    * ve el estado `vendido` y recibe 409. El índice único de ventas.vehiculo_id es el respaldo.
    */
   async create(dto: CreateSaleDto, sellerId: number): Promise<Sale> {
+    // Antes de abrir la transacción: un precio inválido no debe bloquear el vehículo ni tocar la BD.
+    assertFinalPrice(dto.finalPrice);
     const saleId = await this.dataSource.transaction(async (manager) => {
       await this.lockAvailableVehicle(manager, dto.vehicleId);
       await this.assertCustomerExists(manager, dto.customerId);

@@ -22,7 +22,7 @@ export class CreateSaleDto {
   customerId: number;
 
   /** Precio final pactado en COP, como texto (hasta 2 decimales), mayor que cero. */
-  @ApiProperty({ example: '115000000.50', description: 'Precio final en COP como texto, hasta 2 decimales, mayor que cero' })
+  @ApiProperty({ example: '115000000.50', description: 'Precio final en COP como texto, hasta 2 decimales, mayor que cero y no superior a 5.000.000.000' })
   @Matches(POSITIVE_MONEY_REGEX, { message: 'finalPrice debe ser un monto en COP mayor que cero' })
   finalPrice: string;
 

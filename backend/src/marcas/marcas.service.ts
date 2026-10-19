@@ -42,7 +42,10 @@ export class MarcasService {
     const brand = await this.findOne(id);
     const inUse = await this.vehicles.countBy({ brandId: id });
     if (inUse > 0) {
-      throw new ConflictException(`No se puede borrar ${brand.name}: tiene ${inUse} vehículo(s)`);
+      throw new ConflictException(
+        `No se puede borrar la marca ${brand.name}: tiene ${inUse} vehículo(s) en el inventario. ` +
+          'Bórralos o pásalos a otra marca primero (los que tienen ventas o citas no se pueden borrar).',
+      );
     }
     await this.brands.remove(brand);
   }

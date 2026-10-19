@@ -22,20 +22,6 @@ const GARBAGE = [
 /** Valores que nunca equivalen a un id existente (1..n): se usan en rutas que modifican o borran. */
 const SAFE_IDS = ['99999999999999999999', '9223372036854775808', '2147483648', '4294967296', 'abc', '-1', '0', 'NaN', 'Infinity', '%00', '１２３', "9'--", ' ', '9'.repeat(400)];
 
-const PUBLIC_QUERY: [string, string[]][] = [
-  ['/api/vehiculos', ['page', 'limit', 'priceMin', 'priceMax', 'yearMin', 'yearMax', 'brandId', 'model', 'brand', 'fuel', 'transmission', 'status', 'sort']],
-  ['/api/vehiculos/comparar', ['ids']],
-];
-const ADMIN_QUERY: [string, string[]][] = [
-  ['/api/admin/vehiculos', ['page', 'limit', 'priceMin', 'priceMax', 'yearMin', 'yearMax', 'brandId', 'model', 'brand', 'fuel', 'transmission', 'status', 'sort']],
-  ['/api/admin/metricas/ventas-por-mes', ['months']],
-];
-const STAFF_QUERY: [string, string[]][] = [
-  ['/api/clientes', ['page', 'limit', 'q']],
-  ['/api/citas', ['page', 'limit', 'status', 'vehicleId', 'from', 'to']],
-  ['/api/ventas', ['page', 'limit']],
-];
-
 describe('Entradas extremas: nunca un 5xx (e2e)', () => {
   let ctx: TestContext;
   let adminToken: string;
@@ -44,6 +30,22 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
   let brandId: number;
   let customerId: number;
   const failures: string[] = [];
+  let appointmentId: number;
+  interface DocParam { name: string; in: 'query' | 'path' | 'header' }
+  interface DocOp { parameters?: DocParam[]; security?: unknown[]; requestBody?: unknown }
+  let doc: { paths: Record<string, Record<string, DocOp>> };
+  const operations = (): { method: string; path: string; op: DocOp }[] =>
+    Object.entries(doc.paths).flatMap(([path, methods]) => Object.entries(methods).map(([m, op]) => ({ method: m.toUpperCase(), path, op })));
+  /** Un id que sí existe, según la ruta, para no frenar la prueba en un 404 antes de llegar al parámetro. */
+  const realId = (path: string): number =>
+    path.includes('/citas') ? appointmentId : path.includes('/clientes') ? customerId : path.includes('/marcas') ? brandId : vehicleId;
+  const bodyForPathFuzz = (method: string, path: string): unknown => {
+    if (path.includes('/citas/{id}/estado')) return { status: 'cancelada' };
+    if (path.includes('/vehiculos/{id}')) return validVehicle();
+    if (path.includes('/marcas/{id}')) return { name: 'X', country: 'Y' };
+    if (path.includes('/clientes/{id}')) return { name: 'Ana', email: 'a@b.co' };
+    return method === 'POST' ? {} : undefined;
+  };
 
   /** `tolerateReset`: Node corta la conexión (cabeceras de más de 16 KB); eso no es un 500 de la aplicación. */
   const check = async (label: string, send: () => request.Test, tolerateReset = false): Promise<void> => {
@@ -82,7 +84,9 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
     const customer = await customers.save(customers.create({ name: 'Ana', email: 'ana@correo.co', phone: null }));
     customerId = customer.id;
     const appointments = ctx.dataSource.getRepository(Appointment);
-    await appointments.save(appointments.create({ vehicleId, customerId, scheduledAt: new Date(bogotaSlot(TUESDAY, 10)), durationMin: 60 }));
+    const appointment = await appointments.save(appointments.create({ vehicleId, customerId, scheduledAt: new Date(bogotaSlot(TUESDAY, 10)), durationMin: 60 }));
+    appointmentId = appointment.id;
+    doc = (await request(ctx.server).get('/api/docs-json').expect(200)).body;
   });
 
   afterAll(async () => {
@@ -90,29 +94,41 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
   });
 
   describe('parámetros de consulta', () => {
-    const groups: [string, string, [string, string[]][]][] = [
-      ['públicas', '', PUBLIC_QUERY],
-      ['admin', 'admin', ADMIN_QUERY],
-      ['de personal', 'seller', STAFF_QUERY],
-    ];
-    it.each(groups)('rutas %s con cada parámetro lleno de basura', async (_name, role, targets) => {
-      const token = role === 'admin' ? adminToken : role === 'seller' ? sellerToken : undefined;
+    // Parámetros de consulta y de ruta de TODOS los endpoints, tomados de Swagger: un endpoint nuevo entra solo.
+    it('cada parámetro de consulta y de ruta documentado, lleno de basura', async () => {
       const tasks: (() => Promise<void>)[] = [];
-      for (const [path, params] of targets) {
-        for (const param of params) {
+      for (const { method, path, op } of operations()) {
+        const token = op.security ? adminToken : undefined;
+        const params = op.parameters ?? [];
+        const withReal = (template: string): string => template.replace(/\{\w+\}/g, String(realId(path)));
+        const send = (verb: string, url: string): request.Test => {
+          const req = (request(ctx.server) as unknown as Record<string, (u: string) => request.Test>)[verb](url);
+          if (token) req.set(auth(token));
+          return ['post', 'put', 'patch'].includes(verb) ? req.send(bodyForPathFuzz(method, path) as object) : req;
+        };
+        for (const param of params.filter((x) => x.in === 'query')) {
           for (const value of GARBAGE) {
-            const url = `${path}?${param}=${encodeURIComponent(value)}`;
-            tasks.push(() => check(`GET ${url.slice(0, 90)}`, () => (token ? request(ctx.server).get(url).set(auth(token)) : request(ctx.server).get(url))));
+            const url = `${withReal(path)}?${param.name}=${encodeURIComponent(value)}`;
+            tasks.push(() => check(`${method} ${url.slice(0, 90)}`, () => send(method.toLowerCase(), url)));
           }
-          // Formas raras de la misma clave: repetida, con corchetes, anidada.
-          for (const odd of [`${param}=1&${param}=2`, `${param}[]=1`, `${param}[a]=1`, `${param}[a][b]=1`, `${param}=`]) {
-            tasks.push(() => check(`GET ${path}?${odd}`, () => (token ? request(ctx.server).get(`${path}?${odd}`).set(auth(token)) : request(ctx.server).get(`${path}?${odd}`))));
+          for (const odd of [`${param.name}=1&${param.name}=2`, `${param.name}[]=1`, `${param.name}[a]=1`, `${param.name}[a][b]=1`, `${param.name}=`]) {
+            tasks.push(() => check(`${method} ${withReal(path)}?${odd}`, () => send(method.toLowerCase(), `${withReal(path)}?${odd}`)));
+          }
+        }
+        for (const param of params.filter((x) => x.in === 'path')) {
+          // En rutas que modifican o borran solo valores que nunca equivalen a un id existente.
+          const values = method === 'GET' ? GARBAGE : SAFE_IDS;
+          for (const value of values) {
+            const url = path.replace(`{${param.name}}`, encodeURIComponent(value)).replace(/\{\w+\}/g, String(realId(path)));
+            tasks.push(() => check(`${method} ${url.slice(0, 90)}`, () => send(method.toLowerCase(), url)));
           }
         }
       }
+      expect(tasks.length, 'Swagger no devolvió operaciones con parámetros').toBeGreaterThan(500);
       await runAll(tasks);
       expectNoFailures();
-    }, 180_000);
+    }, 240_000);
+
 
     it('comparar: pares de ids con basura', async () => {
       const tasks = GARBAGE.flatMap((value) => [`${vehicleId},${value}`, `${value},${vehicleId}`, `${value},${value}`, `${vehicleId},${vehicleId},${value}`].map((ids) => () => {
@@ -139,37 +155,6 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       const dates = ['0000-01-01T00:00:00Z', '9999-12-31T23:59:59Z', '275760-09-13T00:00:00.000Z', '-271821-04-20T00:00:00Z', '2026-02-30T00:00:00Z'];
       const tasks = dates.flatMap((from) => dates.map((to) => () =>
         check(`GET /api/citas?from=${from}&to=${to}`, () => request(ctx.server).get(`/api/citas?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).set(auth(sellerToken)))));
-      await runAll(tasks);
-      expectNoFailures();
-    });
-  });
-
-  describe('ids en la ruta', () => {
-    it('GET con cualquier basura como id', async () => {
-      const routes = [
-        ['/api/vehiculos/:id', undefined], ['/api/marcas/:id', undefined], ['/api/vehiculos/:id/disponibilidad', undefined],
-        ['/api/clientes/:id', sellerToken], ['/api/citas/:id', sellerToken], ['/api/ventas/:id', sellerToken],
-      ] as const;
-      const tasks = routes.flatMap(([template, token]) => GARBAGE.map((value) => () => {
-        const url = template.replace(':id', encodeURIComponent(value));
-        return check(`GET ${url.slice(0, 90)}`, () => (token ? request(ctx.server).get(url).set(auth(token)) : request(ctx.server).get(url)));
-      }));
-      await runAll(tasks);
-      expectNoFailures();
-    });
-
-    it('PATCH, PUT y DELETE con ids que nunca existen', async () => {
-      const tasks = SAFE_IDS.flatMap((value) => {
-        const id = encodeURIComponent(value);
-        return [
-          () => check(`PATCH /api/citas/${value.slice(0, 20)}/estado`, () => request(ctx.server).patch(`/api/citas/${id}/estado`).set(auth(sellerToken)).send({ status: 'cancelada' })),
-          () => check(`PUT /api/clientes/${value.slice(0, 20)}`, () => request(ctx.server).put(`/api/clientes/${id}`).set(auth(sellerToken)).send({ name: 'Ana', email: 'a@b.co' })),
-          () => check(`PUT /api/marcas/${value.slice(0, 20)}`, () => request(ctx.server).put(`/api/marcas/${id}`).set(auth(adminToken)).send({ name: 'X', country: 'Y' })),
-          () => check(`DELETE /api/marcas/${value.slice(0, 20)}`, () => request(ctx.server).delete(`/api/marcas/${id}`).set(auth(adminToken))),
-          () => check(`DELETE /api/vehiculos/${value.slice(0, 20)}`, () => request(ctx.server).delete(`/api/vehiculos/${id}`).set(auth(adminToken))),
-          () => check(`PUT /api/vehiculos/${value.slice(0, 20)}`, () => request(ctx.server).put(`/api/vehiculos/${id}`).set(auth(adminToken)).send(validVehicle())),
-        ];
-      });
       await runAll(tasks);
       expectNoFailures();
     });
@@ -225,6 +210,41 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       await runAll(tasks);
       expectNoFailures();
     }, 180_000);
+
+    it('PUT de vehículo, marca y cliente y PATCH de cita (sobre filas reales)', async () => {
+      const tasks = [
+        ...bodyTasks('PUT /vehiculos/:id', validVehicle(), ['brandId', 'model', 'year', 'version', 'price', 'mileage', 'fuel', 'transmission', 'color', 'status', 'description', 'images'],
+          (body) => request(ctx.server).put(`/api/vehiculos/${vehicleId}`).set(auth(adminToken)).send(body as object)),
+        ...bodyTasks('PUT /marcas/:id', { name: 'Marca ' + Date.now(), country: 'País' }, ['name', 'country', 'logoUrl'],
+          (body) => request(ctx.server).put(`/api/marcas/${brandId}`).set(auth(adminToken)).send(body as object)),
+        ...bodyTasks('PUT /clientes/:id', { name: 'Ana', email: 'ana@correo.co', phone: '3001234567' }, ['name', 'email', 'phone'],
+          (body) => request(ctx.server).put(`/api/clientes/${customerId}`).set(auth(sellerToken)).send(body as object)),
+        ...bodyTasks('PATCH /citas/:id/estado', { status: 'confirmada' }, ['status'],
+          (body) => request(ctx.server).patch(`/api/citas/${appointmentId}/estado`).set(auth(sellerToken)).send(body as object)),
+      ];
+      await runAll(tasks);
+      expectNoFailures();
+    }, 180_000);
+
+    it('POST /auth/login (limitado a 5 por minuto: pasado el límite responde 429, que tampoco es un 5xx)', async () => {
+      const tasks = bodyTasks('POST /auth/login', { email: 'x@y.co', password: 'una-clave-valida' }, ['email', 'password'],
+        (body) => request(ctx.server).post('/api/auth/login').send(body as object), GARBAGE.slice(0, 6));
+      await runAll(tasks, 5);
+      expectNoFailures();
+    }, 120_000);
+
+    // Si se agrega un endpoint con cuerpo, esta prueba falla hasta que se añada al fuzzing de cuerpos de arriba.
+    it('todo endpoint con cuerpo está cubierto por el fuzzing de cuerpos', () => {
+      const covered = new Set([
+        'POST /api/citas', 'POST /api/financiacion/simular', 'POST /api/clientes', 'POST /api/vehiculos', 'POST /api/marcas',
+        'POST /api/ventas', 'POST /api/auth/login', 'PUT /api/vehiculos/{id}', 'PUT /api/marcas/{id}', 'PUT /api/clientes/{id}',
+        'PATCH /api/citas/{id}/estado',
+      ]);
+      const withBody = operations().filter(({ op }) => op.requestBody).map(({ method, path }) => `${method} ${path}`);
+      const missing = withBody.filter((key) => !covered.has(key));
+      expect(missing, `Endpoints con cuerpo sin fuzzing (agrégalos a esta prueba):\n${missing.join('\n')}`).toEqual([]);
+      expect(withBody.length).toBeGreaterThanOrEqual(covered.size);
+    });
 
     it('POST /ventas (vendedor)', async () => {
       const base = { vehicleId, customerId, finalPrice: '90000000', payment: 'contado' };
