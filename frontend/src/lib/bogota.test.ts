@@ -6,6 +6,9 @@ import {
   buildCalendar,
   buildScheduledAt,
   dayBlock,
+  availabilityRange,
+  isSlotBusy,
+  toBusyIntervals,
   formatLongDate,
   formatTime,
   isSlotPast,
@@ -91,5 +94,54 @@ describe('calendario', () => {
   it('marca el día 1 de cada mes para mostrar su nombre', () => {
     expect(find('2026-12-01')?.firstOfMonth).toBe(true)
     expect(find('2026-11-10')?.firstOfMonth).toBe(false)
+  })
+})
+
+describe('franjas ocupadas', () => {
+  // Viernes 6 de noviembre, 10:00 a 11:00 en Bogotá.
+  const busy = toBusyIntervals([{ startsAt: '2026-11-06T15:00:00.000Z', endsAt: '2026-11-06T16:00:00.000Z' }])
+
+  it.each(['America/Bogota', 'Asia/Tokyo', 'Pacific/Kiritimati'])('bloquea justo su hora con el navegador en %s', (zone) => {
+    process.env.TZ = zone
+    expect(isSlotBusy('2026-11-06', 10, busy)).toBe(true)
+    expect(isSlotBusy('2026-11-06', 9, busy)).toBe(false)
+    expect(isSlotBusy('2026-11-06', 11, busy)).toBe(false)
+    expect(isSlotBusy('2026-11-07', 10, busy)).toBe(false)
+  })
+
+  it('una franja desfasada bloquea las dos horas que cruza, y los bordes exactos no cuentan', () => {
+    const shifted = toBusyIntervals([{ startsAt: '2026-11-06T15:30:00.000Z', endsAt: '2026-11-06T16:30:00.000Z' }])
+    expect(isSlotBusy('2026-11-06', 10, shifted)).toBe(true)
+    expect(isSlotBusy('2026-11-06', 11, shifted)).toBe(true)
+    expect(isSlotBusy('2026-11-06', 9, shifted)).toBe(false)
+    expect(isSlotBusy('2026-11-06', 12, shifted)).toBe(false)
+  })
+
+  it('un día queda "full" solo cuando no queda ninguna hora libre ni futura', () => {
+    expect(dayBlock('2026-11-06', NOW, busy)).toBeNull()
+    const all = toBusyIntervals([{ startsAt: '2026-11-06T13:00:00.000Z', endsAt: '2026-11-06T23:00:00.000Z' }])
+    expect(dayBlock('2026-11-06', NOW, all)).toBe('full')
+    // Hoy, con lo que queda libre ya reservado y lo anterior pasado: también está lleno.
+    const rest = toBusyIntervals([{ startsAt: '2026-11-04T16:00:00.000Z', endsAt: '2026-11-04T23:00:00.000Z' }])
+    expect(dayBlock('2026-11-04', NOW, rest)).toBe('full')
+    // El domingo y el pasado conservan su motivo.
+    expect(dayBlock('2026-11-08', NOW, all)).toBe('sunday')
+    expect(dayBlock('2026-11-03', NOW, all)).toBe('past')
+  })
+
+  it('el calendario marca los días llenos', () => {
+    const all = toBusyIntervals([{ startsAt: '2026-11-06T13:00:00.000Z', endsAt: '2026-11-06T23:00:00.000Z' }])
+    const days = buildCalendar(NOW, undefined, all).flat()
+    expect(days.find((d) => d.date === '2026-11-06')?.block).toBe('full')
+    expect(days.find((d) => d.date === '2026-11-05')?.block).toBeNull()
+  })
+
+  it.each(['America/Bogota', 'Asia/Tokyo', 'America/Los_Angeles'])('el rango pedido a la API cubre el calendario con -05:00 (%s)', (zone) => {
+    process.env.TZ = zone
+    const range = availabilityRange(NOW)
+    expect(range).toEqual({ from: '2026-11-02T00:00:00-05:00', to: '2026-12-07T00:00:00-05:00' })
+    const days = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 86_400_000
+    expect(days).toBe(35)
+    expect(days).toBeLessThanOrEqual(62)
   })
 })

@@ -2,6 +2,7 @@ import { queryOptions } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api } from './client'
 import type {
+  Availability,
   Brand,
   CreateAppointmentInput,
   FinancingSimulation,
@@ -39,3 +40,14 @@ export async function simulateFinancing(input: SimulateFinancingInput): Promise<
 export async function createAppointment(input: CreateAppointmentInput): Promise<PublicAppointment> {
   return (await api.post<PublicAppointment>('/citas', input)).data
 }
+
+/** Franjas ya reservadas de un vehículo en un rango (ISO 8601 con desfase). */
+export const availabilityQuery = (vehicleId: number, from: string, to: string) =>
+  queryOptions({
+    queryKey: ['availability', vehicleId, from, to],
+    queryFn: async () => (await api.get<Availability>(`/vehiculos/${vehicleId}/disponibilidad`, { params: { from, to } })).data,
+    // Siempre fresca al abrir el formulario, y sin reintentos: si falla, el formulario sigue siendo usable.
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: true,
+  })

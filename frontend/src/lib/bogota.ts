@@ -61,12 +61,30 @@ export function isSlotPast(date: string, hour: number, now: Date = new Date()): 
   return date === today.date && hour * 60 <= today.minutes
 }
 
-export type DayBlock = 'past' | 'sunday' | null
+/** Franja ya reservada, en milisegundos desde la época (así no depende de ninguna zona horaria). */
+export interface BusyInterval {
+  start: number
+  end: number
+}
+
+export function toBusyIntervals(slots: readonly { startsAt: string; endsAt: string }[]): BusyInterval[] {
+  return slots.map((slot) => ({ start: new Date(slot.startsAt).getTime(), end: new Date(slot.endsAt).getTime() }))
+}
+
+/** Una visita de 60 min que empiece a esa hora se cruza con alguna franja reservada (aunque esté desfasada). */
+export function isSlotBusy(date: string, hour: number, busy: readonly BusyInterval[]): boolean {
+  const start = new Date(buildScheduledAt(date, hour)).getTime()
+  const end = start + VISIT_MINUTES * 60_000
+  return busy.some((interval) => start < interval.end && end > interval.start)
+}
+
+export type DayBlock = 'past' | 'sunday' | 'full' | null
 
 /** Motivo por el que un día no se puede elegir, o null si tiene al menos una hora libre. */
-export function dayBlock(date: string, now: Date = new Date()): DayBlock {
+export function dayBlock(date: string, now: Date = new Date(), busy: readonly BusyInterval[] = []): DayBlock {
   if (weekdayOf(date) === SUNDAY) return 'sunday'
-  return SLOT_HOURS.every((hour) => isSlotPast(date, hour, now)) ? 'past' : null
+  if (SLOT_HOURS.every((hour) => isSlotPast(date, hour, now))) return 'past'
+  return SLOT_HOURS.every((hour) => isSlotPast(date, hour, now) || isSlotBusy(date, hour, busy)) ? 'full' : null
 }
 
 export interface CalendarDay {
@@ -77,18 +95,32 @@ export interface CalendarDay {
   block: DayBlock
 }
 
-/** Semanas de lunes a domingo desde el lunes de la semana actual, con los días ya marcados. */
-export function buildCalendar(now: Date = new Date(), weeks: number = BOOKING_WEEKS): CalendarDay[][] {
+/** Lunes de la semana actual en Bogotá: primer día que muestra el calendario. */
+function calendarStart(now: Date): string {
   const today = bogotaNow(now).date
-  const mondayOffset = (weekdayOf(today) + 6) % 7
-  const start = addDays(today, -mondayOffset)
+  return addDays(today, -((weekdayOf(today) + 6) % 7))
+}
+
+/** Semanas de lunes a domingo desde el lunes de la semana actual, con los días ya marcados. */
+export function buildCalendar(
+  now: Date = new Date(),
+  weeks: number = BOOKING_WEEKS,
+  busy: readonly BusyInterval[] = [],
+): CalendarDay[][] {
+  const start = calendarStart(now)
   return Array.from({ length: weeks }, (_, week) =>
     Array.from({ length: 7 }, (_, dayIndex) => {
       const date = addDays(start, week * 7 + dayIndex)
       const day = Number(date.slice(8))
-      return { date, day, firstOfMonth: day === 1, block: dayBlock(date, now) }
+      return { date, day, firstOfMonth: day === 1, block: dayBlock(date, now, busy) }
     }),
   )
+}
+
+/** Rango que cubre exactamente el calendario (35 días, dentro del máximo de 62 de la API), con desfase explícito. */
+export function availabilityRange(now: Date = new Date(), weeks: number = BOOKING_WEEKS): { from: string; to: string } {
+  const start = calendarStart(now)
+  return { from: `${start}T00:00:00${BOGOTA_OFFSET}`, to: `${addDays(start, weeks * 7)}T00:00:00${BOGOTA_OFFSET}` }
 }
 
 const longDate = new Intl.DateTimeFormat('es-CO', {

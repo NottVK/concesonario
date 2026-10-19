@@ -1,12 +1,23 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleCheck, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { createAppointment } from '@/api/queries'
+import { availabilityQuery, createAppointment } from '@/api/queries'
 import type { PublicAppointment, VehicleWithBrand } from '@/api/types'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { VISIT_MINUTES, buildScheduledAt, formatDay, formatLongDate, formatTime, isSlotPast } from '@/lib/bogota'
+import {
+  VISIT_MINUTES,
+  availabilityRange,
+  buildScheduledAt,
+  dayBlock,
+  formatDay,
+  formatLongDate,
+  formatTime,
+  isSlotBusy,
+  isSlotPast,
+  toBusyIntervals,
+} from '@/lib/bogota'
 import { classifyBookingError } from './bookingErrors'
 import type { BookingFailure } from './bookingErrors'
 import { DayPicker, TimePicker } from './SlotPickers'
@@ -162,9 +173,28 @@ export function BookingDialog({ vehicle, open, onClose }: BookingDialogProps) {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [failure, setFailure] = useState<BookingFailure | null>(null)
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
 
   const booking = useMutation({ mutationFn: createAppointment })
+
+  // Horas ya reservadas de este vehículo. Solo informan: si la consulta falla el formulario sigue
+  // siendo usable y la API (409) sigue siendo quien decide.
+  const range = useMemo(() => availabilityRange(now), [now])
+  const availability = useQuery({ ...availabilityQuery(vehicle.id, range.from, range.to), enabled: open })
+  const busy = useMemo(() => toBusyIntervals(availability.data?.busy ?? []), [availability.data])
+
+  // Si al actualizarse la disponibilidad lo elegido se ocupó, se descarta con un aviso (lo demás se conserva).
+  useEffect(() => {
+    if (!values.date) return
+    if (dayBlock(values.date, now, busy)) {
+      setValues((current) => ({ ...current, date: '', hour: null }))
+      setNotice('Ese día ya no tiene horas libres. Elige otro.')
+    } else if (values.hour !== null && isSlotBusy(values.date, values.hour, busy)) {
+      setValues((current) => ({ ...current, hour: null }))
+      setNotice('Esa hora se acaba de reservar. Elige otra.')
+    }
+  }, [busy, now, values.date, values.hour])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -181,6 +211,7 @@ export function BookingDialog({ vehicle, open, onClose }: BookingDialogProps) {
     setValues((current) => ({ ...current, [key]: value }))
     setErrors((current) => ({ ...current, [key]: undefined }))
     setFailure(null)
+    setNotice(null)
   }
 
   const close = () => {
@@ -228,6 +259,8 @@ export function BookingDialog({ vehicle, open, onClose }: BookingDialogProps) {
           setFailure(result)
           // Si se vendió mientras agendaba, la página del vehículo se actualiza sola.
           if (result.kind === 'sold') void queryClient.invalidateQueries({ queryKey: ['vehicles', vehicle.id] })
+          // Alguien se adelantó: se vuelve a pedir la disponibilidad para que esa hora salga ocupada.
+          if (result.kind === 'slot-taken') void queryClient.invalidateQueries({ queryKey: ['availability', vehicle.id] })
           requestAnimationFrame(() => alertRef.current?.scrollIntoView({ block: 'nearest' }))
         },
         onSettled: () => {
@@ -276,11 +309,28 @@ export function BookingDialog({ vehicle, open, onClose }: BookingDialogProps) {
             minutos.
           </p>
 
+          <div aria-live="polite" className="mt-3 text-sm">
+            {availability.isPending && availability.fetchStatus === 'fetching' && (
+              <p className="text-muted">Consultando horarios libres…</p>
+            )}
+            {availability.isError && (
+              <p className="text-muted">
+                No pudimos consultar las horas ya reservadas. Puedes elegir igual y te avisaremos si alguna está tomada.
+              </p>
+            )}
+            {notice && (
+              <p role="status" className="font-medium text-accent">
+                {notice}
+              </p>
+            )}
+          </div>
+
           <div className="mt-6 space-y-6">
             <div>
               <DayPicker
                 value={values.date}
                 now={now}
+                busy={busy}
                 onChange={(date) => {
                   set('date', date)
                   // Si la hora elegida ya pasó en el nuevo día, se descarta.
@@ -295,6 +345,7 @@ export function BookingDialog({ vehicle, open, onClose }: BookingDialogProps) {
               <TimePicker
                 date={values.date}
                 now={now}
+                busy={busy}
                 value={values.hour}
                 onChange={(hour) => set('hour', hour)}
                 invalid={!!errors.hour}
@@ -349,7 +400,8 @@ export function BookingDialog({ vehicle, open, onClose }: BookingDialogProps) {
             </fieldset>
           </div>
 
-          <div ref={alertRef} aria-live="assertive">
+          {/* scroll-mb deja sitio al pie fijo para que el aviso no quede tapado al hacer scrollIntoView */}
+          <div ref={alertRef} aria-live="assertive" className="scroll-mb-24">
             {failure && (
               <p role="alert" className="mt-6 rounded-md border border-accent p-3 text-sm">
                 {failure.message}

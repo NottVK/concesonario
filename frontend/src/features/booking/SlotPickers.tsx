@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { SLOT_HOURS, buildCalendar, formatDay, formatMonth, isSlotPast, slotLabelTime } from '@/lib/bogota'
-import type { CalendarDay } from '@/lib/bogota'
+import { SLOT_HOURS, buildCalendar, formatDay, formatMonth, isSlotBusy, isSlotPast, slotLabelTime } from '@/lib/bogota'
+import type { BusyInterval, CalendarDay } from '@/lib/bogota'
 import { cn } from '@/lib/utils'
 
 const WEEKDAYS = [
@@ -23,6 +23,7 @@ function dayLabel(day: CalendarDay): string {
   const base = formatDay(day.date)
   if (day.block === 'sunday') return `${base}, no atendemos los domingos`
   if (day.block === 'past') return `${base}, fecha pasada`
+  if (day.block === 'full') return `${base}, sin horas libres`
   return base
 }
 
@@ -30,13 +31,15 @@ interface DayPickerProps {
   value: string
   onChange: (date: string) => void
   now: Date
+  /** Franjas ya reservadas del vehículo; un día sin horas libres queda deshabilitado. */
+  busy: readonly BusyInterval[]
   invalid?: boolean
   describedBy?: string
 }
 
 /** Calendario de lunes a domingo. Usa radios nativos: una sola parada de Tab y flechas para moverse. */
-export function DayPicker({ value, onChange, now, invalid, describedBy }: DayPickerProps) {
-  const weeks = useMemo(() => buildCalendar(now), [now])
+export function DayPicker({ value, onChange, now, busy, invalid, describedBy }: DayPickerProps) {
+  const weeks = useMemo(() => buildCalendar(now, undefined, busy), [now, busy])
   return (
     <fieldset aria-invalid={invalid || undefined} aria-describedby={describedBy}>
       <legend className="mb-2 text-sm font-medium">Día de la visita</legend>
@@ -74,6 +77,7 @@ interface TimePickerProps {
   value: number | null
   onChange: (hour: number) => void
   now: Date
+  busy: readonly BusyInterval[]
   invalid?: boolean
   describedBy?: string
 }
@@ -83,8 +87,10 @@ function hourLabel(hour: number): string {
   return `${hour > 12 ? hour - 12 : hour}:00 ${suffix}`
 }
 
-/** Horas de inicio posibles (8:00 a 17:00). Las de hoy que ya pasaron aparecen deshabilitadas. */
-export function TimePicker({ date, value, onChange, now, invalid, describedBy }: TimePickerProps) {
+/** Horas de inicio posibles (8:00 a 17:00). Las de hoy que ya pasaron y las ya reservadas aparecen deshabilitadas. */
+export function TimePicker({ date, value, onChange, now, busy, invalid, describedBy }: TimePickerProps) {
+  const taken = (hour: number): boolean => !!date && isSlotBusy(date, hour, busy)
+  const anyTaken = SLOT_HOURS.some((hour) => !isSlotPast(date, hour, now) && taken(hour))
   return (
     <fieldset aria-invalid={invalid || undefined} aria-describedby={describedBy} disabled={!date}>
       <legend className="mb-2 text-sm font-medium">Hora de inicio</legend>
@@ -96,18 +102,19 @@ export function TimePicker({ date, value, onChange, now, invalid, describedBy }:
               name="visit-hour"
               value={hour}
               checked={value === hour}
-              disabled={!date || isSlotPast(date, hour, now)}
+              disabled={!date || isSlotPast(date, hour, now) || taken(hour)}
               onChange={() => onChange(hour)}
-              aria-label={`${hourLabel(hour)}, empieza a las ${slotLabelTime(hour)}`}
+              aria-label={`${hourLabel(hour)}, empieza a las ${slotLabelTime(hour)}${taken(hour) ? ', ya reservada' : ''}`}
               className="peer sr-only"
             />
-            <span className={choice} aria-hidden="true">
+            <span className={cn(choice, taken(hour) && 'line-through')} aria-hidden="true">
               {hourLabel(hour)}
             </span>
           </label>
         ))}
       </div>
       {!date && <p className="mt-2 text-xs text-muted">Elige primero un día.</p>}
+      {anyTaken && <p className="mt-2 text-xs text-muted">Las horas tachadas ya están reservadas para este vehículo.</p>}
     </fieldset>
   )
 }
