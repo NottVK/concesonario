@@ -145,3 +145,6 @@ export const formatTime = (instant: string | Date): string => shortTime.format(n
 export const formatMonth = (date: string): string => monthName.format(new Date(`${date}T12:00:00-05:00`))
 /** Etiqueta de un día "YYYY-MM-DD" para lectores de pantalla y resúmenes. */
 export const formatDay = (date: string): string => longDate.format(new Date(`${date}T12:00:00-05:00`))
+const shortDate = new Intl.DateTimeFormat('es-CO', { timeZone: BOGOTA_TZ, weekday: 'short', day: 'numeric', month: 'short' })
+/** "mié, 4 nov" en hora de Bogotá, a partir de cualquier instante. */
+export const formatShortDate = (instant: string | Date): string => shortDate.format(new Date(instant))

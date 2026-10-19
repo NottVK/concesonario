@@ -5,6 +5,13 @@ export const PAGE_SIZE = 12
 /** Igual al tope de la API: más allá, la API responde 400. */
 export const MAX_PAGE = 100_000
 
+/** Página escrita en decimal, de 1 a MAX_PAGE. `Number("1e3")` daría 1000, por eso no se usa `Number` a ciegas. */
+export function parsePage(raw: string | null): number {
+  if (!raw || !/^[1-9]\d{0,5}$/.test(raw)) return 1
+  const page = Number(raw)
+  return page <= MAX_PAGE ? page : 1
+}
+
 export const SORT_OPTIONS = [
   { value: 'newest', label: 'Más recientes' },
   { value: 'price_asc', label: 'Precio: menor a mayor' },
@@ -55,7 +62,6 @@ const oneOf = <T extends string>(value: string | null, allowed: readonly string[
 /** Lee la URL y descarta cualquier valor inválido (la URL es entrada del usuario). */
 export function parseFilters(params: URLSearchParams): CatalogFilters {
   const sort = SORT_OPTIONS.find((option) => option.value === params.get('sort'))?.value ?? 'newest'
-  const page = Number(params.get('page'))
   return {
     brandId: String(parseDbId(params.get('brandId')) ?? ''),
     priceMin: digits(params.get('priceMin')),
@@ -66,7 +72,7 @@ export function parseFilters(params: URLSearchParams): CatalogFilters {
     transmission: oneOf<Vehicle['transmission']>(params.get('transmission'), TRANSMISSIONS),
     status: oneOf<'nuevo' | 'usado'>(params.get('status'), STATUSES),
     sort,
-    page: Number.isInteger(page) && page > 0 && page <= MAX_PAGE ? page : 1,
+    page: parsePage(params.get('page')),
   }
 }
 

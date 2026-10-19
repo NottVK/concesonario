@@ -48,6 +48,10 @@ describe('límites de los filtros', () => {
 })
 
 describe('página de la URL', () => {
+  it.each(['1e3', '1E3', '0x10', '+5', ' 5', '5 ', '05', '5.0', '１２'])('descarta %j (solo vale un entero decimal)', (raw) => {
+    expect(parseFilters(new URLSearchParams({ page: raw })).page).toBe(1)
+  })
+
   it('acepta hasta el tope de la API y descarta lo que lo supere', () => {
     expect(parseFilters(new URLSearchParams('page=100000')).page).toBe(100000)
     expect(parseFilters(new URLSearchParams('page=100001')).page).toBe(1)

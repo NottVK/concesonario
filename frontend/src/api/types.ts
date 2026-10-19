@@ -14,6 +14,8 @@ export type FinancingSimulation = Schemas['FinancingSimulationDto']
 export type SimulateFinancingInput = Schemas['SimulateFinancingDto']
 export type CreateAppointmentInput = Schemas['CreateAppointmentDto']
 export type PublicAppointment = Schemas['PublicAppointmentDto']
+export type Appointment = Schemas['Appointment']
+export type Customer = Schemas['Customer']
 export type Availability = Schemas['AvailabilityDto']
 
 export interface Paginated<T> {

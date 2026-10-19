@@ -15,7 +15,7 @@ interface NavItem {
 }
 
 /** Secciones del panel por rol. Solo se listan las que ya existen; las demás se agregan al construirlas. */
-export const ADMIN_NAV: NavItem[] = [{ to: '/admin', label: 'Inicio', roles: ['admin', 'vendedor'], end: true }]
+export const ADMIN_NAV: NavItem[] = [{ to: '/admin/citas', label: 'Citas', roles: ['admin', 'vendedor'] }]
 
 export function AdminLayout() {
   const auth = useAuth()

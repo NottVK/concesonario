@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/auth/AuthContext'
 import { RequireRole } from '@/auth/guards'
 import { Layout } from '@/components/Layout'
-import { AdminHomePage } from '@/features/admin/AdminHomePage'
 import { AdminLayout } from '@/features/admin/AdminLayout'
+import { CitasPage } from '@/features/admin/citas/CitasPage'
 import { LoginPage } from '@/features/admin/LoginPage'
 import { CatalogPage } from '@/features/catalog/CatalogPage'
 import { ComparePage } from '@/features/compare/ComparePage'
@@ -40,7 +40,8 @@ export default function App() {
                   </RequireRole>
                 }
               >
-                <Route index element={<AdminHomePage />} />
+                <Route index element={<Navigate to="citas" replace />} />
+                <Route path="citas" element={<CitasPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Routes>
