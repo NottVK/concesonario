@@ -1,7 +1,15 @@
 import { queryOptions } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api } from './client'
-import type { Brand, FinancingSimulation, Paginated, SimulateFinancingInput, VehicleWithBrand } from './types'
+import type {
+  Brand,
+  CreateAppointmentInput,
+  FinancingSimulation,
+  Paginated,
+  PublicAppointment,
+  SimulateFinancingInput,
+  VehicleWithBrand,
+} from './types'
 
 export const brandsQuery = () =>
   queryOptions({
@@ -26,4 +34,8 @@ export const vehiclesQuery = (params: Record<string, string | number | undefined
 
 export async function simulateFinancing(input: SimulateFinancingInput): Promise<FinancingSimulation> {
   return (await api.post<FinancingSimulation>('/financiacion/simular', input)).data
+}
+
+export async function createAppointment(input: CreateAppointmentInput): Promise<PublicAppointment> {
+  return (await api.post<PublicAppointment>('/citas', input)).data
 }

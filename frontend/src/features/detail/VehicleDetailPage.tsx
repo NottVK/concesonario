@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { errorMessage } from '@/api/client'
 import { vehicleQuery } from '@/api/queries'
@@ -11,6 +11,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FUEL_LABELS, STATUS_LABELS, TRANSMISSION_LABELS, formatKm } from '@/lib/labels'
 import { cn, formatCOP } from '@/lib/utils'
+import { BookingDialog } from '@/features/booking/BookingDialog'
 import { Gallery } from './Gallery'
 import { LoanSimulator } from './LoanSimulator'
 
@@ -91,6 +92,7 @@ export function VehicleDetailPage() {
 
   // El id viene de la URL: solo se consulta si es un entero positivo.
   const id = rawId && /^[1-9]\d{0,9}$/.test(rawId) ? Number(rawId) : null
+  const [bookingOpen, setBookingOpen] = useState(false)
   const vehicle = useQuery({ ...vehicleQuery(id ?? 0), enabled: id !== null })
   useDocumentTitle(vehicle.data ? `${vehicle.data.brand.name} ${vehicle.data.model} | AutoMax` : 'AutoMax | Concesionario')
 
@@ -160,6 +162,9 @@ export function VehicleDetailPage() {
             {data.version}, {data.year}
           </p>
           <p className="mt-4 font-display text-4xl font-semibold text-accent">{formatCOP(data.price)}</p>
+          <Button size="lg" className="mt-5 w-full" onClick={() => setBookingOpen(true)}>
+            Agendar test-drive
+          </Button>
         </header>
 
         <div className="lg:[grid-area:gallery]">
@@ -182,6 +187,7 @@ export function VehicleDetailPage() {
           <Specs vehicle={data} />
         </div>
       </div>
+      <BookingDialog vehicle={data} open={bookingOpen} onClose={() => setBookingOpen(false)} />
     </div>
   )
 }
