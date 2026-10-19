@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider } from '@/auth/AuthContext'
+import { AuthProvider, useAuth } from '@/auth/AuthContext'
 import { RequireRole } from '@/auth/guards'
 import { Layout } from '@/components/Layout'
 import { AdminLayout } from '@/features/admin/AdminLayout'
 import { CitasPage } from '@/features/admin/citas/CitasPage'
 import { ClientesPage } from '@/features/admin/clientes/ClientesPage'
 import { LoginPage } from '@/features/admin/LoginPage'
+import { MetricasPage } from '@/features/admin/metricas/MetricasPage'
 import { RegistrarVentaPage } from '@/features/admin/ventas/RegistrarVentaPage'
 import { CatalogPage } from '@/features/catalog/CatalogPage'
 import { ComparePage } from '@/features/compare/ComparePage'
@@ -18,6 +19,12 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 })
+
+/** Inicio del panel: el admin entra a las métricas; el vendedor, a las citas (no tiene métricas). */
+function AdminHome() {
+  const { user } = useAuth()
+  return <Navigate to={user?.role === 'admin' ? 'metricas' : 'citas'} replace />
+}
 
 export default function App() {
   return (
@@ -42,7 +49,15 @@ export default function App() {
                   </RequireRole>
                 }
               >
-                <Route index element={<Navigate to="citas" replace />} />
+                <Route index element={<AdminHome />} />
+                <Route
+                  path="metricas"
+                  element={
+                    <RequireRole roles={['admin']}>
+                      <MetricasPage />
+                    </RequireRole>
+                  }
+                />
                 <Route path="citas" element={<CitasPage />} />
                 <Route path="clientes" element={<ClientesPage />} />
                 <Route path="ventas/nueva" element={<RegistrarVentaPage />} />

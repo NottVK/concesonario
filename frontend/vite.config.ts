@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       globals: true,
       css: false,
+      // Con 23 archivos en paralelo el formulario de citas (jsdom + <dialog>) pasaba de 5 s en equipos lentos.
+      testTimeout: 15_000,
     },
   }
 })

@@ -148,3 +148,15 @@ export const formatDay = (date: string): string => longDate.format(new Date(`${d
 const shortDate = new Intl.DateTimeFormat('es-CO', { timeZone: BOGOTA_TZ, weekday: 'short', day: 'numeric', month: 'short' })
 /** "mié, 4 nov" en hora de Bogotá, a partir de cualquier instante. */
 export const formatShortDate = (instant: string | Date): string => shortDate.format(new Date(instant))
+
+/** Mes calendario "YYYY-MM" (ya en hora de Bogotá, lo calcula la API) escrito sin que la zona del navegador lo mueva. */
+const monthKeyFormats = {
+  long: new Intl.DateTimeFormat('es-CO', { timeZone: 'UTC', month: 'long', year: 'numeric' }),
+  short: new Intl.DateTimeFormat('es-CO', { timeZone: 'UTC', month: 'short' }),
+}
+const monthKeyDate = (key: string): Date => new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 15, 12))
+/** "octubre de 2026". */
+export const formatMonthKey = (key: string): string => monthKeyFormats.long.format(monthKeyDate(key))
+/** "oct" (o "oct 25" si cambia el año respecto al mes anterior del eje). */
+export const formatMonthKeyShort = (key: string, withYear = false): string =>
+  `${monthKeyFormats.short.format(monthKeyDate(key)).replace('.', '')}${withYear ? ` ${key.slice(2, 4)}` : ''}`

@@ -2,6 +2,8 @@ import {
   BOGOTA_OFFSET,
   SLOT_HOURS,
   addDays,
+  formatMonthKey,
+  formatMonthKeyShort,
   bogotaNow,
   buildCalendar,
   buildScheduledAt,
@@ -143,5 +145,14 @@ describe('franjas ocupadas', () => {
     const days = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 86_400_000
     expect(days).toBe(35)
     expect(days).toBeLessThanOrEqual(62)
+  })
+})
+
+describe('meses de la API ("YYYY-MM")', () => {
+  it('se escriben igual en cualquier zona horaria del navegador (primer y último mes del año incluidos)', () => {
+    expect(formatMonthKey('2026-01')).toBe('enero de 2026')
+    expect(formatMonthKey('2026-12')).toBe('diciembre de 2026')
+    expect(formatMonthKeyShort('2026-10')).toBe('oct')
+    expect(formatMonthKeyShort('2026-01', true)).toBe('ene 26')
   })
 })
