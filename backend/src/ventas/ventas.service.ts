@@ -27,7 +27,9 @@ export class VentasService {
   async create(dto: CreateSaleDto, sellerId: number): Promise<Sale> {
     // Antes de abrir la transacción: un precio inválido no debe bloquear el vehículo ni tocar la BD.
     assertFinalPrice(dto.finalPrice);
-    const saleId = await this.dataSource.transaction(async (manager) => {
+    // La venta se devuelve leída dentro de la misma transacción: si esa lectura fallara después del commit,
+    // el cliente vería un error aunque la venta ya quedó registrada (y reintentar daría 409).
+    return this.dataSource.transaction(async (manager) => {
       await this.lockAvailableVehicle(manager, dto.vehicleId);
       await this.assertCustomerExists(manager, dto.customerId);
 
@@ -42,9 +44,8 @@ export class VentasService {
       );
       await manager.update(Vehicle, dto.vehicleId, { status: VehicleStatus.SOLD });
       await this.cancelOpenAppointments(manager, dto.vehicleId);
-      return sale.id;
+      return manager.findOneOrFail(Sale, { where: { id: sale.id }, relations: SALE_RELATIONS });
     });
-    return this.findOne(saleId);
   }
 
   async findAll(query: PaginationDto): Promise<Paginated<Sale>> {
