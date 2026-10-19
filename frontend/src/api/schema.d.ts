@@ -193,7 +193,7 @@ export interface paths {
         };
         /** Detalle de un cliente (vendedor, admin) */
         get: operations["ClientesController_findOne"];
-        /** Reemplazar los datos de un cliente (vendedor, admin) */
+        /** Reemplazar los datos de un cliente (vendedor, admin); exige la versión leída */
         put: operations["ClientesController_update"];
         post?: never;
         delete?: never;
@@ -561,13 +561,6 @@ export interface components {
              */
             phone?: string;
         };
-        UpdateCustomerDto: components["schemas"]["CustomerDto"] & {
-            /**
-             * @description Versión del cliente que se leyó; si ya cambió, responde 409
-             * @example 1
-             */
-            version: number;
-        };
         CreatedIdDto: {
             /** @example 1 */
             id: number;
@@ -584,13 +577,29 @@ export interface components {
              * @example ana@correo.co
              */
             email: string;
-            /**
-             * @description Sube en uno con cada edición; PUT /clientes/:id debe enviar la que leyó (409 si ya cambió).
-             * @example 1
-             */
+            /** @example 1 */
             version: number;
             /** Format: date-time */
             createdAt: string;
+        };
+        UpdateCustomerDto: {
+            /** @example Ana Pérez */
+            name: string;
+            /**
+             * @description Se guarda en minúsculas
+             * @example ana@correo.co
+             */
+            email: string;
+            /**
+             * @description Dígitos, espacios y + - ( )
+             * @example 300 123 4567
+             */
+            phone?: string;
+            /**
+             * @description Versión del cliente que se leyó; si ya cambió, responde 409
+             * @example 1
+             */
+            version: number;
         };
         CreateAppointmentDto: {
             /** @example 1 */
@@ -1314,6 +1323,19 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Customer"];
                 };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Otra persona lo editó (versión vieja) o el correo ya está en uso */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
