@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
+import { clearToken } from '@/api/session'
 import { afterEach } from 'vitest'
 
 // La primera prueba de cada archivo paga el arranque en frío; 1 s (el valor por defecto) se queda corto en equipos lentos.
@@ -22,6 +23,7 @@ Element.prototype.scrollIntoView = () => {}
 
 afterEach(() => {
   cleanup()
+  clearToken()
   sessionStorage.clear()
   localStorage.clear()
 })
