@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { CompareProvider } from '@/features/compare/CompareContext'
 import { MemoryRouter } from 'react-router-dom'
 import type { Brand, VehicleWithBrand } from '@/api/types'
 import { PLACEHOLDER_SRC } from '@/components/CarImage'
@@ -47,7 +48,9 @@ function renderHome() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
+        <CompareProvider>
         <HomePage />
+      </CompareProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )

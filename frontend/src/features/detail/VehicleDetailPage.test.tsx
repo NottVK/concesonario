@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { CompareProvider } from '@/features/compare/CompareContext'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Brand, VehicleWithBrand } from '@/api/types'
 import { PLACEHOLDER_SRC } from '@/components/CarImage'
@@ -48,9 +49,11 @@ function renderDetail(path = '/catalogo/9') {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
+        <CompareProvider>
         <Routes>
           <Route path="/catalogo/:id" element={<VehicleDetailPage />} />
         </Routes>
+      </CompareProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )

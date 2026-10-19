@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom'
 import type { VehicleWithBrand } from '@/api/types'
 import { CarImage } from '@/components/CarImage'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CompareCardToggle } from '@/features/compare/CompareButton'
 import { FUEL_LABELS, STATUS_LABELS, TRANSMISSION_LABELS, formatKm } from '@/lib/labels'
 import { cn, formatCOP } from '@/lib/utils'
 
@@ -23,7 +24,7 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleWithBrand }) {
   // El detalle recuerda los filtros para que "Volver al catálogo" no los pierda.
   const { search } = useLocation()
   return (
-    <li>
+    <li className="relative">
       <Link
         to={`/catalogo/${vehicle.id}`}
         state={{ fromSearch: search }}
@@ -56,6 +57,7 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleWithBrand }) {
           </ul>
         </div>
       </Link>
+      <CompareCardToggle vehicle={vehicle} />
     </li>
   )
 }

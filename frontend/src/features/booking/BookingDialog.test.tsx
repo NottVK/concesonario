@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { CompareProvider } from '@/features/compare/CompareContext'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Brand, VehicleWithBrand } from '@/api/types'
 import { VehicleDetailPage } from '@/features/detail/VehicleDetailPage'
@@ -70,10 +71,12 @@ function renderDetail() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/catalogo/21']}>
+        <CompareProvider>
         <Routes>
           <Route path="/catalogo/:id" element={<VehicleDetailPage />} />
         </Routes>
         <Where />
+      </CompareProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -196,7 +199,10 @@ describe('envío', () => {
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/catalogo\/21$/)
     const stored = JSON.stringify({ ...sessionStorage }) + JSON.stringify({ ...localStorage })
     expect(stored).not.toMatch(/ana|correo|P[ée]rez/i)
-    expect(sessionStorage.length + localStorage.length).toBe(0)
+    // Lo único que puede haber es la lista de ids del comparador (nada personal); localStorage, vacío.
+    expect(localStorage.length).toBe(0)
+    expect(Object.keys(sessionStorage).filter((name) => name !== 'automax.compare')).toEqual([])
+    expect(JSON.parse(sessionStorage.getItem('automax.compare') ?? '[]').every(Number.isInteger)).toBe(true)
   })
 
   it('no envía nada si faltan datos y marca cada campo con su error', async () => {

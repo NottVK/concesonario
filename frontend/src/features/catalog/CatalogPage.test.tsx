@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { CompareProvider } from '@/features/compare/CompareContext'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { Brand, VehicleWithBrand } from '@/api/types'
 import { CatalogPage } from './CatalogPage'
@@ -43,8 +44,10 @@ function renderCatalog(initial = '/catalogo') {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[initial]}>
+        <CompareProvider>
         <CatalogPage />
         <Location />
+      </CompareProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )

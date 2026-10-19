@@ -1,4 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { CompareTray } from '@/features/compare/CompareTray'
+import { useCompare } from '@/features/compare/CompareContext'
 import { cn } from '@/lib/utils'
 
 const links = [
@@ -7,6 +9,7 @@ const links = [
 ]
 
 export function Layout() {
+  const { ids } = useCompare()
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -24,20 +27,29 @@ export function Layout() {
             {links.map((link) => (
               <NavLink
                 key={link.to}
-                to={link.to}
+                to={link.to === '/comparar' && ids.length > 0 ? `/comparar?ids=${ids.join(',')}` : link.to}
                 className={({ isActive }) =>
                   cn('transition-colors hover:text-foreground', isActive ? 'text-accent' : 'text-muted')
                 }
               >
                 {link.label}
+                {link.to === '/comparar' && ids.length > 0 && (
+                  <>
+                    <span aria-hidden="true" className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 text-xs text-accent-foreground">
+                      {ids.length}
+                    </span>
+                    <span className="sr-only"> ({ids.length} seleccionados)</span>
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>
         </div>
       </header>
-      <main id="contenido" className="flex-1">
+      <main id="contenido" className={cn('flex-1', ids.length > 0 && 'pb-24')}>
         <Outlet />
       </main>
+      <CompareTray />
       <footer className="border-t border-border py-8 text-sm text-muted">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           © {new Date().getFullYear()} AutoMax. Precios en pesos colombianos (COP).

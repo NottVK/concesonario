@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { FUEL_LABELS, STATUS_LABELS, TRANSMISSION_LABELS, formatKm } from '@/lib/labels'
 import { cn, formatCOP } from '@/lib/utils'
 import { BookingDialog } from '@/features/booking/BookingDialog'
+import { CompareDetailButton } from '@/features/compare/CompareButton'
 import { Gallery } from './Gallery'
 import { LoanSimulator } from './LoanSimulator'
 
@@ -165,6 +166,9 @@ export function VehicleDetailPage() {
           <Button size="lg" className="mt-5 w-full" onClick={() => setBookingOpen(true)}>
             Agendar test-drive
           </Button>
+          <div className="mt-3">
+            <CompareDetailButton vehicle={data} />
+          </div>
         </header>
 
         <div className="lg:[grid-area:gallery]">
