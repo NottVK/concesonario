@@ -3,13 +3,16 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export const MAX_PAGE_SIZE = 50;
+/** Sin tope, `page=1e20` producía un OFFSET fuera de rango en PostgreSQL y un 500. */
+export const MAX_PAGE = 100_000;
 
 export class PaginationDto {
-  @ApiPropertyOptional({ description: 'Número de página, desde 1', default: 1, minimum: 1 })
+  @ApiPropertyOptional({ description: 'Número de página, desde 1', default: 1, minimum: 1, maximum: MAX_PAGE })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'page debe ser un entero' })
   @Min(1, { message: 'page debe ser al menos 1' })
+  @Max(MAX_PAGE, { message: `page no puede superar ${MAX_PAGE}` })
   page: number = 1;
 
   @ApiPropertyOptional({

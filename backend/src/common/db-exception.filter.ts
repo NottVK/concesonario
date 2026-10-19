@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ConflictException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { QueryFailedError } from 'typeorm';
+import { SLOT_UNAVAILABLE_MESSAGE } from '../citas/appointment-rules.js';
 
 const PG_UNIQUE_VIOLATION = '23505';
 const PG_EXCLUSION_VIOLATION = '23P01';
@@ -20,7 +21,7 @@ export class DbExceptionFilter extends BaseExceptionFilter {
       case PG_UNIQUE_VIOLATION:
         return 'Ya existe un registro con esos datos';
       case PG_EXCLUSION_VIOLATION:
-        return 'El horario se cruza con otra cita';
+        return SLOT_UNAVAILABLE_MESSAGE;
       case PG_FK_VIOLATION:
         return 'El registro está relacionado con otros datos';
       default:

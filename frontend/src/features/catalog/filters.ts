@@ -1,6 +1,8 @@
 import type { Vehicle } from '@/api/types'
 
 export const PAGE_SIZE = 12
+/** Igual al tope de la API: más allá, la API responde 400. */
+export const MAX_PAGE = 100_000
 
 export const SORT_OPTIONS = [
   { value: 'newest', label: 'Más recientes' },
@@ -63,7 +65,7 @@ export function parseFilters(params: URLSearchParams): CatalogFilters {
     transmission: oneOf<Vehicle['transmission']>(params.get('transmission'), TRANSMISSIONS),
     status: oneOf<'nuevo' | 'usado'>(params.get('status'), STATUSES),
     sort,
-    page: Number.isInteger(page) && page > 0 ? page : 1,
+    page: Number.isInteger(page) && page > 0 && page <= MAX_PAGE ? page : 1,
   }
 }
 

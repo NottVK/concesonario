@@ -3,6 +3,23 @@ import { bestIds, moneyToCents, parseCompareIds } from './compare'
 
 const parse = (query: string) => parseCompareIds(new URLSearchParams(query))
 
+describe('parseCompareIds: URLs enormes', () => {
+  it('no procesa miles de fragmentos: devuelve los 3 primeros y avisa', () => {
+    const huge = Array.from({ length: 50_000 }, (_, i) => i + 1).join(',')
+    const started = performance.now()
+    const result = parseCompareIds(new URLSearchParams({ ids: huge }))
+    expect(performance.now() - started).toBeLessThan(200)
+    expect(result.ids).toEqual([1, 2, 3])
+    expect(result.needsRewrite).toBe(true)
+    expect(result.notice).not.toBeNull()
+  })
+
+  it('un solo valor larguísimo tampoco se procesa entero', () => {
+    const result = parseCompareIds(new URLSearchParams({ ids: '7,' + 'x'.repeat(1_000_000) }))
+    expect(result.ids).toEqual([7])
+  })
+})
+
 describe('parseCompareIds: la URL nunca pide más de 3 vehículos', () => {
   it('lee una lista limpia sin reescribir la URL', () => {
     expect(parse('ids=1,2,3')).toMatchObject({ ids: [1, 2, 3], normalized: '1,2,3', needsRewrite: false, notice: null })

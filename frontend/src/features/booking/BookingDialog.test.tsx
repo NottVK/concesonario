@@ -67,8 +67,12 @@ function Where() {
 }
 
 function renderDetail() {
+  renderDetailAndKeep()
+}
+
+function renderDetailAndKeep() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } })
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/catalogo/21']}>
         <CompareProvider>
@@ -258,7 +262,7 @@ describe('errores del servidor', () => {
     await renderAndOpen(user)
     await fillAndPick(user, '300 123 4567')
     await user.click(submitButton())
-    expect(await screen.findByRole('alert')).toHaveTextContent('Ese horario ya no está disponible para este vehículo')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ese horario ya no está disponible. Elige otra hora u otro día')
     expect(screen.getByLabelText('Nombre completo')).toHaveValue('  Ana Pérez ')
     expect(screen.getByLabelText('Correo electrónico')).toHaveValue('ana@correo.co')
     expect(screen.getByLabelText(/Teléfono/)).toHaveValue('300 123 4567')
@@ -275,13 +279,20 @@ describe('errores del servidor', () => {
     expect(bodies.map((b) => b.scheduledAt)).toEqual(['2026-11-06T10:00:00-05:00', '2026-11-06T11:00:00-05:00'])
   })
 
-  it('409 porque el cliente ya tiene otra cita: lo explica con su propio mensaje', async () => {
-    bookingResponse = () => HttpResponse.json({ message: 'Ya tienes otra cita que se cruza con ese horario' }, { status: 409 })
-    const user = userEvent.setup()
-    await renderAndOpen(user)
-    await fillAndPick(user)
-    await user.click(submitButton())
-    expect(await screen.findByRole('alert')).toHaveTextContent('Con ese correo ya tienes una cita que se cruza')
+  it('el 409 por cruce del cliente se ve igual que el del vehículo: no confirma que un correo tenga citas', async () => {
+    const messages: string[] = []
+    for (const serverMessage of ['Ese horario no está disponible. Elige otra hora u otro día', 'El texto del servidor no se muestra tal cual']) {
+      bookingResponse = () => HttpResponse.json({ message: serverMessage }, { status: 409 })
+      const user = userEvent.setup()
+      const view = renderDetailAndKeep()
+      await openDialog(user)
+      await fillAndPick(user)
+      await user.click(submitButton())
+      messages.push((await screen.findByRole('alert')).textContent ?? '')
+      view.unmount()
+    }
+    expect(messages[0]).toBe(messages[1])
+    expect(messages[0]).not.toMatch(/correo|ya tienes|tu cita/i)
   })
 
   it('si el vehículo se vendió mientras agendaba, lo dice y la página pasa a "vendido"', async () => {
@@ -482,7 +493,7 @@ describe('horas ya reservadas (disponibilidad)', () => {
     await fillAndPick(user, '300 123 4567')
     await user.click(submitButton())
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Ese horario ya no está disponible para este vehículo')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ese horario ya no está disponible. Elige otra hora u otro día')
     await waitFor(() => expect(hour('10:00 a. m.')).toBeDisabled())
     expect(hour('10:00 a. m.')).not.toBeChecked()
     expect(await screen.findByText('Esa hora se acaba de reservar. Elige otra.')).toBeInTheDocument()
@@ -502,16 +513,15 @@ describe('horas ya reservadas (disponibilidad)', () => {
     expect(bodies.map((b) => b.scheduledAt)).toEqual(['2026-11-06T10:00:00-05:00', '2026-11-06T11:00:00-05:00'])
   })
 
-  it('el 409 por cliente ocupado no toca la disponibilidad del vehículo', async () => {
-    bookingResponse = () => HttpResponse.json({ message: 'Ya tienes otra cita que se cruza con ese horario' }, { status: 409 })
+  it('cualquier 409 de horario vuelve a consultar la disponibilidad', async () => {
+    bookingResponse = () => HttpResponse.json({ message: 'Ese horario no está disponible. Elige otra hora u otro día' }, { status: 409 })
     const user = userEvent.setup()
     await renderAndOpen(user)
     await fillAndPick(user)
     await waitFor(() => expect(availabilityRequests).toHaveLength(1))
     await user.click(submitButton())
-    expect(await screen.findByRole('alert')).toHaveTextContent('Con ese correo ya tienes una cita')
-    expect(availabilityRequests).toHaveLength(1)
-    expect(hour('10:00 a. m.')).toBeChecked()
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    await waitFor(() => expect(availabilityRequests.length).toBeGreaterThanOrEqual(2))
   })
 
   it('si el día elegido se llena al actualizar la disponibilidad, se descarta con un aviso', async () => {

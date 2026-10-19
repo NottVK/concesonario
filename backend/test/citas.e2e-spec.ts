@@ -140,6 +140,15 @@ describe('Clientes y citas (e2e)', () => {
       await book(bookBody(carB.id, bogotaSlot(TUESDAY, 10, 45), ana)).expect(409);
     });
 
+    it('el 409 por cruce del cliente y el del vehículo son indistinguibles (no confirma que un correo tenga citas)', async () => {
+      // Cruce del vehículo: otro cliente pide el auto ocupado (carA, martes 10:00).
+      const byVehicle = await book(bookBody(carA.id, bogotaSlot(TUESDAY, 10), luis)).expect(409);
+      // Cruce del cliente: ana pide OTRO auto, libre, a la misma hora.
+      const byCustomer = await book(bookBody(carB.id, bogotaSlot(TUESDAY, 10), ana)).expect(409);
+      expect(byCustomer.body).toEqual(byVehicle.body);
+      expect(JSON.stringify(byCustomer.body)).not.toMatch(/ya tienes|correo|cliente|tu cita/i);
+    });
+
     it('otro cliente y otro vehículo a la misma hora no chocan', async () => {
       await book(bookBody(carB.id, bogotaSlot(THURSDAY, 15), luis)).expect(201);
       await book(bookBody(carA.id, bogotaSlot(THURSDAY, 15), { name: 'Marta Ruiz', email: 'marta@correo.co' })).expect(201);

@@ -5,6 +5,8 @@ export const MIN_COMPARE = 2
 
 /** Entero positivo sin ceros a la izquierda y de hasta 10 dígitos (lo que acepta la API). */
 const ID = /^[1-9]\d{0,9}$/
+/** Con más fragmentos que estos se descarta el resto sin procesarlo (una URL gigante no debe costar trabajo). */
+const MAX_TOKENS = 20
 
 export interface ParsedCompareIds {
   /** Ids válidos, sin repetir y con un máximo de 3. */
@@ -23,10 +25,11 @@ export interface ParsedCompareIds {
  */
 export function parseCompareIds(params: URLSearchParams): ParsedCompareIds {
   const rawValues = params.getAll('ids')
-  const tokens = rawValues.flatMap((value) => value.split(',')).map((token) => token.trim()).filter(Boolean)
+  const allTokens = rawValues.flatMap((value) => value.slice(0, 500).split(',')).map((token) => token.trim()).filter(Boolean)
+  const tokens = allTokens.slice(0, MAX_TOKENS)
 
   const valid: number[] = []
-  let invalid = 0
+  let invalid = allTokens.length > MAX_TOKENS ? 1 : 0
   for (const token of tokens) {
     if (!ID.test(token)) invalid++
     else if (!valid.includes(Number(token))) valid.push(Number(token))

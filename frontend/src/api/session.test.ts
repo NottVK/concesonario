@@ -67,3 +67,49 @@ describe('errorMessage', () => {
     expect(errorMessage(new Error('otro'))).toMatch(/inesperado/)
   })
 })
+
+describe('el bearer solo viaja a la API', () => {
+  const sent = async (url: string): Promise<unknown> => {
+    let header: unknown
+    await api.get(url, {
+      adapter: async (config) => {
+        header = config.headers.get('Authorization')
+        return { data: {}, status: 200, statusText: 'OK', headers: {}, config }
+      },
+    })
+    return header
+  }
+
+  afterEach(() => clearToken())
+
+  it('lo adjunta a rutas relativas de la API', async () => {
+    setToken('t')
+    expect(await sent('/vehiculos')).toBe('Bearer t')
+    expect(await sent('citas/1')).toBe('Bearer t')
+  })
+
+  it.each(['https://otro-dominio.com/x', 'http://localhost:9999/x', '//otro-dominio.com/x', 'HTTPS://MAYUS.com/x', 'ftp://x.com/a', 'javascript:alert(1)'])(
+    'no lo adjunta a %s',
+    async (url) => {
+      setToken('secreto')
+      expect(await sent(url)).toBeUndefined()
+    },
+  )
+})
+
+describe('errorMessage con errores del servidor', () => {
+  const withStatus = (status: number, message?: string) =>
+    new AxiosError('x', String(status), undefined, null, { data: { message }, status, statusText: '', headers: {}, config: {} as never })
+
+  it('los 5xx no muestran el texto técnico en inglés del servidor', () => {
+    for (const status of [500, 502, 503]) {
+      const text = errorMessage(withStatus(status, 'Internal server error'))
+      expect(text).toMatch(/El servidor tuvo un problema/)
+      expect(text).not.toMatch(/Internal/)
+    }
+  })
+
+  it('los 4xx siguen mostrando el mensaje en español del servidor', () => {
+    expect(errorMessage(withStatus(404, 'No existe el vehículo 5'))).toBe('No existe el vehículo 5')
+  })
+})

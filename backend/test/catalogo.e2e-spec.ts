@@ -162,7 +162,8 @@ describe('Marcas y vehículos (e2e)', () => {
 
     it('valida la consulta con 400', async () => {
       for (const bad of ['limit=51', 'page=0', 'fuel=agua', 'sort=azar', 'status=vendido',
-        'priceMin=abc', 'yearMin=2025&yearMax=2020', 'brandId=abc', 'brandId=0', 'desconocido=1']) {
+        'priceMin=abc', 'yearMin=2025&yearMax=2020', 'brandId=abc', 'brandId=0', 'desconocido=1',
+        'page=100001', 'page=99999999999999999999']) {
         await request(ctx.server).get(`/api/vehiculos?${bad}`).expect(400);
       }
     });

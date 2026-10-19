@@ -4,7 +4,6 @@ import { errorMessage } from '@/api/client'
 export type BookingFailureKind =
   | 'sold'
   | 'slot-taken'
-  | 'customer-busy'
   | 'invalid-slot'
   | 'invalid-data'
   | 'unavailable'
@@ -22,8 +21,9 @@ const serverMessage = (error: unknown): string | string[] | undefined =>
 
 /**
  * Traduce el error de POST /citas a un mensaje para el usuario. La API no manda códigos de error,
- * solo mensajes en español, así que los 409 se distinguen por su texto; lo que no se reconoce
- * cae en "horario ocupado", que es el motivo más común de un 409.
+ * solo mensajes en español, así que el 409 de "vendido" se distingue por su texto; todo otro 409 es un
+ * cruce de horario. El backend usa el mismo mensaje para el cruce del vehículo y el del cliente, para no
+ * confirmar a un anónimo que un correo ajeno tiene una cita.
  */
 export function classifyBookingError(error: unknown): BookingFailure {
   if (!isAxiosError(error)) return { kind: 'unknown', message: errorMessage(error) }
@@ -48,15 +48,9 @@ export function classifyBookingError(error: unknown): BookingFailure {
     if (/vendido/i.test(text)) {
       return { kind: 'sold', message: 'Este vehículo se acaba de vender, por eso no pudimos agendar la cita.' }
     }
-    if (/ya tienes otra cita/i.test(text)) {
-      return {
-        kind: 'customer-busy',
-        message: 'Con ese correo ya tienes una cita que se cruza con ese horario. Elige otra hora u otro día.',
-      }
-    }
     return {
       kind: 'slot-taken',
-      message: 'Ese horario ya no está disponible para este vehículo. Elige otra hora u otro día; tus datos siguen aquí.',
+      message: 'Ese horario ya no está disponible. Elige otra hora u otro día; tus datos siguen aquí.',
     }
   }
   if (status === 400) {

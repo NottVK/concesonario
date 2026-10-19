@@ -59,6 +59,38 @@ Corregido: el seed ya no pisa `precio`, `km` ni `estado` al repetirse; los usuar
 2. **Hay que recrear la base para verlo:** el seed hace `upsert` y no renumera ids, así que en una base ya sembrada el orden no cambia. El procedimiento (`docker compose down -v`, `up -d`, `migration:run`, `seed`) está en el README, con la advertencia de que borra toda la base de desarrollo y también la de pruebas.
 3. **`rimraf` para limpiar:** ningún script del repo usaba `rm -rf`; la única mención es la regla de bloqueo `Bash(rm -rf *)` de `.claude/settings.json`, que se deja como está. Se agregaron `npm run clean` en backend y frontend con `rimraf` (multiplataforma y permitido por la configuración). Es una dependencia de desarrollo pequeña.
 
+## Revisión cruzada con Codex (Fase 3, pantallas 0 a 5)
+
+**Cómo se hizo:** como en la Fase 2, Codex no lee el repositorio, así que se le pasó todo dentro del prompt (`codex-companion task --prompt-file`, solo lectura, modelo por defecto): instrucciones y prioridades, el diff del backend desde el último commit de la Fase 2 (`266daf5..HEAD`), 14 archivos de contexto del backend y el código completo del frontend nuevo (31 archivos), unos 203 KB. Nunca se adjuntó `.env` (ni se leyó). Prioridades pedidas: (1) datos de clientes en disponibilidad y `POST /citas`, (2) token y 401, (3) URL y XSS, (4) CORS, rate limits y mensajes de error, (5) dependencias nuevas del frontend.
+
+**Archivos que Codex recibió** (y declaró haber leído completos):
+- *Diff del backend (18 archivos):* `package.json`, `app.module.ts`, `citas/citas.module.ts`, `citas/citas.service.ts` (solo el tramo modificado), `citas/disponibilidad.controller.ts`, `citas/dto/availability.dto.ts`, `database/seeds/seed.service.ts` y `seed-data.spec.ts`, `metricas/` (6 archivos), `vehiculos/admin-vehiculos.controller.ts`, `vehiculos/dto/vehicle-query.dto.ts`, `vehiculos/vehiculos.module.ts`, `vehiculos/vehiculos.service.ts`.
+- *Contexto del backend (14, completos):* `main.ts`, `app.setup.ts` (CORS), `common/jwt-auth.guard.ts`, `roles.guard.ts`, `throttle.ts`, `db-exception.filter.ts`, `decorators.ts`, `auth/auth.controller.ts`, `auth.service.ts`, `citas/citas.controller.ts`, `appointment-rules.ts`, `dto/create-appointment.dto.ts`, `dto/public-appointment.dto.ts`, `clientes/dto/customer.dto.ts`.
+- *Frontend (31, completos):* `package.json`, `vite.config.ts`, `index.html`, `.env.example`, `main.tsx`, `App.tsx`; `api/` (`client`, `session`, `queries`, `types`); `lib/` (`utils`, `labels`, `bogota`); `components/` (`Layout`, `CarImage`, `BrandLogo`, `ui/grouped-input`); `features/catalog` (`filters`, `CatalogPage`, `FiltersPanel`, `VehicleCard`); `features/detail` (`VehicleDetailPage`, `LoanSimulator`, `Gallery`); `features/booking` (`BookingDialog`, `bookingErrors`, `SlotPickers`); `features/compare` (7 archivos); `features/home` (3 archivos); `pages/NotFoundPage.tsx`.
+- *No recibió:* pruebas (≈179 del frontend y ≈138 e2e), `schema.d.ts`, los `package-lock.json` y `.env`.
+
+**Límites de esta revisión (qué NO pudo ver):** la implementación completa de `CitasService.create` (solo vio el tramo de disponibilidad, así que no pudo juzgar el reuso de cliente por correo ni las carreras), la configuración de `ThrottlerModule` en `AppModule` (solo el diff) ni `trust proxy`, la configuración del JWT, y las versiones resueltas de las dependencias (solo rangos `^`). **En la próxima revisión hay que adjuntar completos los archivos que el cambio toca**, no solo el diff.
+
+### Hallazgos y qué se hizo
+1. **[ALTA según Codex] `POST /citas` devuelve el `id` de la cita, que sirve en `GET /citas/:id` (solo personal).** *Disentimos de la gravedad: es BAJA.* El id no da acceso a nada: esa ruta exige token de vendedor o admin y los datos del cliente no salen en ninguna respuesta pública; quien agenda ya conoce el id de su propia cita, y la pantalla lo muestra como número de referencia a propósito. Lo real que queda es menor: el id es secuencial y revela el volumen de citas. **No se cambia**; anotado como mejora posible (referencia opaca para el público, sin que las rutas internas la acepten).
+2. **[MEDIA, corregido] El 409 "Ya tienes otra cita…" confirmaba que un correo ajeno tenía una cita a esa hora.** Ahora el cruce del vehículo, el del cliente y el de la restricción de la BD (23P01) devuelven **el mismo 409 con el mismo texto** (`SLOT_UNAVAILABLE_MESSAGE`), y la interfaz ya no lo atribuye al correo (se eliminó el tipo `customer-busy`). Una prueba e2e compara los cuerpos de ambos 409 y otra del frontend los textos mostrados; se verificó que fallan si se revierte. **Riesgo residual (no se puede cerrar con el mensaje):** como `disponibilidad` es pública, un atacante puede comprobar primero que el vehículo está libre a esa hora y, si entonces recibe 409, deducir que el correo tiene un cruce. Opciones reales: no reusar clientes por correo en el público, exigir verificación del correo, o quitar la restricción por cliente para anónimos. Requiere decisión de producto.
+3. **[MEDIA, corregido] Entradas enormes en la URL.** Codex acertó con una causa que ya se podía reproducir: `GET /vehiculos?page=99999999999999999999` daba un **500** (OFFSET fuera del rango de `bigint`). Ahora `page` tiene tope de 100 000 en la API (400 si lo supera; declarado en Swagger) y en el frontend (se ignora y vuelve a 1). `parseCompareIds` procesa como máximo 20 fragmentos y 500 caracteres por parámetro (una URL con 50 000 ids se resuelve en milisegundos con los 3 primeros y un aviso). Pruebas nuevas en ambos lados.
+4. **[BAJA, anotado] `disponibilidad` revela franjas ocupadas y permite sondear.** Es lo pedido (sin nombres ni estados) y está limitado a 30 por minuto y 62 días. Si se quisiera endurecer: rango máximo menor, límite por vehículo además del de IP, o servir solo las próximas semanas.
+5. **[BAJA, corregido] El bearer se adjuntaba a cualquier URL.** Ahora el interceptor no lo agrega a URLs absolutas ni relativas al protocolo (`https://…`, `//…`, `javascript:`…), de modo que una futura llamada externa con el cliente compartido no filtra el token. Pruebas con seis URLs.
+
+**Agregado por nosotros al revisar los puntos "no verificables":**
+- Los errores 5xx mostraban al usuario el texto técnico en inglés del servidor ("Internal server error"); ahora el cliente muestra un mensaje en español y los 4xx siguen mostrando el del servidor.
+- `npm audit --omit=dev`: **0 vulnerabilidades** en frontend y backend.
+- Dependencias del frontend: Codex no emitió veredicto. Revisión propia: nada peligroso ni duplicado; `framer-motion` y `recharts` están instaladas pero **sin ningún import todavía** (están en el stack de CLAUDE.md §12: gráficas del panel admin y animaciones del chat). No pesan en el build mientras no se importen; **si al cerrar la Fase 3 siguen sin usarse, se quitan** y se vuelven a agregar cuando haga falta. Versiones con `^`, pero con `package-lock.json` versionado.
+
+**Descartado por Codex, con motivo (no repetir):** sin datos personales en la respuesta de disponibilidad (solo inicio y fin); sin `dangerouslySetInnerHTML` y texto de la API siempre como texto de React; `src` de imágenes no ejecuta JavaScript; filtros del catálogo parametrizados (`brand`, `escapeLike`, `sort` desde un mapa); rutas admin con `@Roles(ADMIN)` a nivel de clase; CORS limitado a `FRONTEND_URL` y sin credenciales; sin patrones de ReDoS en las expresiones regulares; el proxy de Vite no reenvía el token a otros orígenes.
+
+**Pendientes que salen de la revisión:**
+- **Login y redirección tras un 401 (pantalla 6):** el cliente ya limpia el token ante un 401, pero aún no hay pantalla de login que lo use; al construirla, probar el flujo completo (401 → sesión limpia → login → volver).
+- **`trust proxy` y límites por IP** (ya estaba anotado): detrás de un proxy inverso todos compartirían IP.
+- **Referencia opaca para las citas** (hallazgo 1) y **decisión de producto sobre el riesgo residual** del hallazgo 2.
+- Revisar de nuevo con archivos completos: `CitasService`, `AppModule` y la configuración del JWT.
+
 ## Revisión cruzada con Codex (Fase 2)
 Codex no pudo leer el repositorio (su `exec_command` está bloqueado por política en este entorno), así que se le pasó el diff completo en el prompt (`--prompt-file`). Cuando se repita la revisión, hay que hacerlo igual.
 
@@ -129,7 +161,6 @@ Codex no pudo leer el repositorio (su `exec_command` está bloqueado por políti
 
 ### Pendientes de la Fase 3
 - **Pantalla 6 (panel admin):** ya están las métricas y el listado completo; falta la interfaz, el login y el CRUD de vehículos, citas y ventas.
-- **Revisión cruzada con Codex** de lo hecho en la Fase 3 antes de cerrarla (CLAUDE.md §13), pasándole el diff en el prompt como se anotó en la Fase 2.
 - **Cookie `httpOnly` + `SameSite` en lugar de `sessionStorage`:** más resistente a XSS, pero exige cambiar el backend (emitir cookie, protección CSRF). Revisar antes de producción.
 - **Endpoints que faltan para el panel admin (pantalla 6):** no existe ninguna métrica agregada. Hay que crear en el backend, con pruebas, antes de esa pantalla: totales (vehículos en stock, citas pendientes, ventas y monto del mes), ventas por mes, stock por marca, y un listado admin de vehículos que incluya los `vendido` (`GET /vehiculos` los oculta).
 

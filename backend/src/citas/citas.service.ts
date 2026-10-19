@@ -10,7 +10,12 @@ import { Customer } from '../clientes/entities/customer.entity.js';
 import { paginate } from '../common/pagination.js';
 import type { Paginated } from '../common/pagination.js';
 import { Vehicle, VehicleStatus } from '../vehiculos/entities/vehicle.entity.js';
-import { APPOINTMENT_DURATION_MIN, canTransition, validateSlot } from './appointment-rules.js';
+import {
+  APPOINTMENT_DURATION_MIN,
+  SLOT_UNAVAILABLE_MESSAGE,
+  canTransition,
+  validateSlot,
+} from './appointment-rules.js';
 import type { AppointmentQueryDto } from './dto/appointment-query.dto.js';
 import { DEFAULT_AVAILABILITY_DAYS, MAX_AVAILABILITY_DAYS } from './dto/availability.dto.js';
 import type { AvailabilityDto, AvailabilityQueryDto } from './dto/availability.dto.js';
@@ -184,11 +189,9 @@ export class CitasService {
         .andWhere("a.scheduledAt + a.durationMin * interval '1 minute' > :start", { start })
         .getExists();
 
-    if (await overlapping('vehicleId', vehicleId)) {
-      throw new ConflictException('Ese vehículo ya tiene una cita en ese horario');
-    }
-    if (await overlapping('customerId', customerId)) {
-      throw new ConflictException('Ya tienes otra cita que se cruza con ese horario');
+    // Mismo mensaje y mismo 409 para ambos cruces (ver SLOT_UNAVAILABLE_MESSAGE).
+    if ((await overlapping('vehicleId', vehicleId)) || (await overlapping('customerId', customerId))) {
+      throw new ConflictException(SLOT_UNAVAILABLE_MESSAGE);
     }
   }
 

@@ -41,6 +41,14 @@ describe('límites de los filtros', () => {
   })
 })
 
+describe('página de la URL', () => {
+  it('acepta hasta el tope de la API y descarta lo que lo supere', () => {
+    expect(parseFilters(new URLSearchParams('page=100000')).page).toBe(100000)
+    expect(parseFilters(new URLSearchParams('page=100001')).page).toBe(1)
+    expect(parseFilters(new URLSearchParams('page=99999999999999999999')).page).toBe(1)
+  })
+})
+
 describe('pageItems', () => {
   it('con 7 páginas o menos las muestra todas, sin huecos', () => {
     expect(pageItems(1, 5)).toEqual([1, 2, 3, 4, 5])

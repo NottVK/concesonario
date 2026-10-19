@@ -2,6 +2,12 @@ import { AppointmentStatus } from './entities/appointment.entity.js';
 
 export const BUSINESS_TIME_ZONE = 'America/Bogota';
 export const APPOINTMENT_DURATION_MIN = 60;
+
+/**
+ * Mensaje único para cualquier cruce de horario (del vehículo o del cliente). Si el texto distinguiera
+ * "ya tienes otra cita", un anónimo podría confirmar que un correo ajeno tiene una cita a esa hora.
+ */
+export const SLOT_UNAVAILABLE_MESSAGE = 'Ese horario no está disponible. Elige otra hora u otro día';
 const OPENING_MINUTE = 8 * 60;
 const CLOSING_MINUTE = 18 * 60;
 
