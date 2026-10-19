@@ -74,7 +74,13 @@ Corregido: el seed ya no pisa `precio`, `km` ni `estado` al repetirse; los usuar
 4. **Precio final de la venta validado en el servidor** (`sale-rules.ts`, antes de abrir la transacción): texto en COP con hasta 2 decimales, **mayor que cero** y **tope de $ 5.000.000.000** (el DTO ya filtraba el formato, pero ahora el servicio no depende de él). Mensajes claros ("debe ser mayor que cero", "no puede superar $ 5.000.000.000 COP"); un precio inválido no bloquea ni vende el vehículo. No se aplicó una regla relativa al precio de lista porque no se pidió; si se quiere (p. ej. rechazar descuentos de más de X %), es una decisión de negocio aparte.
 5. **Quién registró la venta:** se guarda el id del usuario **del token** (vendedor, o admin si fue él) y nunca el del cuerpo (un `sellerId` en el cuerpo da 400). Pruebas con vendedor y con admin; la respuesta incluye al usuario sin su hash.
 6. **Mensajes claros al borrar:** un vehículo con ventas o citas (también canceladas) responde 409 con "No se puede borrar … tiene una venta registrada y N cita(s) (incluidas las canceladas). Los vehículos con historial no se borran." (solo cantidades, nunca datos de clientes); una marca con vehículos, "tiene N vehículo(s) en el inventario. Bórralos o pásalos a otra marca primero". Antes un vehículo con historial caía en el mensaje genérico de la BD.
-7. **Pruebas que se verificaron rompiendo el código a propósito** (6 roturas, todas detectadas): `GET /ventas` abierto al vendedor, `@Roles` olvidado en una ruta, sin validar el precio en el servidor, endpoint con cuerpo sin fuzzing y borrado sin mensaje claro.
+7. **Pruebas que se verificaron rompiendo el código a propósito: 6 roturas, las 6 detectadas.** Cada una se aplicó sola, se corrió la suite indicada y se restauró el archivo. Entre paréntesis, cuántas pruebas fallaron:
+   1. *`GET /ventas` abierto al vendedor* (el controlador de ventas con `@Roles(ADMIN, SELLER)` en vez de `@Roles(ADMIN)`), suite `autorizacion-rutas` (2).
+   2. *La misma rotura 1*, medida en la suite `ventas` (1). Son la misma rotura vista desde dos suites; cuentan como dos de las seis ejecuciones.
+   3. *`POST /marcas` sin `@Roles`* (olvido en una ruta de escritura), suite `autorizacion-rutas` (2).
+   4. *Sin validar el precio final en el servidor* (se quitó la llamada a `assertFinalPrice`), suite `ventas` (2).
+   5. *Endpoint con cuerpo sin fuzzing* (se quitó `POST /api/ventas` de la lista de cobertura), suite `entradas-extremas` (1).
+   6. *Borrado de vehículo sin mensaje claro* (se anuló la comprobación de ventas y citas), suite `ventas` (3).
 
 ## 2026-10-19 — Limitación aceptada (fuga por correo) y entradas extremas
 
