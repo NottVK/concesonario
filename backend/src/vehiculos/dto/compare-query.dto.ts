@@ -1,6 +1,7 @@
+import { MAX_DB_INT, tooBig } from '../../common/limits.js';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsInt, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsInt, Max, Min } from 'class-validator';
 
 export const MAX_COMPARE = 3;
 
@@ -19,5 +20,6 @@ export class CompareQueryDto {
   @ArrayUnique({ message: 'ids no puede repetir vehículos' })
   @IsInt({ each: true, message: 'ids debe ser una lista de enteros separados por coma' })
   @Min(1, { each: true })
+  @Max(MAX_DB_INT, { each: true, ...tooBig('cada id') })
   ids: number[];
 }

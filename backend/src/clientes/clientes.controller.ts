@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -9,6 +9,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import { Public, Roles } from '../common/decorators.js';
 import type { Paginated } from '../common/pagination.js';
 import { ApiPaginatedResponse } from '../common/swagger.js';
@@ -50,7 +51,7 @@ export class ClientesController {
   @ApiOperation({ summary: 'Detalle de un cliente (vendedor, admin)' })
   @ApiOkResponse({ type: Customer })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Customer> {
+  findOne(@Param('id', ParseIdPipe) id: number): Promise<Customer> {
     return this.customers.findOne(id);
   }
 
@@ -59,7 +60,7 @@ export class ClientesController {
   @Put(':id')
   @ApiOperation({ summary: 'Reemplazar los datos de un cliente (vendedor, admin)' })
   @ApiOkResponse({ type: Customer })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: CustomerDto): Promise<Customer> {
+  update(@Param('id', ParseIdPipe) id: number, @Body() dto: CustomerDto): Promise<Customer> {
     return this.customers.update(id, dto);
   }
 }

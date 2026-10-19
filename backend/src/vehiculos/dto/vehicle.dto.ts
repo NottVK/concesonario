@@ -1,16 +1,6 @@
+import { MAX_DB_INT, MAX_MILEAGE_KM, tooBig } from '../../common/limits.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  ArrayMaxSize,
-  IsArray,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Matches,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { POSITIVE_MONEY_REGEX } from '../../common/money.js';
 import { FuelType, Transmission, VehicleStatus } from '../entities/vehicle.entity.js';
@@ -25,6 +15,7 @@ export class VehicleDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_DB_INT, tooBig('brandId'))
   brandId: number;
 
   @ApiProperty({ example: 'Corolla' })
@@ -49,10 +40,11 @@ export class VehicleDto {
   @Matches(POSITIVE_MONEY_REGEX, { message: 'price debe ser un monto en COP mayor que cero' })
   price: string;
 
-  @ApiProperty({ example: 0, minimum: 0 })
+  @ApiProperty({ example: 0, minimum: 0, maximum: MAX_MILEAGE_KM })
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(MAX_MILEAGE_KM, tooBig('mileage', MAX_MILEAGE_KM))
   mileage: number;
 
   @ApiProperty({ enum: FuelType })

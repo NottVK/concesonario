@@ -51,6 +51,10 @@ describe('parseCompareIds: la URL nunca pide más de 3 vehículos', () => {
     expect(result.needsRewrite).toBe(true)
   })
 
+  it('descarta ids que la API no aceptaría (más de 2147483647)', () => {
+    expect(parse('ids=2147483647,2147483648,99999999999').ids).toEqual([2147483647])
+  })
+
   it('espacios alrededor se toleran y se limpian', () => {
     const result = parse('ids=%201%20,%202')
     expect(result.ids).toEqual([1, 2])

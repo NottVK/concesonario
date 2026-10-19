@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -19,6 +18,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import { Public, Roles } from '../common/decorators.js';
 import { UserRole } from '../usuarios/entities/user.entity.js';
 import { BrandDto } from './dto/brand.dto.js';
@@ -43,7 +43,7 @@ export class MarcasController {
   @ApiOperation({ summary: 'Detalle de una marca' })
   @ApiOkResponse({ type: Brand })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Brand> {
+  findOne(@Param('id', ParseIdPipe) id: number): Promise<Brand> {
     return this.brands.findOne(id);
   }
 
@@ -62,7 +62,7 @@ export class MarcasController {
   @Put(':id')
   @ApiOperation({ summary: 'Reemplazar una marca (admin)' })
   @ApiOkResponse({ type: Brand })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: BrandDto): Promise<Brand> {
+  update(@Param('id', ParseIdPipe) id: number, @Body() dto: BrandDto): Promise<Brand> {
     return this.brands.update(id, dto);
   }
 
@@ -73,7 +73,7 @@ export class MarcasController {
   @ApiOperation({ summary: 'Borrar marca (admin)' })
   @ApiNoContentResponse()
   @ApiConflictResponse({ description: 'La marca tiene vehículos' })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  remove(@Param('id', ParseIdPipe) id: number): Promise<void> {
     return this.brands.remove(id);
   }
 }

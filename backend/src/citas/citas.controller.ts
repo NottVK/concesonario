@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -10,6 +10,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import { Public, Roles } from '../common/decorators.js';
 import type { Paginated } from '../common/pagination.js';
 import { ApiPaginatedResponse } from '../common/swagger.js';
@@ -54,7 +55,7 @@ export class CitasController {
   @ApiOperation({ summary: 'Detalle de una cita (vendedor, admin)' })
   @ApiOkResponse({ type: Appointment })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Appointment> {
+  findOne(@Param('id', ParseIdPipe) id: number): Promise<Appointment> {
     return this.appointments.findOne(id);
   }
 
@@ -65,7 +66,7 @@ export class CitasController {
   @ApiOkResponse({ type: Appointment })
   @ApiConflictResponse({ description: 'Transición de estado no permitida' })
   updateStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: UpdateStatusDto,
   ): Promise<Appointment> {
     return this.appointments.updateStatus(id, dto);

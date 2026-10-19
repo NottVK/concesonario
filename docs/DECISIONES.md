@@ -59,6 +59,31 @@ Corregido: el seed ya no pisa `precio`, `km` ni `estado` al repetirse; los usuar
 2. **Hay que recrear la base para verlo:** el seed hace `upsert` y no renumera ids, así que en una base ya sembrada el orden no cambia. El procedimiento (`docker compose down -v`, `up -d`, `migration:run`, `seed`) está en el README, con la advertencia de que borra toda la base de desarrollo y también la de pruebas.
 3. **`rimraf` para limpiar:** ningún script del repo usaba `rm -rf`; la única mención es la regla de bloqueo `Bash(rm -rf *)` de `.claude/settings.json`, que se deja como está. Se agregaron `npm run clean` en backend y frontend con `rimraf` (multiplataforma y permitido por la configuración). Es una dependencia de desarrollo pequeña.
 
+## 2026-10-19 — Limitación aceptada (fuga por correo) y entradas extremas
+
+### Limitación aceptada: un correo ajeno puede deducirse por el conflicto de horario
+**Qué pasa:** `POST /citas` es público y reutiliza al cliente por correo. Como `GET /vehiculos/:id/disponibilidad` también es público, un anónimo puede (1) comprobar que un vehículo está libre a cierta hora y (2) enviar `POST /citas` con el correo de otra persona para esa hora: si recibe 409, deduce que ese correo tiene una cita que se cruza. Los mensajes ya son indistinguibles (`SLOT_UNAVAILABLE_MESSAGE`), pero el código de estado y la combinación con la disponibilidad dejan el canal abierto. Tampoco hay verificación de que el correo sea de quien reserva (quien lo conozca puede ocuparle franjas).
+
+**Decisión: se acepta como limitación mientras el sistema no esté en producción** (decisión del responsable del proyecto, a partir del hallazgo de la revisión con Codex). No se cambia el comportamiento ahora.
+
+**Requisito para producción (bloqueante, no se despliega sin esto): verificación de correo.** El correo debe confirmarse (enlace o código de un solo uso, con vencimiento) antes de que la cita quede registrada o se considere de esa persona; mientras no se verifique, la respuesta no debe revelar si el correo ya existe ni si tiene conflictos, y el cliente reutilizado por correo no debe quedar ligado a una reserva sin esa prueba. Requiere un servicio de envío de correo (hoy no existe) y ajustar `POST /citas`, el formulario y la confirmación. Mitigaciones actuales: rate limit de 10 reservas por minuto por IP, mensaje único para todo conflicto, y la respuesta pública nunca incluye datos del cliente.
+
+### Entradas extremas: ningún número enorme o basura puede dar un 5xx
+**Cómo se buscó:** una prueba de fuzzing (`backend/test/entradas-extremas.e2e-spec.ts`, 13 pruebas contra la BD real) ataca todos los endpoints con 31 valores extremos (`1e20`, `99999999999999999999`, `2147483648`, `NaN`, `Infinity`, `０`, `%00`, comillas, cadenas de 400 dígitos…) y con formas raras de la misma clave (`page=1&page=2`, `page[]=1`, `page[a][b]=1`). Se probó cada parámetro de consulta, cada id de ruta (GET, PATCH, PUT y DELETE), cada campo de los cuerpos JSON como texto, número, nulo, lista y objeto, y cuerpos mal formados, de 2 MB, urlencoded, `__proto__` y con 5000 niveles de anidamiento.
+
+**Lo que daba 500 (antes de corregir):**
+- *Todos los ids de ruta* mayores que un entero de 32 bits (`/vehiculos/:id`, `/marcas/:id`, `/clientes/:id`, `/citas/:id`, `/ventas/:id`, `/vehiculos/:id/disponibilidad`, y los PATCH, PUT y DELETE): `value out of range for type integer`. Además `ParseIntPipe` de Nest trataba `1e20` y `1.5` como el id 1 (con un DELETE, `/vehiculos/1e20` habría borrado el vehículo 1).
+- *Enteros de consulta sin tope:* `brandId`, `yearMin`, `yearMax` (catálogo y admin) y `vehicleId` de citas.
+- *Enteros de cuerpo sin tope:* `vehicleId` en `POST /citas` y `POST /ventas`, `brandId` y `mileage` en `POST /vehiculos`.
+- *JSON anidado 5000 niveles:* desbordaba la pila en `class-transformer`.
+- (Ya corregido en la revisión anterior: `page=99999999999999999999`.)
+
+**Correcciones:** `ParseIdPipe` estricto (solo decimal sin ceros, signo ni exponente, y ≤ 2 147 483 647; 400 si no) en todos los controladores; `@Max` con mensaje claro en cada entero (`MAX_DB_INT`, años ≤ 2100, kilometraje ≤ 10 000 000); `BodyShapePipe` global antes del `ValidationPipe` (profundidad ≤ 20 y ≤ 20 000 nodos, recorrido iterativo). Ya estaban acotados `page` (100 000), `limit` (50), `months` (24), precios (10 dígitos con regex) y el simulador. El frontend usa el mismo límite (`lib/ids.ts`): ids de la URL de `/catalogo/:id`, `/comparar?ids` y `?brandId` mayores que 2 147 483 647 se descartan sin consultar la API.
+
+**Verificación:** 0 respuestas 5xx en el fuzzing; revirtiendo a propósito la guarda de cuerpo, el pipe de ids o el tope de `yearMin`, la prueba falla. Pipes con pruebas unitarias.
+
+**Notas:** una URL de 100 KB no da 500: Node corta la conexión por el límite de cabeceras de 16 KB (la prueba lo tolera de forma explícita). Un `Retry-After`/429 o un 413 de cuerpo grande también son respuestas correctas.
+
 ## Revisión cruzada con Codex (Fase 3, pantallas 0 a 5)
 
 **Cómo se hizo:** como en la Fase 2, Codex no lee el repositorio, así que se le pasó todo dentro del prompt (`codex-companion task --prompt-file`, solo lectura, modelo por defecto): instrucciones y prioridades, el diff del backend desde el último commit de la Fase 2 (`266daf5..HEAD`), 14 archivos de contexto del backend y el código completo del frontend nuevo (31 archivos), unos 203 KB. Nunca se adjuntó `.env` (ni se leyó). Prioridades pedidas: (1) datos de clientes en disponibilidad y `POST /citas`, (2) token y 401, (3) URL y XSS, (4) CORS, rate limits y mensajes de error, (5) dependencias nuevas del frontend.

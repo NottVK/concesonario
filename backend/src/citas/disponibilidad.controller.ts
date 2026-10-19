@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -8,6 +8,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import { Public } from '../common/decorators.js';
 import { publicThrottle } from '../common/throttle.js';
 import { CitasService } from './citas.service.js';
@@ -33,7 +34,7 @@ export class DisponibilidadController {
   @ApiNotFoundResponse({ description: 'El vehículo no existe' })
   @ApiConflictResponse({ description: 'El vehículo ya fue vendido' })
   availability(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Query() query: AvailabilityQueryDto,
   ): Promise<AvailabilityDto> {
     return this.appointments.availability(id, query);

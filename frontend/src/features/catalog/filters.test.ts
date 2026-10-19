@@ -32,6 +32,12 @@ describe('filtros del catálogo', () => {
 })
 
 describe('límites de los filtros', () => {
+  it('brandId fuera del rango de la API se descarta', () => {
+    expect(parseFilters(new URLSearchParams('brandId=2147483647')).brandId).toBe('2147483647')
+    expect(parseFilters(new URLSearchParams('brandId=2147483648')).brandId).toBe('')
+    expect(parseFilters(new URLSearchParams('brandId=1e3')).brandId).toBe('')
+  })
+
   it('descarta precios de más de 10 dígitos (la API respondería 400) y años de más de 4', () => {
     const filters = parseFilters(new URLSearchParams('priceMin=12345678901&priceMax=9999999999&yearMin=20244&yearMax=2024'))
     expect(filters).toMatchObject({ priceMin: '', priceMax: '9999999999', yearMin: '', yearMax: '2024' })

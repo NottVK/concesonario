@@ -1,6 +1,7 @@
+import { MAX_DB_INT, tooBig } from '../../common/limits.js';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDefined, IsInt, IsObject, Matches, Min, ValidateNested } from 'class-validator';
+import { IsDefined, IsInt, IsObject, Matches, Max, Min, ValidateNested } from 'class-validator';
 import { CustomerDto } from '../../clientes/dto/customer.dto.js';
 
 /** ISO 8601 con zona horaria obligatoria (Z o ±hh:mm), para no depender de la hora del servidor. */
@@ -16,6 +17,7 @@ export class CreateAppointmentDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_DB_INT, tooBig('vehicleId'))
   vehicleId: number;
 
   @ApiProperty({

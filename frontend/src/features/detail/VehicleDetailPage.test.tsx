@@ -83,6 +83,11 @@ describe('VehicleDetailPage', () => {
     expect(screen.getByRole('link', { name: 'Ver el catálogo' })).toHaveAttribute('href', '/catalogo')
   })
 
+  it.each(['2147483648', '99999999999999999999', '1e3', '1.5', '-1', '0'])('el id imposible %s en la URL no consulta la API', async (rawId) => {
+    renderDetail(`/catalogo/${rawId}`)
+    expect(await screen.findByRole('heading', { name: 'No encontramos este vehículo' })).toBeInTheDocument()
+  })
+
   it('un id inválido en la URL no consulta la API', async () => {
     renderDetail('/catalogo/abc')
     expect(await screen.findByRole('heading', { name: 'No encontramos este vehículo' })).toBeInTheDocument()

@@ -10,6 +10,7 @@ import type { VehicleWithBrand } from '@/api/types'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FUEL_LABELS, STATUS_LABELS, TRANSMISSION_LABELS, formatKm } from '@/lib/labels'
+import { parseDbId } from '@/lib/ids'
 import { cn, formatCOP } from '@/lib/utils'
 import { BookingDialog } from '@/features/booking/BookingDialog'
 import { CompareDetailButton } from '@/features/compare/CompareButton'
@@ -92,7 +93,7 @@ export function VehicleDetailPage() {
   const backTo = `/catalogo${(location.state as { fromSearch?: string } | null)?.fromSearch ?? ''}`
 
   // El id viene de la URL: solo se consulta si es un entero positivo.
-  const id = rawId && /^[1-9]\d{0,9}$/.test(rawId) ? Number(rawId) : null
+  const id = parseDbId(rawId)
   const [bookingOpen, setBookingOpen] = useState(false)
   const vehicle = useQuery({ ...vehicleQuery(id ?? 0), enabled: id !== null })
   useDocumentTitle(vehicle.data ? `${vehicle.data.brand.name} ${vehicle.data.model} | AutoMax` : 'AutoMax | Concesionario')

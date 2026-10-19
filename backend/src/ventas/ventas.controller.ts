@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -8,6 +8,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import type { AuthUser } from '../common/auth.types.js';
 import { CurrentUser, Roles } from '../common/decorators.js';
 import { PaginationDto } from '../common/pagination.js';
@@ -49,7 +50,7 @@ export class VentasController {
   @ApiOperation({ summary: 'Detalle de una venta' })
   @ApiOkResponse({ type: Sale })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Sale> {
+  findOne(@Param('id', ParseIdPipe) id: number): Promise<Sale> {
     return this.sales.findOne(id);
   }
 }

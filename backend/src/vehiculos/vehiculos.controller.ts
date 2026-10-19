@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Post,
   Put,
   Query,
@@ -20,6 +19,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import { Public, Roles } from '../common/decorators.js';
 import type { Paginated } from '../common/pagination.js';
 import { ApiPaginatedResponse } from '../common/swagger.js';
@@ -58,7 +58,7 @@ export class VehiculosController {
   @ApiOperation({ summary: 'Detalle de un vehículo' })
   @ApiOkResponse({ type: Vehicle })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Vehicle> {
+  findOne(@Param('id', ParseIdPipe) id: number): Promise<Vehicle> {
     return this.vehicles.findOne(id);
   }
 
@@ -78,7 +78,7 @@ export class VehiculosController {
   @ApiOperation({ summary: 'Reemplazar un vehículo (admin); uno vendido no se modifica' })
   @ApiOkResponse({ type: Vehicle })
   @ApiConflictResponse({ description: 'El vehículo ya está vendido o el dato se repite' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: VehicleDto): Promise<Vehicle> {
+  update(@Param('id', ParseIdPipe) id: number, @Body() dto: VehicleDto): Promise<Vehicle> {
     return this.vehicles.update(id, dto);
   }
 
@@ -89,7 +89,7 @@ export class VehiculosController {
   @ApiOperation({ summary: 'Borrar vehículo (admin)' })
   @ApiNoContentResponse()
   @ApiConflictResponse({ description: 'Tiene citas o ventas asociadas' })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  remove(@Param('id', ParseIdPipe) id: number): Promise<void> {
     return this.vehicles.remove(id);
   }
 }

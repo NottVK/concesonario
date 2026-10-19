@@ -1,4 +1,5 @@
 import type { Vehicle } from '@/api/types'
+import { parseDbId } from '@/lib/ids'
 
 export const PAGE_SIZE = 12
 /** Igual al tope de la API: más allá, la API responde 400. */
@@ -56,7 +57,7 @@ export function parseFilters(params: URLSearchParams): CatalogFilters {
   const sort = SORT_OPTIONS.find((option) => option.value === params.get('sort'))?.value ?? 'newest'
   const page = Number(params.get('page'))
   return {
-    brandId: digits(params.get('brandId')),
+    brandId: String(parseDbId(params.get('brandId')) ?? ''),
     priceMin: digits(params.get('priceMin')),
     priceMax: digits(params.get('priceMax')),
     yearMin: digits(params.get('yearMin'), 4),

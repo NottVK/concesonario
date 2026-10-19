@@ -1,6 +1,7 @@
+import { MAX_DB_INT, tooBig } from '../../common/limits.js';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { MONEY_REGEX } from '../../common/money.js';
 import { PaginationDto } from '../../common/pagination.js';
 import { FuelType, Transmission, VehicleStatus } from '../entities/vehicle.entity.js';
@@ -15,6 +16,7 @@ export abstract class VehicleFiltersDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_DB_INT, tooBig('brandId'))
   brandId?: number;
 
   @ApiPropertyOptional({ description: 'Nombre exacto de la marca, sin distinguir mayúsculas', example: 'toyota' })
@@ -36,6 +38,7 @@ export abstract class VehicleFiltersDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1990)
+  @Max(2100, tooBig('yearMin', 2100))
   yearMin?: number;
 
   @ApiPropertyOptional({ description: 'Año máximo', example: 2024 })
@@ -43,6 +46,7 @@ export abstract class VehicleFiltersDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1990)
+  @Max(2100, tooBig('yearMax', 2100))
   yearMax?: number;
 
   @ApiPropertyOptional({ description: 'Precio mínimo en COP', example: '50000000' })

@@ -1,6 +1,7 @@
+import { MAX_DB_INT, tooBig } from '../../common/limits.js';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, Matches, Min } from 'class-validator';
+import { IsEnum, IsInt, Matches, Max, Min } from 'class-validator';
 import { POSITIVE_MONEY_REGEX } from '../../common/money.js';
 import { PaymentMethod } from '../entities/sale.entity.js';
 
@@ -10,12 +11,14 @@ export class CreateSaleDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_DB_INT, tooBig('vehicleId'))
   vehicleId: number;
 
   @ApiProperty({ example: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_DB_INT, tooBig('customerId'))
   customerId: number;
 
   /** Precio final pactado en COP, como texto (hasta 2 decimales), mayor que cero. */

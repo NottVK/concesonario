@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { MAX_DB_INT } from '@/lib/ids'
 import { MAX_COMPARE } from './compare'
 
 /**
@@ -10,7 +11,7 @@ const KEY = 'automax.compare'
 
 function sanitize(value: unknown): number[] {
   if (!Array.isArray(value)) return []
-  const ids = value.filter((item): item is number => Number.isInteger(item) && item > 0 && item < 10 ** 10)
+  const ids = value.filter((item): item is number => Number.isInteger(item) && item > 0 && item <= MAX_DB_INT)
   return [...new Set(ids)].slice(0, MAX_COMPARE)
 }
 

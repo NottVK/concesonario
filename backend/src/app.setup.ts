@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { BodyShapePipe } from './common/body-shape.pipe.js';
 import { DbExceptionFilter } from './common/db-exception.filter.js';
 
 /** Ruta de la documentación interactiva; el JSON queda en `${DOCS_PATH}-json`. */
@@ -26,6 +27,7 @@ function setupSwagger(app: INestApplication): void {
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
+    new BodyShapePipe(),
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
   app.useGlobalFilters(new DbExceptionFilter(app.get(HttpAdapterHost).httpAdapter));
