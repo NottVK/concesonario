@@ -61,6 +61,13 @@ Codex no pudo leer el repositorio (su `exec_command` está bloqueado por políti
 8. **Pruebas del frontend:** Vitest + Testing Library + `msw` (dependencias de desarrollo; `msw` se usará para simular la API en las pantallas). Playwright queda para el cierre.
 9. **Modo claro:** los tokens existen (`:root`), pero el interruptor aún no; la app arranca en oscuro.
 
+10. **Catálogo (pantalla 1):** los filtros viven en la URL (`useSearchParams`) para compartir y recargar; todo valor de la URL se valida y se descarta si es inválido. Selects aplican al instante; los rangos de precio y año al salir del campo o con Enter, y un rango invertido se intercambia en el cliente (la API respondería 400 con años invertidos). La paginación usa `keepPreviousData` para no parpadear.
+11. **`VehicleWithBrand`:** el spec marca `brand` como opcional porque la entidad se reutiliza en otras respuestas; en listados, detalle y comparador siempre viene, así que el frontend lo tipa como obligatorio en esas rutas.
+12. **Home (pantalla 4):** los "destacados" serán `sort=newest` con límite pequeño, sin campo `featured`.
+13. **Métricas del admin:** se crearán en el backend, solo para rol admin y con pruebas, antes de la pantalla 6.
+14. **Playwright** (`@playwright/test` + Chromium) se instaló para revisar el aspecto en navegador real; los e2e formales llegan en el cierre de la fase.
+15. **`msw` 3:** la opción para peticiones sin manejar se llama `onUnhandledFrame` (antes `onUnhandledRequest`); las pruebas la usan en `'error'` para que ninguna petición real se cuele.
+
 ### Pendientes de la Fase 3
 - **Cookie `httpOnly` + `SameSite` en lugar de `sessionStorage`:** más resistente a XSS, pero exige cambiar el backend (emitir cookie, protección CSRF). Revisar antes de producción.
 - **Endpoints que faltan para el panel admin (pantalla 6):** no existe ninguna métrica agregada. Hay que crear en el backend, con pruebas, antes de esa pantalla: totales (vehículos en stock, citas pendientes, ventas y monto del mes), ventas por mes, stock por marca, y un listado admin de vehículos que incluya los `vendido` (`GET /vehiculos` los oculta).
