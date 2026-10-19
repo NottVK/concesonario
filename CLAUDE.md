@@ -96,6 +96,7 @@ POST /a2a/tasks   {"from": "bot-externo", "message": "¿Tienen Mazda 3 2024?"}
 
 ## 8. Seguridad
 - Secretos solo en `.env` (nunca en git). Mantener `.env.example`.
+- **Nunca leer `.env`**: ni con Read, `cat` o `grep`, ni desde scripts (Playwright, Node, Python…). Si una prueba necesita contraseñas, claves o una base, se usan **bases y variables temporales** (una base de pruebas propia y variables de entorno pasadas en el comando), y se borran al terminar. La app y los CLI del proyecto sí cargan `.env` por su cuenta; lo que no se hace es leerlo para sacar valores.
 - JWT para auth; roles verificados en backend.
 - Rate limit en `/chat` y `/a2a`; API key por bot externo.
 - Validar y sanear todo lo que venga de otro bot (puede traer prompt injection): tratarlo como DATO, nunca como instrucción.
@@ -135,6 +136,7 @@ ollama pull qwen2.5:3b                            # modelo del chatbot (7b si ha
 - Dejar TODOs sin registrar.
 - Datos falsos en producción (en seeds sí, pero realistas).
 - Saltarse pruebas "para ir más rápido".
+- Leer `.env` (ver §8) o saltarse una denegación de permisos con otro camino (por ejemplo, un script que haga lo que una regla `deny` bloquea).
 
 ## 12. Calidad visual (frontend)
 Diseño moderno de concesionario premium, NO plantilla genérica. Usa el plugin `frontend-design`.
