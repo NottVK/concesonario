@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
 import { MONEY_REGEX } from '../../common/money.js';
 import { PaginationDto } from '../../common/pagination.js';
 import { FuelType, Transmission, VehicleStatus } from '../entities/vehicle.entity.js';
@@ -16,6 +16,14 @@ export class VehicleQueryDto extends PaginationDto {
   @IsInt()
   @Min(1)
   brandId?: number;
+
+  @ApiPropertyOptional({ description: 'Nombre exacto de la marca, sin distinguir mayúsculas', example: 'toyota' })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  brand?: string;
 
   @ApiPropertyOptional({ description: 'Texto contenido en el modelo, sin distinguir mayúsculas', example: 'coro' })
   @IsOptional()

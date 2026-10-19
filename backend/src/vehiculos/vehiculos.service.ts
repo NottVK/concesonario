@@ -92,6 +92,7 @@ export class VehiculosService {
 
   private applyFilters(qb: SelectQueryBuilder<Vehicle>, q: VehicleQueryDto): void {
     if (q.brandId) qb.andWhere('v.brandId = :brandId', { brandId: q.brandId });
+    if (q.brand) qb.andWhere('LOWER(b.name) = LOWER(:brand)', { brand: q.brand });
     if (q.model) {
       qb.andWhere("v.model ILIKE :model ESCAPE '\\'", { model: `%${escapeLike(q.model)}%` });
     }

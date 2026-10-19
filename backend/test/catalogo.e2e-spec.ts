@@ -124,6 +124,18 @@ describe('Marcas y vehículos (e2e)', () => {
       expect(models(await list('status=usado'))).toEqual(['Yaris']);
     });
 
+    it('filtra por brand (nombre exacto, sin distinguir mayúsculas)', async () => {
+      expect(models(await list('brand=toyota'))).toEqual(['Corolla', 'Hilux', 'Yaris']);
+      expect(models(await list('brand=KIA'))).toEqual(['Sportage']);
+      expect(models(await list('brand=%20Kia%20'))).toEqual(['Sportage']);
+      expect((await list('brand=Toy')).data).toHaveLength(0);
+      expect((await list('brand=Inexistente')).data).toHaveLength(0);
+      expect(models(await list(`brand=kia&brandId=${toyota.id}`))).toEqual([]);
+      expect(models(await list('brand=toyota&fuel=diesel'))).toEqual(['Hilux']);
+      await request(ctx.server).get('/api/vehiculos?brand=').expect(400);
+      expect((await list(`brand=${encodeURIComponent("x' OR '1'='1")}`)).data).toHaveLength(0);
+    });
+
     it('ordena por year_desc, price_desc y newest', async () => {
       const first = async (sort: string) => (await list(`sort=${sort}&limit=1`)).data[0].model;
       expect(await first('year_desc')).toBe('Hilux');

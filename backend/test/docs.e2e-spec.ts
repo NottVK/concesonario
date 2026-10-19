@@ -114,7 +114,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
   it('GET /vehiculos documenta los filtros en inglés', () => {
     const names = (operation('get', '/api/vehiculos').parameters ?? []).map((p) => p.name).sort();
     expect(names).toEqual([
-      'brandId', 'fuel', 'limit', 'model', 'page', 'priceMax', 'priceMin',
+      'brand', 'brandId', 'fuel', 'limit', 'model', 'page', 'priceMax', 'priceMin',
       'sort', 'status', 'transmission', 'yearMax', 'yearMin',
     ]);
   });
