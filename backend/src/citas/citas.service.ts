@@ -12,10 +12,14 @@ import type { Paginated } from '../common/pagination.js';
 import { Vehicle, VehicleStatus } from '../vehiculos/entities/vehicle.entity.js';
 import { APPOINTMENT_DURATION_MIN, canTransition, validateSlot } from './appointment-rules.js';
 import type { AppointmentQueryDto } from './dto/appointment-query.dto.js';
+import { DEFAULT_AVAILABILITY_DAYS, MAX_AVAILABILITY_DAYS } from './dto/availability.dto.js';
+import type { AvailabilityDto, AvailabilityQueryDto } from './dto/availability.dto.js';
 import type { CreateAppointmentDto } from './dto/create-appointment.dto.js';
 import type { PublicAppointmentDto } from './dto/public-appointment.dto.js';
 import type { UpdateStatusDto } from './dto/update-status.dto.js';
 import { Appointment, AppointmentStatus } from './entities/appointment.entity.js';
+
+const DAY_MS = 86_400_000;
 
 @Injectable()
 export class CitasService {
@@ -43,6 +47,53 @@ export class CitasService {
       );
     });
     return this.toPublic(saved);
+  }
+
+  /**
+   * Franjas ocupadas de un vehículo en un rango. Es público, así que solo expone inicio y fin:
+   * nada del cliente ni del estado. Las citas canceladas no ocupan franja.
+   */
+  async availability(
+    vehicleId: number,
+    query: AvailabilityQueryDto,
+    now = new Date(),
+  ): Promise<AvailabilityDto> {
+    const from = query.from ? new Date(query.from) : now;
+    const to = query.to ? new Date(query.to) : new Date(from.getTime() + DEFAULT_AVAILABILITY_DAYS * DAY_MS);
+    this.assertValidRange(from, to);
+    await this.assertVehicleAvailable(this.dataSource.manager, vehicleId);
+
+    const rows = await this.appointments
+      .createQueryBuilder('a')
+      .select(['a.id', 'a.scheduledAt', 'a.durationMin'])
+      .where('a.vehicleId = :vehicleId', { vehicleId })
+      .andWhere('a.status <> :cancelled', { cancelled: AppointmentStatus.CANCELLED })
+      .andWhere('a.scheduledAt < :to', { to })
+      .andWhere("a.scheduledAt + a.durationMin * interval '1 minute' > :from", { from })
+      .orderBy('a.scheduledAt', 'ASC')
+      .addOrderBy('a.id', 'ASC')
+      .getMany();
+
+    return {
+      vehicleId,
+      from,
+      to,
+      durationMin: APPOINTMENT_DURATION_MIN,
+      busy: rows.map((row) => ({
+        startsAt: row.scheduledAt,
+        endsAt: new Date(row.scheduledAt.getTime() + row.durationMin * 60_000),
+      })),
+    };
+  }
+
+  private assertValidRange(from: Date, to: Date): void {
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException('Las fechas from y to deben ser válidas');
+    }
+    if (to.getTime() <= from.getTime()) throw new BadRequestException('to debe ser posterior a from');
+    if (to.getTime() - from.getTime() > MAX_AVAILABILITY_DAYS * DAY_MS) {
+      throw new BadRequestException(`El rango no puede superar ${MAX_AVAILABILITY_DAYS} días`);
+    }
   }
 
   async findAll(query: AppointmentQueryDto): Promise<Paginated<Appointment>> {

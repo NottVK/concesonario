@@ -12,7 +12,7 @@ import type { Paginated } from '../common/pagination.js';
 import { escapeLike } from '../common/sql.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
 import type { VehicleDto } from './dto/vehicle.dto.js';
-import type { VehicleQueryDto, VehicleSort } from './dto/vehicle-query.dto.js';
+import type { VehicleFilters, VehicleSort } from './dto/vehicle-query.dto.js';
 import { Vehicle, VehicleStatus } from './entities/vehicle.entity.js';
 
 const SORTS: Record<VehicleSort, [string, 'ASC' | 'DESC']> = {
@@ -30,14 +30,13 @@ export class VehiculosService {
     @InjectRepository(Brand) private readonly brands: Repository<Brand>,
   ) {}
 
-  async findAll(query: VehicleQueryDto): Promise<Paginated<Vehicle>> {
+  /** `includeSold` solo lo activa el listado admin; el catálogo público nunca muestra vendidos. */
+  async findAll(query: VehicleFilters, includeSold = false): Promise<Paginated<Vehicle>> {
     if (query.yearMin && query.yearMax && query.yearMin > query.yearMax) {
       throw new BadRequestException('yearMin no puede ser mayor que yearMax');
     }
-    const qb = this.vehicles
-      .createQueryBuilder('v')
-      .innerJoinAndSelect('v.brand', 'b')
-      .where('v.status <> :sold', { sold: VehicleStatus.SOLD });
+    const qb = this.vehicles.createQueryBuilder('v').innerJoinAndSelect('v.brand', 'b');
+    if (!includeSold) qb.where('v.status <> :sold', { sold: VehicleStatus.SOLD });
     this.applyFilters(qb, query);
 
     const [column, direction] = SORTS[query.sort];
@@ -90,7 +89,7 @@ export class VehiculosService {
     await this.vehicles.remove(vehicle);
   }
 
-  private applyFilters(qb: SelectQueryBuilder<Vehicle>, q: VehicleQueryDto): void {
+  private applyFilters(qb: SelectQueryBuilder<Vehicle>, q: VehicleFilters): void {
     if (q.brandId) qb.andWhere('v.brandId = :brandId', { brandId: q.brandId });
     if (q.brand) qb.andWhere('LOWER(b.name) = LOWER(:brand)', { brand: q.brand });
     if (q.model) {

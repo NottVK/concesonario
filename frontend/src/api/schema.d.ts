@@ -149,6 +149,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/vehiculos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventario completo con filtros y paginación, incluidos los vendidos (admin) */
+        get: operations["AdminVehiculosController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clientes": {
         parameters: {
             query?: never;
@@ -237,6 +254,26 @@ export interface paths {
         patch: operations["CitasController_updateStatus"];
         trace?: never;
     };
+    "/api/vehiculos/{id}/disponibilidad": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Franjas ocupadas de un vehículo para test-drive (público, 30 por minuto)
+         * @description Devuelve solo las franjas ya reservadas, sin datos de clientes ni del estado de la cita. El horario de atención (lunes a sábado, 8:00–18:00 hora de Bogotá) no se repite aquí.
+         */
+        get: operations["DisponibilidadController_availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ventas": {
         parameters: {
             query?: never;
@@ -267,6 +304,57 @@ export interface paths {
         };
         /** Detalle de una venta */
         get: operations["VentasController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/metricas/resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tarjetas del panel: inventario, citas pendientes y ventas del mes (admin) */
+        get: operations["MetricasController_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/metricas/ventas-por-mes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ventas por mes calendario de Bogotá, con ceros en los meses vacíos (admin) */
+        get: operations["MetricasController_salesByMonth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/metricas/stock-por-marca": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventario disponible por marca, incluidas las que tienen 0 (admin) */
+        get: operations["MetricasController_stockByBrand"];
         put?: never;
         post?: never;
         delete?: never;
@@ -538,6 +626,27 @@ export interface components {
              */
             status: "confirmada" | "cancelada";
         };
+        BusySlotDto: {
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+        };
+        AvailabilityDto: {
+            /** @example 1 */
+            vehicleId: number;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /**
+             * @description Duración de cada visita, en minutos
+             * @example 60
+             */
+            durationMin: number;
+            /** @description Franjas ya reservadas de ese vehículo dentro del rango (citas pendientes o confirmadas). Todo lo demás dentro del horario de atención está libre; el POST /citas sigue siendo quien decide. */
+            busy: components["schemas"]["BusySlotDto"][];
+        };
         CreateSaleDto: {
             /** @example 1 */
             vehicleId: number;
@@ -582,6 +691,65 @@ export interface components {
             payment: "contado" | "credito" | "leasing";
             /** Format: date-time */
             soldAt: string;
+        };
+        SummaryDto: {
+            /**
+             * @description Mes calendario de las ventas, en hora de Bogotá
+             * @example 2026-10
+             */
+            month: string;
+            /**
+             * @description Vehículos disponibles (nuevos y usados, sin vendidos)
+             * @example 52
+             */
+            vehiclesInStock: number;
+            /**
+             * @description Suma de precios del inventario disponible, en COP
+             * @example 9850000000.00
+             */
+            stockValue: string;
+            /**
+             * @description Citas en estado pendiente
+             * @example 4
+             */
+            pendingAppointments: number;
+            /**
+             * @description Ventas registradas en el mes
+             * @example 3
+             */
+            salesThisMonth: number;
+            /**
+             * @description Suma del precio final de las ventas del mes, en COP
+             * @example 540000000.00
+             */
+            revenueThisMonth: string;
+        };
+        SalesByMonthDto: {
+            /** @example 2026-09 */
+            month: string;
+            /** @example 5 */
+            count: number;
+            /**
+             * @description Suma del precio final, en COP
+             * @example 845000000.00
+             */
+            total: string;
+        };
+        StockByBrandDto: {
+            /** @example 3 */
+            brandId: number;
+            /** @example Mazda */
+            brand: string;
+            /**
+             * @description Vehículos disponibles de la marca (0 si no tiene)
+             * @example 6
+             */
+            count: number;
+            /**
+             * @description Suma de precios de esos vehículos, en COP
+             * @example 1100000000.00
+             */
+            value: string;
         };
     };
     responses: never;
@@ -814,9 +982,9 @@ export interface operations {
                 priceMax?: string;
                 fuel?: "gasolina" | "diesel" | "hibrido" | "electrico";
                 transmission?: "manual" | "automatica";
+                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "year_asc";
                 /** @description El catálogo nunca lista vendidos, por eso solo se aceptan nuevo y usado */
                 status?: "nuevo" | "usado";
-                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "year_asc";
             };
             header?: never;
             path?: never;
@@ -978,6 +1146,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminVehiculosController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Número de página, desde 1 */
+                page?: number;
+                /** @description Elementos por página */
+                limit?: number;
+                /** @description Id de la marca */
+                brandId?: number;
+                /** @description Nombre exacto de la marca, sin distinguir mayúsculas */
+                brand?: string;
+                /** @description Texto contenido en el modelo, sin distinguir mayúsculas */
+                model?: string;
+                /** @description Año mínimo */
+                yearMin?: number;
+                /** @description Año máximo */
+                yearMax?: number;
+                /** @description Precio mínimo en COP */
+                priceMin?: string;
+                /** @description Precio máximo en COP */
+                priceMax?: string;
+                fuel?: "gasolina" | "diesel" | "hibrido" | "electrico";
+                transmission?: "manual" | "automatica";
+                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "year_asc";
+                status?: "nuevo" | "usado" | "vendido";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: components["schemas"]["Vehicle"][];
+                        meta?: components["schemas"]["PageMeta"];
+                    };
+                };
             };
         };
     };
@@ -1221,6 +1434,53 @@ export interface operations {
             };
         };
     };
+    DisponibilidadController_availability: {
+        parameters: {
+            query?: {
+                /** @description Inicio del rango, ISO 8601 con zona horaria. Por defecto, ahora */
+                from?: string;
+                /** @description Fin del rango (exclusivo), ISO 8601 con zona horaria. Por defecto, 35 días después de from; el rango máximo es de 62 días */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityDto"];
+                };
+            };
+            /** @description Fechas inválidas, to ≤ from o rango de más de 62 días */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El vehículo no existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El vehículo ya fue vendido */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     VentasController_findAll: {
         parameters: {
             query?: {
@@ -1309,6 +1569,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    MetricasController_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryDto"];
+                };
+            };
+        };
+    };
+    MetricasController_salesByMonth: {
+        parameters: {
+            query?: {
+                months?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesByMonthDto"][];
+                };
+            };
+            /** @description months fuera de 1–24 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MetricasController_stockByBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockByBrandDto"][];
+                };
             };
         };
     };

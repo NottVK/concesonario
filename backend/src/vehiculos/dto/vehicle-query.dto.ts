@@ -8,8 +8,8 @@ import { FuelType, Transmission, VehicleStatus } from '../entities/vehicle.entit
 export const VEHICLE_SORTS = ['newest', 'price_asc', 'price_desc', 'year_desc', 'year_asc'] as const;
 export type VehicleSort = (typeof VEHICLE_SORTS)[number];
 
-/** Filtros de GET /vehiculos. Todos son opcionales y se combinan con AND. */
-export class VehicleQueryDto extends PaginationDto {
+/** Filtros comunes del catálogo y del listado admin. Todos son opcionales y se combinan con AND. */
+export abstract class VehicleFiltersDto extends PaginationDto {
   @ApiPropertyOptional({ description: 'Id de la marca', example: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -67,6 +67,14 @@ export class VehicleQueryDto extends PaginationDto {
   })
   transmission?: Transmission;
 
+  @ApiPropertyOptional({ enum: VEHICLE_SORTS, default: 'newest' })
+  @IsOptional()
+  @IsIn(VEHICLE_SORTS, { message: `sort debe ser: ${VEHICLE_SORTS.join(', ')}` })
+  sort: VehicleSort = 'newest';
+}
+
+/** GET /vehiculos: el catálogo público nunca lista vendidos. */
+export class VehicleQueryDto extends VehicleFiltersDto {
   @ApiPropertyOptional({
     enum: [VehicleStatus.NEW, VehicleStatus.USED],
     description: 'El catálogo nunca lista vendidos, por eso solo se aceptan nuevo y usado',
@@ -74,9 +82,17 @@ export class VehicleQueryDto extends PaginationDto {
   @IsOptional()
   @IsIn([VehicleStatus.NEW, VehicleStatus.USED], { message: 'status debe ser nuevo o usado' })
   status?: VehicleStatus.NEW | VehicleStatus.USED;
-
-  @ApiPropertyOptional({ enum: VEHICLE_SORTS, default: 'newest' })
-  @IsOptional()
-  @IsIn(VEHICLE_SORTS, { message: `sort debe ser: ${VEHICLE_SORTS.join(', ')}` })
-  sort: VehicleSort = 'newest';
 }
+
+/** GET /admin/vehiculos: el inventario completo; `status` admite también `vendido`. */
+export class AdminVehicleQueryDto extends VehicleFiltersDto {
+  @ApiPropertyOptional({ enum: Object.values(VehicleStatus) })
+  @IsOptional()
+  @IsIn(Object.values(VehicleStatus), {
+    message: `status debe ser: ${Object.values(VehicleStatus).join(', ')}`,
+  })
+  status?: VehicleStatus;
+}
+
+/** Lo que entiende el servicio: los filtros comunes más un estado cualquiera. */
+export type VehicleFilters = VehicleFiltersDto & { status?: VehicleStatus };

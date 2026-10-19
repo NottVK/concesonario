@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach } from 'vitest'
+
+// La primera prueba de cada archivo paga el arranque en frío; 1 s (el valor por defecto) se queda corto en equipos lentos.
+configure({ asyncUtilTimeout: 4000 })
 
 // jsdom no implementa showModal()/close() del <dialog> nativo; se simulan con el atributo `open`.
 if (typeof HTMLDialogElement.prototype.showModal !== 'function') {

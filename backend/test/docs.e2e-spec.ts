@@ -49,13 +49,17 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 25 operaciones de la API', () => {
+  it('documenta exactamente las 30 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
     expect(operations).toEqual([
       'DELETE /api/marcas/{id}',
       'DELETE /api/vehiculos/{id}',
+      'GET /api/admin/metricas/resumen',
+      'GET /api/admin/metricas/stock-por-marca',
+      'GET /api/admin/metricas/ventas-por-mes',
+      'GET /api/admin/vehiculos',
       'GET /api/auth/me',
       'GET /api/citas',
       'GET /api/citas/{id}',
@@ -66,6 +70,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/vehiculos',
       'GET /api/vehiculos/comparar',
       'GET /api/vehiculos/{id}',
+      'GET /api/vehiculos/{id}/disponibilidad',
       'GET /api/ventas',
       'GET /api/ventas/{id}',
       'PATCH /api/citas/{id}/estado',
@@ -97,7 +102,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     const publicRoutes: [string, string][] = [
       ['post', '/api/auth/login'], ['get', '/api/marcas'], ['get', '/api/marcas/{id}'],
       ['get', '/api/vehiculos'], ['get', '/api/vehiculos/comparar'], ['get', '/api/vehiculos/{id}'],
-      ['post', '/api/clientes'], ['post', '/api/citas'], ['post', '/api/financiacion/simular'],
+      ['get', '/api/vehiculos/{id}/disponibilidad'], ['post', '/api/clientes'], ['post', '/api/citas'], ['post', '/api/financiacion/simular'],
     ];
     const privateRoutes: [string, string][] = [
       ['get', '/api/auth/me'], ['post', '/api/marcas'], ['put', '/api/marcas/{id}'],
@@ -105,7 +110,9 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       ['delete', '/api/vehiculos/{id}'], ['get', '/api/clientes'], ['get', '/api/clientes/{id}'],
       ['put', '/api/clientes/{id}'], ['get', '/api/citas'], ['get', '/api/citas/{id}'],
       ['patch', '/api/citas/{id}/estado'], ['post', '/api/ventas'], ['get', '/api/ventas'],
-      ['get', '/api/ventas/{id}'],
+      ['get', '/api/ventas/{id}'], ['get', '/api/admin/metricas/resumen'],
+      ['get', '/api/admin/metricas/ventas-por-mes'], ['get', '/api/admin/metricas/stock-por-marca'],
+      ['get', '/api/admin/vehiculos'],
     ];
     for (const [method, path] of publicRoutes) expect(operation(method, path).security, `${method} ${path}`).toBeUndefined();
     for (const [method, path] of privateRoutes) expect(operation(method, path).security, `${method} ${path}`).toBeDefined();
@@ -126,6 +133,29 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(names('get', '/api/clientes')).toEqual(['limit', 'page', 'q']);
     expect(names('get', '/api/vehiculos/comparar')).toEqual(['ids']);
     expect(names('get', '/api/ventas')).toEqual(['limit', 'page']);
+  });
+
+  it('documenta los parámetros de la disponibilidad y de las rutas admin', () => {
+    const names = (path: string) => (operation('get', path).parameters ?? []).map((p) => p.name).sort();
+    expect(names('/api/vehiculos/{id}/disponibilidad')).toEqual(['from', 'id', 'to']);
+    expect(names('/api/admin/metricas/ventas-por-mes')).toEqual(['months']);
+    expect(names('/api/admin/metricas/resumen')).toEqual([]);
+    expect(names('/api/admin/vehiculos')).toEqual(names('/api/vehiculos'));
+  });
+
+  it('la disponibilidad solo expone inicio y fin de cada franja, sin datos del cliente', () => {
+    expect(Object.keys(schemaOf('BusySlotDto').properties ?? {}).sort()).toEqual(['endsAt', 'startsAt']);
+    expect(Object.keys(schemaOf('AvailabilityDto').properties ?? {}).sort()).toEqual([
+      'busy', 'durationMin', 'from', 'to', 'vehicleId',
+    ]);
+  });
+
+  it('las métricas documentan sus campos y el dinero como texto', () => {
+    expect(Object.keys(schemaOf('SummaryDto').properties ?? {}).sort()).toEqual([
+      'month', 'pendingAppointments', 'revenueThisMonth', 'salesThisMonth', 'stockValue', 'vehiclesInStock',
+    ]);
+    expect(Object.keys(schemaOf('SalesByMonthDto').properties ?? {}).sort()).toEqual(['count', 'month', 'total']);
+    expect(Object.keys(schemaOf('StockByBrandDto').properties ?? {}).sort()).toEqual(['brand', 'brandId', 'count', 'value']);
   });
 
   it('el simulador documenta su petición y respuesta en inglés', () => {
