@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { CatalogPage } from '@/features/catalog/CatalogPage'
 import { VehicleDetailPage } from '@/features/detail/VehicleDetailPage'
-import { HomePage } from '@/pages/HomePage'
+import { HomePage } from '@/features/home/HomePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 const queryClient = new QueryClient({
