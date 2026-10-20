@@ -3,9 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CatalogoModule } from '../catalogo/catalogo.module.js';
 import { FinanciacionModule } from '../financiacion/financiacion.module.js';
 import { RateWindow } from '../mcp/gateway/rate-window.js';
+import { OTHER_BOT_GATEWAY } from '../chat/tools/other-bot.js';
 import { McpModule } from '../mcp/mcp.module.js';
 import { A2A_CONFIG, loadA2aConfig } from './a2a.config.js';
 import { A2aTasksController, AgentCardController } from './a2a.controller.js';
+import { ChatOtherBotGateway } from './chat-bridge/other-bot.gateway.js';
 import { BotExchange } from './entities/bot-exchange.entity.js';
 import { ExternalBot } from './entities/external-bot.entity.js';
 import { A2aTasksService } from './inbound/tasks.service.js';
@@ -50,7 +52,9 @@ import type { SettingsSource } from './outbound/target-policy.js';
       }),
     },
     A2aOutboundService,
+    // El chat solo conoce esta interfaz (decisión 119): así no importa nada de `a2a/outbound`.
+    { provide: OTHER_BOT_GATEWAY, useClass: ChatOtherBotGateway },
   ],
-  exports: [TypeOrmModule, A2aOutboundService],
+  exports: [TypeOrmModule, A2aOutboundService, OTHER_BOT_GATEWAY],
 })
 export class A2aModule {}

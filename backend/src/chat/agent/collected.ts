@@ -1,5 +1,6 @@
 import { parseColombianNumber } from '../text/amounts.js';
 import { formatPesos } from '../tools/format.js';
+import type { ThirdPartyCard } from '../tools/other-bot.js';
 import type { ProposalView, ToolResult, VehicleCard } from '../tools/tool-types.js';
 
 /** Campos de las tools que son dinero en pesos: lo único que el validador acepta como "respaldado". */
@@ -37,6 +38,8 @@ export class Collected {
   readonly seen = new Set<number>();
   readonly results: { tool: string; data: Record<string, unknown> }[] = [];
   proposal: ProposalView | null = null;
+  /** Respuesta de otro bot de este turno: solo para el widget. No entra a `results`, a `text()` ni a ningún prompt. */
+  thirdParty: ThirdPartyCard | null = null;
 
   add(tool: string, result: ToolResult): void {
     this.results.push({ tool, data: result.data });
@@ -53,6 +56,7 @@ export class Collected {
     }
     for (const id of result.seen ?? []) this.seen.add(id);
     if (result.proposal) this.proposal = result.proposal;
+    if (result.thirdParty) this.thirdParty = result.thirdParty;
   }
 
   /** Todo el texto que devolvieron las tools en el turno. */
@@ -72,6 +76,9 @@ export class Collected {
     if (this.proposal) {
       return `${this.proposal.summary}. Revisa la tarjeta y confírmala con tus datos; todavía no está agendada.`;
     }
+    if (this.thirdParty) return `Le consulté a ${this.thirdParty.botName}. Su respuesta está en la tarjeta de abajo; es de un tercero no verificado, no de AutoMax.`;
+    const other = this.last('preguntar_a_otro_bot');
+    if (other && typeof other.motivo === 'string') return `${other.motivo}`;
     const credit = this.last('simular_credito');
     if (credit) {
       return `Con una cuota inicial de ${text(credit.cuota_inicial_texto)} a ${text(credit.meses)} meses, la cuota mensual sería de ${text(credit.cuota_texto)} (total a pagar ${text(credit.total_a_pagar_texto)}).`;

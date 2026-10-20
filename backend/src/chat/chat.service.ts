@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { AgentService } from './agent/agent.service.js';
 import { PROMPT_VERSION } from './agent/prompt.js';
@@ -17,6 +17,9 @@ import { SessionService } from './session/session.service.js';
 import { sanitizeText } from './text/sanitize.js';
 import { BadRequestException, GatewayTimeoutException, ServiceUnavailableException } from '@nestjs/common';
 import type { ApiVehicle } from './tools/format.js';
+import { OTHER_BOT_GATEWAY } from './tools/other-bot.js';
+import type { OtherBotGateway } from './tools/other-bot.js';
+import { loadOtherBots } from './tools/other-bot-tool.js';
 
 const STATUS_CACHE_MS = 30_000;
 
@@ -43,6 +46,7 @@ export class ChatService implements OnModuleInit {
     private readonly conversations: ConversationService,
     private readonly proposals: ProposalService,
     private readonly api: PublicApiClient,
+    @Optional() @Inject(OTHER_BOT_GATEWAY) private readonly otherBots?: OtherBotGateway,
   ) {}
 
   onModuleInit(): void {
@@ -75,6 +79,8 @@ export class ChatService implements OnModuleInit {
       reply: output.reply,
       cards: output.cards,
       proposal: output.proposal,
+      // Solo viaja al widget: no se guarda en la conversación ni vuelve a entrar a ningún prompt.
+      thirdParty: output.thirdParty,
       ...(newToken ? { sessionToken: newToken } : {}),
       ...(chatDebugEnabled() ? { debug: { tools: output.toolsCalled, fallback: output.fallback, results: output.toolResults } } : {}),
     };
@@ -116,6 +122,8 @@ export class ChatService implements OnModuleInit {
     seenVehicleIds: number[],
   ): ReturnType<AgentService['run']> {
     const turnSignal = AbortSignal.any([request.signal, AbortSignal.timeout(CHAT_TURN_TIMEOUT_MS)]);
+    // Fuera de la cola de inferencia (de una plaza): la consulta a la base no debe alargar el turno de nadie.
+    const otherBots = await loadOtherBots(this.otherBots, (message) => this.logger.warn(message));
     try {
       return await this.queue.run(
         () =>
@@ -126,6 +134,7 @@ export class ChatService implements OnModuleInit {
             sessionId,
             seenVehicleIds,
             createProposal: (input) => this.proposals.create(sessionId, input),
+            ...(otherBots ? { otherBots } : {}),
             signal: turnSignal,
           }),
         turnSignal,

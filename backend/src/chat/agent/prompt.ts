@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { BUSINESS_TIME_ZONE } from '../../citas/appointment-rules.js';
 
 /** Versión del prompt vigente. Cada versión nueva es OTRO archivo; no se edita uno ya evaluado. */
-export const PROMPT_VERSION = 'v1';
+export const PROMPT_VERSION = 'v2';
 export const CANARY = 'CANARIO-9F3K-7Q2X';
 
 let cached: string | null = null;

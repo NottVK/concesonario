@@ -3,21 +3,27 @@ import { ApiUnreachableError, RouteNotAllowedError } from '../api/public-api.cli
 import type { ToolCall, ToolDefinition } from '../model/model-provider.js';
 import { agendarCita } from './appointment-tool.js';
 import { simularCredito } from './credit-tool.js';
+import { otherBotDefinition, preguntarAOtroBot } from './other-bot-tool.js';
 import { toolError } from './tool-types.js';
 import type { ChatTool, ToolContext, ToolResult } from './tool-types.js';
 import { buscarVehiculos, compararVehiculos, detalleVehiculo } from './vehicle-tools.js';
 
 /**
- * Tools registradas. `consultar_cita` queda diferida (el bot solo confirma las citas de la sesión actual) y
- * `preguntar_a_otro_bot` llega en la Fase 6: no se registran todavía.
+ * Tools registradas. `consultar_cita` queda diferida (el bot solo confirma las citas de la sesión actual).
+ * `preguntar_a_otro_bot` está registrada pero SOLO se ofrece al modelo en los turnos en que hay bots activos.
  */
-export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita];
+export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot];
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
 const logger = new Logger('ChatTools');
 
-export function toolDefinitions(): ToolDefinition[] {
-  return TOOLS.map((tool) => tool.definition);
+/** Definiciones que se le ofrecen al modelo en este turno: la de otros bots lleva como enum los bots activos, y falta si no hay ninguno. */
+export function toolDefinitions(context?: Pick<ToolContext, 'otherBots'>): ToolDefinition[] {
+  const offered = context?.otherBots?.offered ?? [];
+  return TOOLS.flatMap((tool) => {
+    if (tool.name !== preguntarAOtroBot.name) return [tool.definition];
+    return offered.length > 0 ? [otherBotDefinition(offered)] : [];
+  });
 }
 
 /**

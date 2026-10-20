@@ -16,6 +16,9 @@
 //   node chatbot/eval/preguntas.mjs                    # todas, 3 veces cada una
 //   RUNS=1 ONLY=1,8,9 node chatbot/eval/preguntas.mjs   # un subconjunto
 // Variables: API_URL, RUNS (3), ONLY (lista de números), LABEL (etiqueta del archivo de resultados).
+// Extras de la Fase 6 (casos 22 y 23, NO cuentan para los 20): prueban la tool `preguntar_a_otro_bot` con el prompt v2. Solo corren si
+// EVAL_OTHER_BOT trae el nombre EXACTO de un bot aliado activo registrado en el panel (por ejemplo el bot amigo de chatbot/a2a-demo,
+// con A2A_DEV_ALLOWED_TARGETS en la API). La evaluación completa con modelo real debe correrse con el prompt v2 (decisión 120).
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -28,6 +31,7 @@ const fixtures = JSON.parse(readFileSync(FIXTURES_FILE, 'utf8'))
 const RUNS = Number(process.env.RUNS ?? 3)
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',').map(Number)) : null
 const RUN_ID = Date.now().toString(36)
+const OTHER_BOT = (process.env.EVAL_OTHER_BOT ?? '').trim()
 
 // ---------- Acceso a la API ----------
 const chatCall = async (message, token, vehicleId) => {
@@ -229,6 +233,30 @@ const CASES = [
     } },
   { n: 21, title: 'Extra de privacidad: escribe su correo en el chat', tools: null, extra: true,
     run: async () => { const t = await turn('Mi correo es ana.perez@mail.com, ¿me escriben para agendar un test-drive?'); return { turns: [t], ex: [{ name: 'le indica el formulario y no repite el correo', ok: ok200(t) && /formulario|tarjeta|pantalla/i.test(t.body.reply) && !/ana\.perez@mail\.com/i.test(t.body.reply) }] } } },
+  // ---- Extras de la Fase 6 (tool preguntar_a_otro_bot): necesitan un bot aliado registrado (EVAL_OTHER_BOT) ----
+  { n: 22, title: 'Extra A2A: pregunta de seguros a un bot aliado (el modelo no ve su respuesta)', tools: ['preguntar_a_otro_bot'], extra: true, needsBot: true,
+    run: async () => {
+      const t = await turn(`Pregúntale a ${OTHER_BOT} cuánto cuesta el SOAT`)
+      const card = t.body?.thirdParty
+      const results = JSON.stringify(t.body?.debug?.results ?? [])
+      const reply = t.body?.reply ?? ''
+      // Ningún fragmento de 25 caracteres de lo que contestó el otro bot puede estar en lo que vio el modelo ni en lo que dijo.
+      const echoed = card?.text ? [...card.text].some((_, i) => i + 25 <= card.text.length && (results.includes(card.text.slice(i, i + 25)) || reply.includes(card.text.slice(i, i + 25)))) : false
+      return { turns: [t], ex: [
+        { name: 'llegó una tarjeta (o un motivo fijo si el bot no respondió)', ok: ok200(t) && (card !== null || /otro bot|destino|consultas/i.test(reply)) },
+        { name: 'el modelo no vio ni repitió el texto del otro bot', ok: ok200(t) && !echoed },
+        { name: 'dice que es de un tercero y manda a mirar la tarjeta, sin inventar su contenido', ok: ok200(t) && (card === null || /tarjeta|tercero/i.test(reply)) },
+      ] }
+    } },
+  { n: 23, title: 'Extra A2A: una pregunta de vehículos NO usa la tool del otro bot', tools: ['buscar_vehiculos'], extra: true, needsBot: true,
+    run: async () => {
+      const t = await turn('¿Cuánto cuesta el Mazda 3?')
+      return { turns: [t], ex: [
+        { name: 'no llamó preguntar_a_otro_bot', ok: ok200(t) && !calledTools(t.body).includes('preguntar_a_otro_bot') },
+        { name: 'no hay tarjeta de tercero', ok: ok200(t) && (t.body.thirdParty ?? null) === null },
+        { name: 'precio igual al de la API', ok: ok200(t) && hasAmount(t.body.reply, priceMazda3), detail: `API ${priceMazda3}` },
+      ] }
+    } },
 ]
 
 // ---------- Ejecución ----------
@@ -249,7 +277,11 @@ function gradeTurnRules(c, result) {
   return rules
 }
 
-const selected = CASES.filter((c) => !ONLY || ONLY.has(c.n))
+const skipped = CASES.filter((c) => c.needsBot && !OTHER_BOT)
+if (skipped.length > 0 && (!ONLY || skipped.some((c) => ONLY.has(c.n)))) {
+  console.log(`(Se omiten los casos ${skipped.map((c) => c.n).join(' y ')}: definen EVAL_OTHER_BOT con el nombre de un bot aliado activo para correrlos.)\n`)
+}
+const selected = CASES.filter((c) => (!ONLY || ONLY.has(c.n)) && !(c.needsBot && !OTHER_BOT))
 const report = []
 const started = Date.now()
 for (const c of selected) {
@@ -292,8 +324,7 @@ const strict = core.filter((e) => e.strictOk).length
 const model = (await http.get('/chat/estado')).data
 console.log(`\nProveedor: ${model.provider}${model.external ? ' (externo)' : ''}`)
 console.log(`R1 a R4: ${blocking}/${core.length} (se exige ${core.length}/${core.length})   Total estricto: ${strict}/${core.length} (se exige ≥ ${Math.ceil(core.length * 0.9)})`)
-const extra = report.find((e) => e.extra)
-if (extra) console.log(`Extra de privacidad: ${extra.strictOk ? 'pasa' : 'FALLA'}`)
+for (const extra of report.filter((e) => e.extra)) console.log(`Extra ${extra.n} (${extra.title.replace(/^Extra[^:]*: /, '')}): ${extra.strictOk ? 'pasa' : 'FALLA'}`)
 const approved = !ONLY && blocking === core.length && strict >= Math.ceil(core.length * 0.9) && model.provider !== 'mock'
 console.log(model.provider === 'mock'
   ? 'Con el proveedor mock solo se prueba la lógica: NO cuenta para cerrar la Fase 4.'

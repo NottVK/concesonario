@@ -104,7 +104,7 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
       expect(stored).toContain('[teléfono]');
       expect(stored).toContain('[documento]');
       expect(stored).not.toMatch(/ana\.perez|300 123|1020304050/);
-      expect(rows[1]).toMatchObject({ version_prompt: 'v1', modelo: 'mock' });
+      expect(rows[1]).toMatchObject({ version_prompt: 'v2', modelo: 'mock' });
     });
 
     it('los resultados de las tools no se guardan en el historial', async () => {

@@ -128,7 +128,7 @@ Nota: `gemma3:1b` no se considera (sin tool-calling nativo en Ollama, según los
 | `simular_credito` | El precio lo lee el servidor; la tasa nunca viene del modelo. |
 | `agendar_cita` | Solo propone (ver abajo). |
 | `consultar_cita` | Diferida. |
-| `preguntar_a_otro_bot` | Fase 6; no se registra ahora. |
+| `preguntar_a_otro_bot` | Fase 6 (subfase 6.6): registrada, pero solo se ofrece al modelo si hay bots activos; ver DECISIONES 114, 119 y 120. |
 
 ### Prompt injection: lo de la base y del usuario es dato
 

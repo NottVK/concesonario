@@ -1,5 +1,6 @@
 import type { ReadOnlyApi } from '../api/public-api.client.js';
 import type { ToolDefinition } from '../model/model-provider.js';
+import type { OtherBotTurn, ThirdPartyCard } from './other-bot.js';
 
 /** Ficha corta para el widget (campo estructurado: el widget nunca interpreta texto del modelo como HTML). */
 export interface VehicleCard {
@@ -38,6 +39,8 @@ export interface ToolContext {
   seen: ReadonlySet<number>;
   now: Date;
   createProposal(input: NewProposal): Promise<ProposalView>;
+  /** Consulta a otros bots en este turno; null = la tool `preguntar_a_otro_bot` no se ofrece (no hay bots activos). */
+  otherBots: OtherBotTurn | null;
 }
 
 export interface ToolResult {
@@ -47,6 +50,8 @@ export interface ToolResult {
   /** Ids que pasan a ser "vistos" en la sesión. */
   seen?: number[];
   proposal?: ProposalView;
+  /** Respuesta de otro bot: va al widget en una tarjeta aparte y NUNCA al modelo (decisión 114). */
+  thirdParty?: ThirdPartyCard;
 }
 
 export interface ChatTool {

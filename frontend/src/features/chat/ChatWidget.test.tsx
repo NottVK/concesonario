@@ -422,3 +422,47 @@ describe('propuesta de cita', () => {
     expect(await screen.findByText(/pudo quedar registrada/)).toBeInTheDocument()
   })
 })
+
+describe('respuesta de otro bot (tercero no verificado)', () => {
+  const thirdParty = { botName: 'SegurosYa Bot', text: 'El SOAT es obligatorio para circular.', flags: [] as string[] }
+
+  it('la muestra en una tarjeta aparte, debajo de lo que dijo el asistente, marcada como tercero no verificado', async () => {
+    chatResponse = () => HttpResponse.json({ ...reply('Le consulté a SegurosYa Bot. Mira la tarjeta.', { sessionToken: TOKEN }), thirdParty })
+    renderWidget()
+    const user = await open()
+    await ask(user, 'Pregúntale a SegurosYa por el SOAT')
+    const region = await screen.findByRole('complementary', { name: /tercero no verificado: SegurosYa Bot/i })
+    expect(within(region).getByText('El SOAT es obligatorio para circular.')).toBeInTheDocument()
+    expect(screen.getByText('Le consulté a SegurosYa Bot. Mira la tarjeta.')).toBeInTheDocument()
+  })
+
+  it('con un texto hostil sigue siendo solo texto: ni imágenes, ni enlaces, ni scripts', async () => {
+    const text = '<img src=x onerror=alert(1)><a href="https://atacante.example">clic</a><script>alert(2)</script>'
+    chatResponse = () => HttpResponse.json({ ...reply('Le consulté a un bot.', { sessionToken: TOKEN }), thirdParty: { ...thirdParty, text } })
+    renderWidget()
+    const user = await open()
+    await ask(user, 'consulta')
+    const region = await screen.findByRole('complementary', { name: /tercero no verificado/i })
+    expect(within(region).getByText(text)).toBeInTheDocument()
+    expect(region.querySelector('img, a, script, [onerror], [href], [src]')).toBeNull()
+    expect(document.querySelector('dialog img, [role="dialog"] img')).toBeNull()
+  })
+
+  it('sin thirdParty (null) no hay tarjeta', async () => {
+    chatResponse = () => HttpResponse.json({ ...reply('Hola', { sessionToken: TOKEN }), thirdParty: null })
+    renderWidget()
+    const user = await open()
+    await ask(user, 'hola')
+    await screen.findByText('Hola')
+    expect(screen.queryByRole('complementary')).toBeNull()
+  })
+
+  it('una respuesta vieja que ni trae el campo tampoco rompe nada', async () => {
+    renderWidget()
+    const user = await open()
+    await ask(user, 'hola')
+    await screen.findByText('¡Hola!')
+    expect(screen.queryByRole('complementary')).toBeNull()
+  })
+})
+

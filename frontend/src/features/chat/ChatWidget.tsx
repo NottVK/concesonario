@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { fetchChatStatus, MAX_MESSAGE } from './chatApi'
 import type { VehicleCardData } from './chatApi'
 import { ProposalCard } from './ProposalCard'
+import { ThirdPartyCard } from './ThirdPartyCard'
 import { useChat } from './useChat'
 
 function TypingIndicator({ long }: { long: boolean }) {
@@ -150,6 +151,7 @@ export function ChatWidget({ thinkingAfterMs }: { thinkingAfterMs?: number } = {
               {message.text}
             </div>
             {message.cards && <Cards cards={message.cards} />}
+            {message.thirdParty && <ThirdPartyCard card={message.thirdParty} />}
             {message.proposal && message.proposalState === 'open' && (
               <div className="w-full">
                 <ProposalCard

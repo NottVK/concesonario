@@ -15,6 +15,7 @@ const OFF_TOPIC = /receta|arepa|poema|chiste|f[uú]tbol|clima|pol[ií]tica|capit
 const PROMPT_LEAK = /\bprompt\b|instrucciones (internas|del sistema)|system prompt|tus reglas|repite lo anterior/i;
 const PERSONAL_DATA = /(correo|tel[eé]fono|celular|n[uú]mero).{0,40}(clientes?|otros|compradores)|(clientes?|compradores).{0,40}(correo|tel[eé]fono)/i;
 const CORRECTION = /^\[Nota del sistema\]/;
+const OTHER_BOT_TOPIC = /\b(seguros?|soat|aseguradora|p[oó]liza|deducible|otro bot)\b|preg[uú]ntale/i;
 
 /** Sin tildes, para que «agéndame» y «agendame» se lean igual. */
 const plain = (value: string): string => value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
@@ -142,6 +143,13 @@ function answerFromTool(message: ChatMessage): ChatResponse {
     }
     case 'simular_credito':
       return text(`Con ${money(data, 'cuota_inicial')} de inicial a ${String(data.meses)} meses, la cuota sería de ${money(data, 'cuota')} al mes.`);
+    case 'preguntar_a_otro_bot':
+      // El mock, como el modelo real, NO conoce el texto del otro bot: solo a quién se consultó y cómo salió.
+      return text(
+        data.estado === 'respondio'
+          ? `Le consulté a ${String(data.consultado)}. Mira la tarjeta: es su respuesta, de un tercero no verificado.`
+          : String(data.motivo ?? 'No pude consultar al otro bot.'),
+      );
     case 'agendar_cita':
       return text(`Preparé tu propuesta: ${String(data.resumen)}. Revísala en la tarjeta y confírmala con tus datos; todavía no está agendada.`);
     default:
@@ -166,6 +174,15 @@ function followUp(request: ChatRequest, message: ChatMessage): ChatResponse {
   return answerFromTool(message);
 }
 
+/** Bot al que pregunta el mock: el que nombre el usuario entre los ofrecidos, o el primero. Solo si la tool se ofrece en este turno. */
+function otherBotCall(request: ChatRequest, user: string): ChatResponse | null {
+  const parameters = request.tools?.find((tool) => tool.name === 'preguntar_a_otro_bot')?.parameters as { properties?: { bot?: { enum?: string[] } } } | undefined;
+  const names = parameters?.properties?.bot?.enum ?? [];
+  if (names.length === 0 || !OTHER_BOT_TOPIC.test(user)) return null;
+  const named = names.find((name) => plain(user).toLowerCase().includes(plain(name).toLowerCase()));
+  return call('preguntar_a_otro_bot', { bot: named ?? names[0], pregunta: user.slice(0, 300) });
+}
+
 export function defaultMockScript(request: ChatRequest): ChatResponse {
   const last = request.messages[request.messages.length - 1];
   if (last?.role === 'tool') return last.toolName === 'buscar_vehiculos' ? followUp(request, last) : answerFromTool(last);
@@ -176,6 +193,8 @@ export function defaultMockScript(request: ChatRequest): ChatResponse {
   if (OFF_TOPIC.test(user)) return text('Solo puedo ayudarte con vehículos, precios, crédito y citas del concesionario.');
   if (GREETING.test(user)) return text('¡Hola! Soy el asistente de AutoMax. ¿Qué vehículo buscas?');
   if (/[\w.%+-]+@[\w-]+\.[\w.]+/.test(user)) return text('Por tu privacidad no necesito tu correo en el chat: usa el formulario de la tarjeta de la cita.');
+  const other = otherBotCall(request, user);
+  if (other) return other;
   if (/^\W*quiero un (carro|auto|veh[ií]culo)\W*$/i.test(user)) return text('¿Qué uso le darás y cuál es tu presupuesto aproximado?');
   if (/cuota|cr[eé]dito|financ|agend|cita\b|test.?drive|compar|precio|price|cu[aá]nto|busco|quiero un|tienen|disponible|valor|how much/i.test(user) || BRANDS.some((b) => new RegExp(`\\b${b}\\b`, 'i').test(user))) {
     return call('buscar_vehiculos', searchArgs(user));

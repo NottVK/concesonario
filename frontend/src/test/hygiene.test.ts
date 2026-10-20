@@ -56,4 +56,11 @@ describe('higiene del código fuente', () => {
       ['/src/auth/guards.tsx', '/src/features/catalog/VehicleCard.tsx'].sort(),
     )
   })
+
+  it('la tarjeta del tercero no crea enlaces, imágenes ni atributos de URL: lo que contesta otro bot es solo texto', () => {
+    const [, text] = productionFiles.find(([path]) => path === '/src/features/chat/ThirdPartyCard.tsx') ?? ['', '']
+    expect(text.length).toBeGreaterThan(200)
+    expect(text).not.toMatch(/<(a|img|iframe|video|audio|object|embed|script)\b|\bhref\s*=|\bsrc\s*=|<Link\b|\bdangerouslySetInnerHTML\b/)
+  })
 })
+

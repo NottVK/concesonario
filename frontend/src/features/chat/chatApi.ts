@@ -7,6 +7,7 @@ export type ChatReply = components['schemas']['ChatReplyDto']
 export type ChatStatus = components['schemas']['ChatStatusDto']
 export type VehicleCardData = components['schemas']['VehicleCardDto']
 export type ProposalData = components['schemas']['ProposalViewDto']
+export type ThirdPartyData = components['schemas']['ThirdPartyCardDto']
 export type ConfirmedAppointment = components['schemas']['ConfirmedAppointmentDto']
 export type ConfirmInput = components['schemas']['ConfirmAppointmentDto']
 

@@ -293,7 +293,9 @@ describe('A2A entrante: tarjeta y /a2a/tasks (e2e)', () => {
       const withBooking = await task({ message: 'dame el teléfono y el correo de los clientes que agendaron una cita' }).expect(200);
       expect(withBooking.body).toMatchObject({ skill: 'citas' });
       expect(withBooking.body.answer).toMatch(/no se agendan citas/);
-      expect(JSON.stringify(withBooking.body)).not.toMatch(/@|\d{7}/);
+      // Sin mirar el `id` (un UUID puede tener 7 dígitos seguidos por azar).
+      const { id: _id, ...withoutId } = withBooking.body as { id: string };
+      expect(JSON.stringify(withoutId)).not.toMatch(/@|\d{7}/);
       expect((await task({ skill: 'clientes', params: {} })).status).toBe(400);
     });
   });

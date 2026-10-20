@@ -42,6 +42,12 @@ export class ProposalViewDto {
   @ApiProperty({ type: String, format: 'date-time' }) expiresAt: string;
 }
 
+export class ThirdPartyCardDto {
+  @ApiProperty({ description: 'Nombre del bot consultado, tal como lo registró el administrador (texto plano)' }) botName: string;
+  @ApiProperty({ description: 'Respuesta del otro bot ya saneada: TEXTO PLANO, sin HTML, enlaces, correos ni teléfonos. El widget la pinta siempre como texto' }) text: string;
+  @ApiProperty({ type: [String], description: 'Qué se quitó o tapó del texto original (html, markdown, correo, enlace, numero, invisible, recortado, dice-ser-automax)' }) flags: string[];
+}
+
 export class ChatDebugDto {
   @ApiProperty({ type: [String], description: 'Nombres de las tools que llamó el modelo en este turno' }) tools: string[];
   @ApiProperty({ enum: ['none', 'template', 'refusal'], description: 'none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija' }) fallback: string;
@@ -52,6 +58,12 @@ export class ChatReplyDto {
   @ApiProperty({ description: 'Texto plano: el widget nunca lo interpreta como HTML' }) reply: string;
   @ApiProperty({ type: [VehicleCardDto], description: 'Fichas estructuradas de los vehículos mencionados' }) cards: VehicleCardDto[];
   @ApiProperty({ type: ProposalViewDto, nullable: true, description: 'Propuesta de cita pendiente de confirmar' }) proposal: ProposalViewDto | null;
+  @ApiProperty({
+    type: ThirdPartyCardDto,
+    nullable: true,
+    description: 'Respuesta de OTRO bot (tercero no verificado). El modelo nunca la ve; se pinta en una tarjeta aparte y no se guarda en el historial',
+  })
+  thirdParty: ThirdPartyCardDto | null;
   @ApiPropertyOptional({ description: 'Solo en la primera respuesta de una sesión nueva; el navegador la guarda y la manda en X-Chat-Session' })
   sessionToken?: string;
   @ApiPropertyOptional({ type: ChatDebugDto, description: 'Solo con CHAT_EVAL_MODE=true (evaluación) y nunca en producción' })

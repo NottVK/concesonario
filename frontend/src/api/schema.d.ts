@@ -460,6 +460,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/.well-known/agent.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tarjeta del bot AutoMax (pública): nombre, URL de las tareas y habilidades */
+        get: operations["AgentCardController_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/a2a/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recibe una tarea de otro bot (key de bot en Authorization: Bearer)
+         * @description Cuerpo: `{ "from": "mi-bot", "message": "¿Tienen Mazda 3 2024?" }`, o con habilidad explícita `{ "skill": "stock" | "precios" | "citas" | "financiacion", "params": { … } }`. Responde solo con información pública (catálogo y simulador); nunca datos de clientes. `citas` es informativa: por este canal no se agenda. Cuerpo de hasta 16 KB, respuesta de hasta 4 KB. Una key falsa, ausente o de un bot desactivado reciben EXACTAMENTE el mismo 401.
+         */
+        post: operations["A2aTasksController_handle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/bots": {
         parameters: {
             query?: never;
@@ -532,43 +569,6 @@ export interface paths {
          * @description JSON-RPC de MCP (sin estado, respuestas JSON). Herramientas de SOLO LECTURA sobre el catálogo público: `consultar_stock`, `consultar_precio` y `listar_marcas` (no hay ninguna herramienta que escriba o agende). Autenticación con la key del bot (`Authorization: Bearer amx_…`): una key falsa, mal formada, ausente o de un bot desactivado reciben EXACTAMENTE el mismo 401. Cuerpo de hasta 16 KB; respuesta de hasta 4 KB. Límite propio por bot (30 por minuto y 2.000 por día por defecto) y límites por IP antes de autenticar; el bloqueo por IP depende de `trust proxy` (ver DECISIONES.md).
          */
         post: operations["McpController_handle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/.well-known/agent.json": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Tarjeta del bot AutoMax (pública): nombre, URL de las tareas y habilidades */
-        get: operations["AgentCardController_card"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/a2a/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Recibe una tarea de otro bot (key de bot en Authorization: Bearer)
-         * @description Cuerpo: `{ "from": "mi-bot", "message": "¿Tienen Mazda 3 2024?" }`, o con habilidad explícita `{ "skill": "stock" | "precios" | "citas" | "financiacion", "params": { … } }`. Responde solo con información pública (catálogo y simulador); nunca datos de clientes. `citas` es informativa: por este canal no se agenda. Cuerpo de hasta 16 KB, respuesta de hasta 4 KB. Una key falsa, ausente o de un bot desactivado reciben EXACTAMENTE el mismo 401.
-         */
-        post: operations["A2aTasksController_handle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1154,6 +1154,14 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        ThirdPartyCardDto: {
+            /** @description Nombre del bot consultado, tal como lo registró el administrador (texto plano) */
+            botName: string;
+            /** @description Respuesta del otro bot ya saneada: TEXTO PLANO, sin HTML, enlaces, correos ni teléfonos. El widget la pinta siempre como texto */
+            text: string;
+            /** @description Qué se quitó o tapó del texto original (html, markdown, correo, enlace, numero, invisible, recortado, dice-ser-automax) */
+            flags: string[];
+        };
         ChatDebugDto: {
             /** @description Nombres de las tools que llamó el modelo en este turno */
             tools: string[];
@@ -1172,6 +1180,8 @@ export interface components {
             cards: components["schemas"]["VehicleCardDto"][];
             /** @description Propuesta de cita pendiente de confirmar */
             proposal: components["schemas"]["ProposalViewDto"] | null;
+            /** @description Respuesta de OTRO bot (tercero no verificado). El modelo nunca la ve; se pinta en una tarjeta aparte y no se guarda en el historial */
+            thirdParty: components["schemas"]["ThirdPartyCardDto"] | null;
             /** @description Solo en la primera respuesta de una sesión nueva; el navegador la guarda y la manda en X-Chat-Session */
             sessionToken?: string;
             /** @description Solo con CHAT_EVAL_MODE=true (evaluación) y nunca en producción */
@@ -2319,6 +2329,77 @@ export interface operations {
             };
         };
     };
+    AgentCardController_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tarjeta A2A */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    A2aTasksController_handle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tarea resuelta (`completed`) o falta información (`needs_input`) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Key ausente, falsa, mal formada o de un bot desactivado (respuesta idéntica) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Origin o Host no permitidos */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cuerpo de más de 16 KB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El tipo de contenido no es application/json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Límite por IP, global o del bot (con Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminBotsController_list: {
         parameters: {
             query?: never;
@@ -2436,77 +2517,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Respuesta JSON-RPC (202 sin cuerpo para notificaciones; 400 con error JSON-RPC si el mensaje no es válido) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Key ausente, falsa, mal formada o de un bot desactivado (respuesta idéntica) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Origin o Host no permitidos */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Cuerpo de más de 16 KB */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description El tipo de contenido no es application/json */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Límite por IP, global o del bot (con Retry-After) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AgentCardController_card: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tarjeta A2A */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    A2aTasksController_handle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tarea resuelta (`completed`) o falta información (`needs_input`) */
             200: {
                 headers: {
                     [name: string]: unknown;

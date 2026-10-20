@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { classifyChatError, deleteChatSession, sendChatMessage } from './chatApi'
-import type { ChatFailure, ProposalData, VehicleCardData } from './chatApi'
+import type { ChatFailure, ProposalData, ThirdPartyData, VehicleCardData } from './chatApi'
 import { clearChatToken } from './chatSession'
 import { MAX_MESSAGE } from './chatApi'
 
@@ -13,6 +13,8 @@ export interface ChatMessage {
   cards?: VehicleCardData[]
   proposal?: ProposalData
   proposalState?: ProposalState
+  /** Respuesta de otro bot: tarjeta aparte, siempre marcada «tercero no verificado». */
+  thirdParty?: ThirdPartyData
 }
 
 /** A los 10 s sin respuesta se avisa que el asistente sigue trabajando. */
@@ -72,6 +74,7 @@ export function useChat(vehicleId: number | null, thinkingAfterMs = THINKING_AFT
           role: 'assistant',
           text: reply.reply,
           cards: reply.cards,
+          ...(reply.thirdParty ? { thirdParty: reply.thirdParty } : {}),
           ...(reply.proposal ? { proposal: reply.proposal, proposalState: 'open' as const } : {}),
         })
       } catch (error) {

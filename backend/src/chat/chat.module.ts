@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { A2aModule } from '../a2a/a2a.module.js';
 import { AgentService } from './agent/agent.service.js';
 import { PublicApiClient } from './api/public-api.client.js';
 import { AppointmentConfirmService } from './appointment-confirm.service.js';
@@ -17,7 +18,8 @@ import { PurgeService } from './session/purge.service.js';
 import { SessionService } from './session/session.service.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Conversation, ChatSession, AppointmentProposal])],
+  // A2aModule provee OTHER_BOT_GATEWAY: la única forma en que el chat llega a otros bots.
+  imports: [TypeOrmModule.forFeature([Conversation, ChatSession, AppointmentProposal]), A2aModule],
   controllers: [ChatController],
   providers: [
     // El proveedor se elige con CHAT_PROVIDER (ollama, groq o mock); una configuración mala impide arrancar.

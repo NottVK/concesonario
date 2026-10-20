@@ -47,9 +47,15 @@ describe('higiene de imports de la A2A saliente', () => {
     ]);
   });
 
-  it('el módulo de chat no importa la salida A2A en esta subfase (la tool llega en la 6.6 con su propia prueba)', () => {
+  it('el chat solo conoce a a2a por el módulo (que provee la interfaz): nada de a2a/outbound ni de las entidades', () => {
     const chatFiles = walk(join(SRC, 'chat')).filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'));
-    const offenders = chatFiles.filter((file) => importsOf(file).some((target) => /a2a\/outbound/.test(target)));
-    expect(offenders.map((file) => relative(SRC, file))).toEqual([]);
+    const a2aImports = chatFiles.flatMap((file) => importsOf(file).filter((target) => /(^|\/)a2a(\/|$)/.test(target)).map((target) => `${relative(SRC, file).replaceAll('\\', '/')} -> ${target}`));
+    expect(a2aImports).toEqual(['chat/chat.module.ts -> ../a2a/a2a.module.js']);
+  });
+
+  it('a2a importa del chat solo la interfaz (tools/other-bot) y solo desde el puente y el módulo', () => {
+    const a2aFiles = walk(join(SRC, 'a2a')).filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'));
+    const fromChat = a2aFiles.flatMap((file) => importsOf(file).filter((target) => /(^|\/)chat(\/|$)/.test(target)).map((target) => `${relative(SRC, file).replaceAll('\\', '/')} -> ${target}`));
+    expect(fromChat.sort()).toEqual(['a2a/a2a.module.ts -> ../chat/tools/other-bot.js', 'a2a/chat-bridge/other-bot.gateway.ts -> ../../chat/tools/other-bot.js']);
   });
 });
