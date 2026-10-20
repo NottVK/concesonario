@@ -1,8 +1,9 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { AgentService } from './agent/agent.service.js';
 import { PROMPT_VERSION } from './agent/prompt.js';
 import { PublicApiClient } from './api/public-api.client.js';
-import { chatPerHourLimit, CHAT_MESSAGE_MAX_CHARS, CHAT_QUEUE_LENGTH, CHAT_TURN_TIMEOUT_MS } from './chat.config.js';
+import { chatDebugEnabled, chatEvalMode, chatPerHourLimit, CHAT_MESSAGE_MAX_CHARS, CHAT_QUEUE_LENGTH, CHAT_TURN_TIMEOUT_MS } from './chat.config.js';
 import { ChatRetryException, MODEL_SLOW_MESSAGE, MODEL_UNAVAILABLE_MESSAGE } from './chat.errors.js';
 import type { ChatReplyDto, ChatStatusDto } from './dto/chat.dto.js';
 import { ConversationRole } from './entities/conversation.entity.js';
@@ -29,7 +30,7 @@ export interface TurnRequest {
 }
 
 @Injectable()
-export class ChatService {
+export class ChatService implements OnModuleInit {
   private readonly logger = new Logger(ChatService.name);
   private readonly queue = new InferenceQueue(1, CHAT_QUEUE_LENGTH);
   private readonly hourly = new HourlyLimiter(chatPerHourLimit);
@@ -43,6 +44,12 @@ export class ChatService {
     private readonly proposals: ProposalService,
     private readonly api: PublicApiClient,
   ) {}
+
+  onModuleInit(): void {
+    if (chatEvalMode()) {
+      this.logger.warn('CHAT_EVAL_MODE=true: límites por IP relajados y salida de depuración activa. SOLO para evaluar; nunca en producción.');
+    }
+  }
 
   async turn(request: TurnRequest): Promise<ChatReplyDto> {
     // Antes de gastar nada: el mensaje se sanea y se rechaza si queda vacío.
@@ -64,7 +71,13 @@ export class ChatService {
       { role: ConversationRole.ASSISTANT, message: output.reply, promptVersion: PROMPT_VERSION, model: this.provider.model },
     ]);
     await this.sessions.addSeen(session, output.seenVehicleIds);
-    return { reply: output.reply, cards: output.cards, proposal: output.proposal, ...(newToken ? { sessionToken: newToken } : {}) };
+    return {
+      reply: output.reply,
+      cards: output.cards,
+      proposal: output.proposal,
+      ...(newToken ? { sessionToken: newToken } : {}),
+      ...(chatDebugEnabled() ? { debug: { tools: output.toolsCalled, fallback: output.fallback, results: output.toolResults } } : {}),
+    };
   }
 
   async removeSession(token: string | undefined): Promise<void> {

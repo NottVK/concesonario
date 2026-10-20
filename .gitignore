@@ -6,3 +6,6 @@ coverage/
 pgdata/
 .DS_Store
 *.tsbuildinfo
+
+# Fixtures de la evaluación del chat (ids de una base temporal)
+chatbot/eval/fixtures.json

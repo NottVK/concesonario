@@ -25,7 +25,7 @@ const FAKE_KEY = 'gsk_clave_de_prueba_que_no_debe_salir_en_errores';
 let server: Server;
 let base: string;
 let seen: Seen[] = [];
-let handler: (seen: Seen, respond: (status: number, body: unknown) => void) => void;
+let handler: (seen: Seen, respond: (status: number, body: unknown, headers?: Record<string, string>) => void) => void;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -35,8 +35,8 @@ beforeAll(async () => {
       const raw = Buffer.concat(chunks).toString('utf8');
       const entry: Seen = { url: req.url ?? '', headers: req.headers, body: raw ? (JSON.parse(raw) as Record<string, unknown>) : {} };
       seen.push(entry);
-      handler(entry, (status, body) => {
-        res.writeHead(status, { 'content-type': 'application/json' });
+      handler(entry, (status, body, headers = {}) => {
+        res.writeHead(status, { 'content-type': 'application/json', ...headers });
         res.end(JSON.stringify(body));
       });
     });
@@ -153,6 +153,43 @@ describe('GroqProvider', () => {
     const offline = new GroqProvider({ apiKey: FAKE_KEY, model: 'm', timeoutMs: 500, baseUrl: 'http://127.0.0.1:1' });
     const error = await offline.chat(REQUEST).catch((e: unknown) => e);
     expect(`${(error as Error).message} ${JSON.stringify(error)}`).not.toContain(FAKE_KEY);
+  });
+
+  it('ante un 429 con Retry-After corto espera y reintenta; sin Retry-After no reintenta', async () => {
+    let calls = 0;
+    handler = (_s, respond) => {
+      calls += 1;
+      if (calls <= 2) respond(429, { error: { message: 'rate limit' } }, { 'retry-after': '0' });
+      else respond(200, { choices: [{ message: { content: 'ya' } }] });
+    };
+    expect(await groq().chat(REQUEST)).toEqual({ content: 'ya', toolCalls: [] });
+    expect(calls).toBe(3);
+
+    calls = 0;
+    handler = (_s, respond) => {
+      calls += 1;
+      respond(429, {});
+    };
+    await expect(groq().chat(REQUEST)).rejects.toBeInstanceOf(ProviderUnavailableError);
+    expect(calls).toBe(1);
+  });
+
+  it('si el Retry-After es muy largo no espera: falla de inmediato', async () => {
+    let calls = 0;
+    handler = (_s, respond) => {
+      calls += 1;
+      respond(429, {}, { 'retry-after': '120' });
+    };
+    await expect(groq().chat(REQUEST)).rejects.toBeInstanceOf(ProviderUnavailableError);
+    expect(calls).toBe(1);
+  });
+
+  it('el reintento se puede cancelar mientras espera', async () => {
+    handler = (_s, respond) => respond(429, {}, { 'retry-after': '10' });
+    const controller = new AbortController();
+    const pending = groq().chat({ ...REQUEST, signal: controller.signal });
+    setTimeout(() => controller.abort(), 100);
+    await expect(pending).rejects.toBeInstanceOf(ProviderAbortedError);
   });
 
   it('sin clave no se construye', () => {

@@ -53,8 +53,12 @@ function requestedDate(request: ChatRequest, user: string): string {
   const today = /Hoy es \S+ (\d{4}-\d{2}-\d{2})/.exec(system)?.[1] ?? '2026-01-05';
   const explicit = /\b(\d{4}-\d{2}-\d{2})\b/.exec(user)?.[1];
   if (explicit) return explicit;
-  if (/pasado ma[ñn]ana/i.test(user)) return addDays(today, 2);
-  if (/ma[ñn]ana/i.test(user)) return addDays(today, 1);
+  const written = writtenDate(user, today);
+  if (written) return written;
+  // «a las 10 de la mañana» es una hora, no «mañana».
+  const text = user.replace(/de la ma[ñn]ana/gi, '');
+  if (/pasado ma[ñn]ana/i.test(text)) return addDays(today, 2);
+  if (/ma[ñn]ana/i.test(text)) return addDays(today, 1);
   if (/\bhoy\b/i.test(user)) return today;
   const day = WEEKDAYS.findIndex((name) => new RegExp(`\\b${name}\\b`, 'i').test(user));
   if (day >= 0) {
@@ -64,11 +68,24 @@ function requestedDate(request: ChatRequest, user: string): string {
   return addDays(today, 1);
 }
 
+const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** «3 de noviembre»: el próximo 3 de noviembre a partir de hoy. */
+function writtenDate(user: string, today: string): string | null {
+  const match = new RegExp(String.raw`(\d{1,2}) de (${MONTH_NAMES.join('|')})`, 'i').exec(user);
+  if (!match) return null;
+  const month = MONTH_NAMES.indexOf(match[2]!.toLowerCase()) + 1;
+  const year = Number(today.slice(0, 4));
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const thisYear = `${year}-${pad(month)}-${pad(Number(match[1]))}`;
+  return thisYear >= today ? thisYear : `${year + 1}-${pad(month)}-${pad(Number(match[1]))}`;
+}
+
 function requestedTime(user: string): string {
-  const match = /a las (\d{1,2})(?::(\d{2}))?\s*(pm|p\.m\.|de la tarde|am|a\.m\.)?/i.exec(user);
+  const match = /a las (\d{1,2})(?::(\d{2}))?\s*(pm|p\.m\.|de la tarde|de la noche|am|a\.m\.|de la ma[ñn]ana)?/i.exec(user);
   if (!match) return '10:00';
   let hour = Number(match[1]);
-  if (/pm|p\.m\.|tarde/i.test(match[3] ?? '') && hour < 12) hour += 12;
+  if (/pm|p\.m\.|tarde|noche/i.test(match[3] ?? '') && hour < 12) hour += 12;
   return `${String(hour).padStart(2, '0')}:${match[2] ?? '00'}`;
 }
 
@@ -78,7 +95,7 @@ function requestedMonths(user: string): number {
 }
 
 function requestedDownPayment(user: string): string {
-  const millions = /(\d+(?:[.,]\d+)?)\s*millones/i.exec(user);
+  const millions = /(\d+(?:[.,]\d+)?)\s*millones\s+de\s+inicial/i.exec(user) ?? /(\d+(?:[.,]\d+)?)\s*millones/i.exec(user);
   if (millions) return String(Math.round(Number(millions[1]!.replace(',', '.')) * 1_000_000));
   const flat = /inicial[^\d]{0,20}\$?\s*([\d.]{6,})/i.exec(user);
   return flat ? flat[1]!.replace(/\./g, '') : '0';
@@ -89,7 +106,9 @@ function searchArgs(user: string): Record<string, unknown> {
   if (!brand) return { query: user.slice(0, 200) };
   const model = new RegExp(`${brand}\\s+([\\p{L}\\d-]+)`, 'iu').exec(user)?.[1];
   const stop = /^(con|de|a|en|y|que|para|por|es|tiene|tienen|disponibles?)$/i;
-  return { brand, ...(model && !stop.test(model) ? { model } : {}) };
+  // «Mazda 3»: el modelo se llama «Mazda 3», no «3».
+  const modelName = model && /^\d+$/.test(model) ? `${brand} ${model}` : model;
+  return { brand, ...(modelName && !stop.test(modelName) ? { model: modelName } : {}) };
 }
 
 function money(data: Record<string, unknown>, key: string): string {
@@ -156,6 +175,8 @@ export function defaultMockScript(request: ChatRequest): ChatResponse {
   if (PERSONAL_DATA.test(user)) return text('No comparto datos de otras personas. Si quieres agendar, usa el formulario de la cita.');
   if (OFF_TOPIC.test(user)) return text('Solo puedo ayudarte con vehículos, precios, crédito y citas del concesionario.');
   if (GREETING.test(user)) return text('¡Hola! Soy el asistente de AutoMax. ¿Qué vehículo buscas?');
+  if (/[\w.%+-]+@[\w-]+\.[\w.]+/.test(user)) return text('Por tu privacidad no necesito tu correo en el chat: usa el formulario de la tarjeta de la cita.');
+  if (/^\W*quiero un (carro|auto|veh[ií]culo)\W*$/i.test(user)) return text('¿Qué uso le darás y cuál es tu presupuesto aproximado?');
   if (/cuota|cr[eé]dito|financ|agend|cita\b|test.?drive|compar|precio|price|cu[aá]nto|busco|quiero un|tienen|disponible|valor|how much/i.test(user) || BRANDS.some((b) => new RegExp(`\\b${b}\\b`, 'i').test(user))) {
     return call('buscar_vehiculos', searchArgs(user));
   }

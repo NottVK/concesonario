@@ -42,12 +42,20 @@ export class ProposalViewDto {
   @ApiProperty({ type: String, format: 'date-time' }) expiresAt: string;
 }
 
+export class ChatDebugDto {
+  @ApiProperty({ type: [String], description: 'Nombres de las tools que llamó el modelo en este turno' }) tools: string[];
+  @ApiProperty({ enum: ['none', 'template', 'refusal'], description: 'none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija' }) fallback: string;
+  @ApiProperty({ description: 'Resultados de las tools de este turno (los que vio el modelo)', type: 'array', items: { type: 'object' } }) results: { tool: string; data: Record<string, unknown> }[];
+}
+
 export class ChatReplyDto {
   @ApiProperty({ description: 'Texto plano: el widget nunca lo interpreta como HTML' }) reply: string;
   @ApiProperty({ type: [VehicleCardDto], description: 'Fichas estructuradas de los vehículos mencionados' }) cards: VehicleCardDto[];
   @ApiProperty({ type: ProposalViewDto, nullable: true, description: 'Propuesta de cita pendiente de confirmar' }) proposal: ProposalViewDto | null;
   @ApiPropertyOptional({ description: 'Solo en la primera respuesta de una sesión nueva; el navegador la guarda y la manda en X-Chat-Session' })
   sessionToken?: string;
+  @ApiPropertyOptional({ type: ChatDebugDto, description: 'Solo con CHAT_EVAL_MODE=true (evaluación) y nunca en producción' })
+  debug?: ChatDebugDto;
 }
 
 export class ChatStatusDto {

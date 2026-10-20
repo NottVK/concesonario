@@ -1,8 +1,36 @@
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import type { AxiosInstance } from 'axios';
 import { parseArguments, toProviderError } from './http-errors.js';
-import { ProviderUnavailableError } from './model-provider.js';
+import { ProviderAbortedError, ProviderUnavailableError } from './model-provider.js';
 import type { ChatMessage, ChatRequest, ChatResponse, ModelProvider, ToolCall } from './model-provider.js';
+
+const MAX_RATE_LIMIT_RETRIES = 3;
+/** Esperas más largas que esto no se aguardan: el turno tiene un tope de 90 s. */
+const MAX_RETRY_WAIT_MS = 20_000;
+
+/** Milisegundos a esperar si el error es un 429 con `Retry-After` razonable; null si no hay que reintentar. */
+export function rateLimitWaitMs(error: unknown): number | null {
+  if (!isAxiosError(error) || error.response?.status !== 429) return null;
+  const seconds = Number(error.response.headers?.['retry-after']);
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  const wait = Math.ceil(seconds * 1000) + 200;
+  return wait <= MAX_RETRY_WAIT_MS ? wait : null;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new ProviderAbortedError());
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(new ProviderAbortedError());
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 export const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 
@@ -68,24 +96,36 @@ export class GroqProvider implements ModelProvider {
     });
   }
 
+  /**
+   * Una llamada. El plan gratuito de Groq limita por minuto (peticiones y tokens): ante un 429 con `Retry-After`
+   * corto se espera ese tiempo (cancelable) y se reintenta hasta 3 veces antes de rendirse.
+   */
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    try {
-      const { data } = await this.http.post<{ choices?: { message?: GroqWireMessage }[] }>(
-        '/chat/completions',
-        {
-          model: this.config.model,
-          messages: request.messages.map(toWire),
-          ...(request.tools?.length ? { tools: request.tools.map((t) => ({ type: 'function', function: t })) } : {}),
-          temperature: 0,
-          seed: 42,
-          max_tokens: 400,
-        },
-        { signal: request.signal },
-      );
-      return fromWire(data.choices?.[0]?.message);
-    } catch (error) {
-      throw toProviderError(error, 'groq');
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.post(request);
+      } catch (error) {
+        const wait = rateLimitWaitMs(error);
+        if (wait === null || attempt >= MAX_RATE_LIMIT_RETRIES) throw toProviderError(error, 'groq');
+        await sleep(wait, request.signal);
+      }
     }
+  }
+
+  private async post(request: ChatRequest): Promise<ChatResponse> {
+    const { data } = await this.http.post<{ choices?: { message?: GroqWireMessage }[] }>(
+      '/chat/completions',
+      {
+        model: this.config.model,
+        messages: request.messages.map(toWire),
+        ...(request.tools?.length ? { tools: request.tools.map((t) => ({ type: 'function', function: t })) } : {}),
+        temperature: 0,
+        seed: 42,
+        max_tokens: 400,
+      },
+      { signal: request.signal },
+    );
+    return fromWire(data.choices?.[0]?.message);
   }
 
   async isAvailable(): Promise<boolean> {

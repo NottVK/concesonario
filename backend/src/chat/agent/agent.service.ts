@@ -32,6 +32,8 @@ export interface AgentOutput {
   /** Todos los ids vistos tras este turno. */
   seenVehicleIds: number[];
   toolsCalled: string[];
+  /** Resultados de las tools de este turno (solo se exponen en el modo de depuración). */
+  toolResults: { tool: string; data: Record<string, unknown> }[];
   /** 'none' = respuesta del modelo; 'template' = armada con datos de las tools; 'refusal' = negativa fija. */
   fallback: 'none' | 'template' | 'refusal';
 }
@@ -119,6 +121,7 @@ export class AgentService {
       proposal: collected.proposal,
       seenVehicleIds: [...seen],
       toolsCalled,
+      toolResults: collected.results,
       fallback,
     };
   }

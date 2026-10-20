@@ -167,6 +167,20 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
   });
 
   describe('catálogo, precios y defensas', () => {
+    it('la salida de depuración (tools y sus datos) solo aparece con CHAT_DEBUG_TOOLS', async () => {
+      const normal = await chat({ message: '¿Cuánto cuesta el Mazda 3?' }).expect(200);
+      expect(normal.body.debug).toBeUndefined();
+      process.env.CHAT_DEBUG_TOOLS = 'true';
+      try {
+        const res = await chat({ message: '¿Cuánto cuesta el Mazda 3?' }).expect(200);
+        expect(res.body.debug.tools).toEqual(['buscar_vehiculos']);
+        expect(res.body.debug.fallback).toBe('none');
+        expect(JSON.stringify(res.body.debug.results)).toContain('95900000.00');
+      } finally {
+        delete process.env.CHAT_DEBUG_TOOLS;
+      }
+    });
+
     it('el precio sale de la API: ficha estructurada y monto exacto', async () => {
       const res = await chat({ message: '¿Cuánto cuesta el Mazda 3?' }).expect(200);
       expect(res.body.reply).toContain('$95.900.000');
