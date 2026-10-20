@@ -133,6 +133,57 @@ describe('Clientes y citas (e2e)', () => {
       await book(bookBody(soldCar.id, bogotaSlot(WEDNESDAY, 11))).expect(409);
     });
 
+    const freshVehicle = async (model: string): Promise<Vehicle> => {
+      const repo = ctx.dataSource.getRepository(Vehicle);
+      const { id: _id, ...fields } = carB; // eslint-disable-line @typescript-eslint/no-unused-vars
+      return repo.save(repo.create({ ...fields, model, revision: 1 }));
+    };
+
+    it('una venta en curso del vehículo: la reserva espera y, al terminar la venta, recibe 409 sin dejar cita abierta', async () => {
+      // Antes la reserva leía el vehículo sin bloquearlo: podía insertarse justo después de que la venta cancelara
+      // las citas abiertas y quedar abierta sobre un vehículo vendido.
+      const car = await freshVehicle('Carrera venta');
+      const holder = ctx.dataSource.createQueryRunner();
+      await holder.connect();
+      await holder.startTransaction();
+      await holder.manager.findOne(Vehicle, { where: { id: car.id }, lock: { mode: 'pessimistic_write' } });
+
+      let settled = false;
+      const pending = book(bookBody(car.id, bogotaSlot(THURSDAY, 15), { name: 'Rita', email: 'rita-carrera@correo.co' })).then((res) => {
+        settled = true;
+        return res;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(settled).toBe(false);
+
+      await holder.manager.update(Vehicle, car.id, { status: VehicleStatus.SOLD });
+      await holder.commitTransaction();
+      await holder.release();
+
+      expect((await pending).status).toBe(409);
+      expect(await ctx.dataSource.getRepository(Appointment).countBy({ vehicleId: car.id })).toBe(0);
+    });
+
+    it('dos reservas simultáneas del mismo vehículo en horas distintas no se esperan entre sí: ambas se agendan', async () => {
+      const car = await freshVehicle('Reservas paralelas');
+      const results = await Promise.all([
+        book(bookBody(car.id, bogotaSlot(THURSDAY, 16), { name: 'Pía', email: 'pia-paralela@correo.co' })),
+        book(bookBody(car.id, bogotaSlot(THURSDAY, 17), { name: 'Raúl', email: 'raul-paralelo@correo.co' })),
+      ]);
+      expect(results.map((res) => res.status)).toEqual([201, 201]);
+    });
+
+    it('el mismo correo nuevo en dos reservas simultáneas (otros vehículos y horas): ambas pasan y queda un solo cliente', async () => {
+      const [one, two] = [await freshVehicle('Correo A'), await freshVehicle('Correo B')];
+      const same = { name: 'Sara Simultánea', email: 'sara-simultanea@correo.co' };
+      const results = await Promise.all([
+        book(bookBody(one.id, bogotaSlot(THURSDAY, 8), same)),
+        book(bookBody(two.id, bogotaSlot(THURSDAY, 12), same)),
+      ]);
+      expect(results.map((res) => res.status).sort((a, b) => a - b)).toEqual([201, 201]);
+      expect(await ctx.dataSource.getRepository(Customer).countBy({ email: same.email })).toBe(1);
+    });
+
     it('un correo existente se reutiliza sin modificar sus datos', async () => {
       await book(bookBody(carB.id, bogotaSlot(WEDNESDAY, 9), { ...ana, name: 'Suplantador' })).expect(201);
       const customer = await ctx.dataSource.getRepository(Customer).findOneByOrFail({ email: ana.email });

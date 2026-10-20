@@ -7,6 +7,7 @@ import { A2aModule } from './a2a/a2a.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/jwt-auth.guard.js';
 import { RolesGuard } from './common/roles.guard.js';
+import { globalThrottleLimit } from './common/throttle.js';
 import { ChatModule } from './chat/chat.module.js';
 import { CitasModule } from './citas/citas.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
@@ -26,7 +27,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     }),
     // Límite global por IP; las rutas sensibles lo endurecen con @Throttle().
     ThrottlerModule.forRoot([
-      { ttl: 60_000, limit: Number(process.env.THROTTLE_LIMIT ?? 100) },
+      { ttl: 60_000, limit: globalThrottleLimit() },
     ]),
     AuthModule,
     FinanciacionModule,

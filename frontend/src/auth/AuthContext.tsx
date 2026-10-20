@@ -160,17 +160,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Al abrir (o recargar) una pestaña con token guardado se confirma con el servidor quién es.
   useEffect(() => {
-    if (!getToken()) return
+    const checked = getToken()
+    if (!checked) return
     let cancelled = false
+    // La respuesta solo vale si el token sigue siendo el que se comprobó: si mientras tanto alguien entró (otro
+    // token), ni se borra su sesión ni se le pone el usuario de la comprobación anterior.
+    const stale = (): boolean => cancelled || getToken() !== checked
     api
       .get<PublicUser>('/auth/me', { skipReauth: true })
       .then((res) => {
-        if (cancelled) return
+        if (stale()) return
         setUser(toUser(res.data))
         setStatus('authenticated')
       })
       .catch(() => {
-        if (cancelled) return
+        if (stale()) return
         clearToken()
         setStatus('anonymous')
       })

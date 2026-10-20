@@ -40,7 +40,10 @@ export class CitasService {
     if (problem) throw new BadRequestException(problem);
 
     const saved = await this.dataSource.transaction(async (manager) => {
-      await this.assertVehicleAvailable(manager, dto.vehicleId);
+      // Bloqueo compartido: varias reservas a la vez no se esperan entre sí, pero sí esperan a una venta (FOR UPDATE)
+      // en curso y, tras ella, ven el vehículo vendido. Sin esto, una cita podía insertarse justo después de que la
+      // venta cancelara las citas abiertas y quedar abierta sobre un vehículo vendido.
+      await this.assertVehicleAvailable(manager, dto.vehicleId, true);
       const customer = await this.findOrCreateCustomer(manager, dto.customer);
       await this.assertNoOverlap(manager, dto.vehicleId, customer.id, start);
       return manager.save(
@@ -154,8 +157,11 @@ export class CitasService {
     return this.findOne(id);
   }
 
-  private async assertVehicleAvailable(manager: EntityManager, vehicleId: number): Promise<void> {
-    const vehicle = await manager.findOneBy(Vehicle, { id: vehicleId });
+  private async assertVehicleAvailable(manager: EntityManager, vehicleId: number, lockForBooking = false): Promise<void> {
+    const vehicle = await manager.findOne(Vehicle, {
+      where: { id: vehicleId },
+      ...(lockForBooking ? { lock: { mode: 'pessimistic_read' as const } } : {}),
+    });
     if (!vehicle) throw new NotFoundException(`No existe el vehículo ${vehicleId}`);
     if (vehicle.status === VehicleStatus.SOLD) {
       throw new ConflictException('Ese vehículo ya fue vendido');

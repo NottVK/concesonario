@@ -51,6 +51,12 @@ describe('BodyShapePipe', () => {
     expect(() => pipe.transform(wide, body)).toThrow(BadRequestException);
   });
 
+  it('también cuenta números y textos: una lista enorme de primitivos se rechaza, y una normal pasa', () => {
+    expect(() => pipe.transform({ numbers: Array.from({ length: 30_000 }, () => 1) }, body)).toThrow(BadRequestException);
+    expect(() => pipe.transform({ words: Array.from({ length: 30_000 }, () => 'x') }, body)).toThrow(BadRequestException);
+    expect(() => pipe.transform({ numbers: Array.from({ length: 1000 }, () => 1), name: 'Ana' }, body)).not.toThrow();
+  });
+
   describe('caracteres nulos (PostgreSQL no los admite en texto y daba 500)', () => {
     const nul = String.fromCharCode(0);
     const query = { type: 'query' } as never;

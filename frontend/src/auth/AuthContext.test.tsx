@@ -22,6 +22,8 @@ const loginBodies: { email: string; password: string }[] = []
 const clientesCalls: { token: string | null; url: string }[] = []
 let reincarnate = false
 let gate: Promise<void> = Promise.resolve()
+/** Retiene la respuesta de /auth/me para simular una comprobación inicial lenta. */
+let meGate: Promise<void> = Promise.resolve()
 
 const bearer = (request: Request): string | null => request.headers.get('authorization')?.replace('Bearer ', '') ?? null
 const allUsers = (): TestUser[] => [...Object.values(USERS), { ...USERS['vendedor@automax.co'], id: 77 }]
@@ -39,7 +41,8 @@ const server = setupServer(
     tokens.set(accessToken, user.id)
     return HttpResponse.json({ accessToken, user })
   }),
-  http.get('*/api/auth/me', ({ request }) => {
+  http.get('*/api/auth/me', async ({ request }) => {
+    await meGate
     const token = bearer(request)
     const id = token ? tokens.get(token) : undefined
     if (!token || id === undefined || expired.has(token)) return HttpResponse.json({ message: 'No autorizado' }, { status: 401 })
@@ -61,6 +64,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 beforeEach(() => {
   reincarnate = false
   gate = Promise.resolve()
+  meGate = Promise.resolve()
 })
 afterEach(() => {
   server.resetHandlers()
@@ -209,6 +213,47 @@ describe('inicio de sesión', () => {
     renderApp()
     expect(await screen.findByRole('button', { name: 'Cargar clientes' })).toBeInTheDocument()
     expect(screen.getByText('Víctor Vendedor')).toBeInTheDocument()
+  })
+
+  it('una comprobación inicial lenta con token vencido NO borra la sesión de quien entró mientras tanto', async () => {
+    setToken(makeToken({ sub: 2 })) // el servidor no lo conoce: su comprobación terminará en 401
+    let release = (): void => {}
+    meGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const user = userEvent.setup()
+    renderApp('/admin/login')
+    await screen.findByRole('heading', { name: 'Entrar al panel' })
+    await login(user, 'vendedor@automax.co')
+    await screen.findByRole('button', { name: 'Cargar clientes' })
+    const current = getToken()
+    expect(current).not.toBeNull()
+
+    release() // llega por fin el 401 de la comprobación vieja
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(getToken()).toBe(current)
+    expect(screen.getByRole('button', { name: 'Cargar clientes' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Entrar al panel' })).not.toBeInTheDocument()
+  })
+
+  it('una comprobación inicial lenta de OTRA cuenta no reemplaza al usuario que entró mientras tanto', async () => {
+    const old = makeToken({ sub: 1, role: 'admin' })
+    tokens.set(old, 1) // válido para el admin: su comprobación terminará bien, pero tarde
+    setToken(old)
+    let release = (): void => {}
+    meGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const user = userEvent.setup()
+    renderApp('/admin/login')
+    await screen.findByRole('heading', { name: 'Entrar al panel' })
+    await login(user, 'vendedor@automax.co')
+    await screen.findByRole('button', { name: 'Cargar clientes' })
+
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(screen.getByText('Víctor Vendedor')).toBeInTheDocument()
+    expect(screen.queryByText('Ana Admin')).not.toBeInTheDocument()
   })
 
   it('un token guardado que el servidor ya no acepta lleva al login sin abrir el diálogo de re-login', async () => {

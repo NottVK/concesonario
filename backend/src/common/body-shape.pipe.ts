@@ -3,6 +3,7 @@ import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 
 export const MAX_BODY_DEPTH = 20;
 export const MAX_BODY_NODES = 20_000;
+const TOO_COMPLEX = 'El cuerpo de la petición es demasiado complejo';
 
 const NUL = String.fromCharCode(0);
 const NUL_MESSAGE = 'El texto no puede contener caracteres nulos';
@@ -23,14 +24,14 @@ export class BodyShapePipe implements PipeTransform {
     let nodes = 0;
     while (stack.length > 0) {
       const { node, depth } = stack.pop() as { node: unknown; depth: number };
+      // Cada valor cuenta (también números y textos): una lista enorme de primitivos se recorre igual de entera.
+      if (limitShape && ++nodes > MAX_BODY_NODES) throw new BadRequestException(TOO_COMPLEX);
       if (typeof node === 'string') {
         if (node.includes(NUL)) throw new BadRequestException(NUL_MESSAGE);
         continue;
       }
       if (typeof node !== 'object' || node === null) continue;
-      if (limitShape && (depth > MAX_BODY_DEPTH || ++nodes > MAX_BODY_NODES)) {
-        throw new BadRequestException('El cuerpo de la petición es demasiado complejo');
-      }
+      if (limitShape && depth > MAX_BODY_DEPTH) throw new BadRequestException(TOO_COMPLEX);
       for (const [key, child] of Object.entries(node)) {
         if (key.includes(NUL)) throw new BadRequestException(NUL_MESSAGE);
         stack.push({ node: child, depth: depth + 1 });
