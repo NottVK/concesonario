@@ -17,6 +17,7 @@ import type { Paginated } from '../common/pagination.js';
 import { ApiPaginatedResponse } from '../common/swagger.js';
 import { UserRole } from '../usuarios/entities/user.entity.js';
 import { CreateSaleDto } from './dto/create-sale.dto.js';
+import { SaleDetailDto, SaleListItemDto } from './dto/sale-view.dto.js';
 import { Sale } from './entities/sale.entity.js';
 import { VentasService } from './ventas.service.js';
 
@@ -45,17 +46,20 @@ export class VentasController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar ventas, las más recientes primero (admin)' })
-  @ApiPaginatedResponse(Sale)
-  findAll(@Query() query: PaginationDto): Promise<Paginated<Sale>> {
+  @ApiOperation({
+    summary: 'Listar ventas, las más recientes primero (admin)',
+    description: 'Cada venta trae solo el nombre del cliente: el correo está en el detalle y el teléfono nunca se devuelve.',
+  })
+  @ApiPaginatedResponse(SaleListItemDto)
+  findAll(@Query() query: PaginationDto): Promise<Paginated<SaleListItemDto>> {
     return this.sales.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Detalle de una venta (admin)' })
-  @ApiOkResponse({ type: Sale })
+  @ApiOperation({ summary: 'Detalle de una venta, con el correo del cliente (admin)' })
+  @ApiOkResponse({ type: SaleDetailDto })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIdPipe) id: number): Promise<Sale> {
+  findOne(@Param('id', ParseIdPipe) id: number): Promise<SaleDetailDto> {
     return this.sales.findOne(id);
   }
 }

@@ -7,6 +7,8 @@ import { paginate } from '../common/pagination.js';
 import type { Paginated, PaginationDto } from '../common/pagination.js';
 import { Vehicle, VehicleStatus } from '../vehiculos/entities/vehicle.entity.js';
 import type { CreateSaleDto } from './dto/create-sale.dto.js';
+import { toSaleDetail, toSaleListItem } from './dto/sale-view.dto.js';
+import type { SaleDetailDto, SaleListItemDto } from './dto/sale-view.dto.js';
 import { Sale } from './entities/sale.entity.js';
 import { assertFinalPrice } from './sale-rules.js';
 
@@ -49,20 +51,21 @@ export class VentasService {
     });
   }
 
-  async findAll(query: PaginationDto): Promise<Paginated<Sale>> {
+  /** Lista con lo mínimo: nombre del cliente (sin correo ni teléfono). El detalle agrega el correo. */
+  async findAll(query: PaginationDto): Promise<Paginated<SaleListItemDto>> {
     const [data, total] = await this.sales.findAndCount({
       relations: SALE_RELATIONS,
       order: { soldAt: 'DESC', id: 'DESC' },
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     });
-    return paginate(data, total, query.page, query.limit);
+    return paginate(data.map(toSaleListItem), total, query.page, query.limit);
   }
 
-  async findOne(id: number): Promise<Sale> {
+  async findOne(id: number): Promise<SaleDetailDto> {
     const sale = await this.sales.findOne({ where: { id }, relations: SALE_RELATIONS });
     if (!sale) throw new NotFoundException(`No existe la venta ${id}`);
-    return sale;
+    return toSaleDetail(sale);
   }
 
   private async lockAvailableVehicle(manager: EntityManager, vehicleId: number): Promise<void> {

@@ -281,7 +281,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listar ventas, las más recientes primero (admin) */
+        /**
+         * Listar ventas, las más recientes primero (admin)
+         * @description Cada venta trae solo el nombre del cliente: el correo está en el detalle y el teléfono nunca se devuelve.
+         */
         get: operations["VentasController_findAll"];
         put?: never;
         /**
@@ -302,7 +305,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Detalle de una venta (admin) */
+        /** Detalle de una venta, con el correo del cliente (admin) */
         get: operations["VentasController_findOne"];
         put?: never;
         post?: never;
@@ -759,6 +762,95 @@ export interface components {
             payment: "contado" | "credito" | "leasing";
             /** Format: date-time */
             soldAt: string;
+        };
+        SaleVehicleDto: {
+            /** @example 12 */
+            id: number;
+            /** @example Mazda */
+            brand: string;
+            /** @example Mazda 3 */
+            model: string;
+            /** @example 2024 */
+            year: number;
+            /** @example Touring */
+            version: string;
+        };
+        SalePersonDto: {
+            /** @example 3 */
+            id: number;
+            /** @example Ana Pérez */
+            name: string;
+        };
+        SaleListItemDto: {
+            /** @example 1 */
+            id: number;
+            /** Format: date-time */
+            soldAt: string;
+            /**
+             * @description Precio final en COP, texto con 2 decimales
+             * @example 115000000.50
+             */
+            finalPrice: string;
+            /** @enum {string} */
+            payment: "contado" | "credito" | "leasing";
+            vehicle: components["schemas"]["SaleVehicleDto"];
+            /** @description Solo id y nombre */
+            customer: components["schemas"]["SalePersonDto"];
+            /** @description Quien registró la venta: solo id y nombre */
+            seller: components["schemas"]["SalePersonDto"];
+        };
+        SaleVehicleDetailDto: {
+            /** @example 12 */
+            id: number;
+            /** @example Mazda */
+            brand: string;
+            /** @example Mazda 3 */
+            model: string;
+            /** @example 2024 */
+            year: number;
+            /** @example Touring */
+            version: string;
+            /** @example Rojo */
+            color: string;
+            /**
+             * @description Kilometraje
+             * @example 0
+             */
+            mileage: number;
+            /**
+             * @description Precio de lista del vehículo, en COP
+             * @example 120000000.00
+             */
+            listPrice: string;
+        };
+        SaleCustomerDetailDto: {
+            /** @example 3 */
+            id: number;
+            /** @example Ana Pérez */
+            name: string;
+            /**
+             * @description Solo en el detalle de la venta
+             * @example ana@correo.co
+             */
+            email: string;
+        };
+        SaleDetailDto: {
+            /** @example 1 */
+            id: number;
+            /** Format: date-time */
+            soldAt: string;
+            /**
+             * @description Precio final en COP, texto con 2 decimales
+             * @example 115000000.50
+             */
+            finalPrice: string;
+            /** @enum {string} */
+            payment: "contado" | "credito" | "leasing";
+            vehicle: components["schemas"]["SaleVehicleDetailDto"];
+            /** @description Nombre y correo; el teléfono nunca se devuelve */
+            customer: components["schemas"]["SaleCustomerDetailDto"];
+            /** @description Quien registró la venta: solo id y nombre */
+            seller: components["schemas"]["SalePersonDto"];
         };
         SummaryDto: {
             /**
@@ -1584,7 +1676,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data?: components["schemas"]["Sale"][];
+                        data?: components["schemas"]["SaleListItemDto"][];
                         meta?: components["schemas"]["PageMeta"];
                     };
                 };
@@ -1651,7 +1743,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Sale"];
+                    "application/json": components["schemas"]["SaleDetailDto"];
                 };
             };
             404: {

@@ -9,7 +9,9 @@ import { ClientesPage } from '@/features/admin/clientes/ClientesPage'
 import { InventarioPage } from '@/features/admin/inventario/InventarioPage'
 import { LoginPage } from '@/features/admin/LoginPage'
 import { MetricasPage } from '@/features/admin/metricas/MetricasPage'
+import { HistorialPage } from '@/features/admin/ventas/HistorialPage'
 import { RegistrarVentaPage } from '@/features/admin/ventas/RegistrarVentaPage'
+import { VentaDetallePage } from '@/features/admin/ventas/VentaDetallePage'
 import { CatalogPage } from '@/features/catalog/CatalogPage'
 import { ComparePage } from '@/features/compare/ComparePage'
 import { CompareProvider } from '@/features/compare/CompareContext'
@@ -70,6 +72,22 @@ export default function App() {
                 <Route path="citas" element={<CitasPage />} />
                 <Route path="clientes" element={<ClientesPage />} />
                 <Route path="ventas/nueva" element={<RegistrarVentaPage />} />
+                <Route
+                  path="ventas"
+                  element={
+                    <RequireRole roles={['admin']}>
+                      <HistorialPage />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="ventas/:id"
+                  element={
+                    <RequireRole roles={['admin']}>
+                      <VentaDetallePage />
+                    </RequireRole>
+                  }
+                />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Routes>

@@ -29,3 +29,7 @@ export interface Paginated<T> {
 
 export type VehicleInput = Schemas['VehicleDto']
 export type UpdateVehicleInput = Schemas['UpdateVehicleDto']
+
+/** Historial de ventas: la lista solo lleva el nombre del cliente; el correo va en el detalle; el teléfono nunca. */
+export type SaleListItem = Schemas['SaleListItemDto']
+export type SaleDetail = Schemas['SaleDetailDto']
