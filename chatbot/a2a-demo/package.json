@@ -1,0 +1,11 @@
+{
+  "name": "automax-a2a-demo",
+  "private": true,
+  "type": "module",
+  "description": "Bots de prueba para la conexión A2A (herramienta de desarrollo; nunca en producción ni en Docker).",
+  "scripts": {
+    "start": "node start.mjs",
+    "amigo": "node start.mjs amigo",
+    "malicioso": "node start.mjs malicioso"
+  }
+}
