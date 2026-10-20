@@ -224,6 +224,23 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       expectNoFailures();
     }, 120_000);
 
+    it('POST /chat y POST /chat/citas/confirmar (públicos, con el proveedor simulado)', async () => {
+      const chatBase = { message: 'hola', vehicleId };
+      const confirmBase = { proposalId: '00000000-0000-4000-8000-000000000000', customer: { name: 'Ana', email: 'ana@correo.co', phone: '3001234567' } };
+      const tasks = [
+        ...bodyTasks('POST /chat', chatBase, ['message', 'vehicleId'], (body) => request(ctx.server).post('/api/chat').send(body as object)),
+        ...bodyTasks('POST /chat/citas/confirmar', confirmBase, ['proposalId', 'customer'], (body) => request(ctx.server).post('/api/chat/citas/confirmar').send(body as object)),
+        ...['name', 'email', 'phone'].flatMap((field) => GARBAGE.map((value) => () =>
+          check(`POST /chat/citas/confirmar customer.${field}=${value.slice(0, 30)}`, () =>
+            request(ctx.server).post('/api/chat/citas/confirmar').send({ ...confirmBase, customer: { ...confirmBase.customer, [field]: value } })))),
+        // Cabecera de sesión hostil.
+        ...GARBAGE.map((value) => () => check(`POST /chat X-Chat-Session=${value.slice(0, 30)}`, () =>
+          request(ctx.server).post('/api/chat').set('X-Chat-Session', value.replace(/[^ -~]/g, '?')).send(chatBase))),
+      ];
+      await runAll(tasks);
+      expectNoFailures();
+    }, 180_000);
+
     it('POST /vehiculos y POST /marcas (admin)', async () => {
       const tasks = [
         ...bodyTasks('POST /vehiculos', validVehicle(), ['brandId', 'model', 'year', 'version', 'price', 'mileage', 'fuel', 'transmission', 'color', 'status', 'description', 'images'],
@@ -278,7 +295,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       const covered = new Set([
         'POST /api/citas', 'POST /api/financiacion/simular', 'POST /api/clientes', 'POST /api/vehiculos', 'POST /api/marcas',
         'POST /api/ventas', 'POST /api/auth/login', 'PUT /api/vehiculos/{id}', 'PUT /api/marcas/{id}', 'PUT /api/clientes/{id}',
-        'PATCH /api/citas/{id}/estado',
+        'PATCH /api/citas/{id}/estado', 'POST /api/chat', 'POST /api/chat/citas/confirmar',
       ]);
       const withBody = operations().filter(({ op }) => op.requestBody).map(({ method, path }) => `${method} ${path}`);
       const missing = withBody.filter((key) => !covered.has(key));

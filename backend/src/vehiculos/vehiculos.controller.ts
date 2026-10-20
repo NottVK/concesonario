@@ -17,15 +17,20 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ParseIdPipe } from '../common/parse-id.pipe.js';
 import { Public, Roles } from '../common/decorators.js';
 import type { Paginated } from '../common/pagination.js';
 import { ApiPaginatedResponse } from '../common/swagger.js';
+import { publicThrottle } from '../common/throttle.js';
 import { UserRole } from '../usuarios/entities/user.entity.js';
 import { CompareQueryDto } from './dto/compare-query.dto.js';
 import { UpdateVehicleDto, VehicleDto } from './dto/vehicle.dto.js';
+import { SearchQueryDto } from './dto/search-query.dto.js';
 import { VehicleQueryDto } from './dto/vehicle-query.dto.js';
 import { Vehicle } from './entities/vehicle.entity.js';
 import { VehiculosService } from './vehiculos.service.js';
@@ -41,6 +46,23 @@ export class VehiculosController {
   @ApiPaginatedResponse(Vehicle)
   findAll(@Query() query: VehicleQueryDto): Promise<Paginated<Vehicle>> {
     return this.vehicles.findAll(query);
+  }
+
+  // Debe ir antes de ':id' para que "buscar" no se interprete como un id.
+  @Public()
+  @Throttle(publicThrottle(10))
+  @Get('buscar')
+  @ApiOperation({
+    summary: 'Búsqueda inteligente en lenguaje natural (público, 10 por minuto)',
+    description:
+      'Ordena por similitud semántica los vehículos NO vendidos. `q` de 3 a 200 caracteres; `limit` de 1 a 10 (5 por defecto). ' +
+      'Precio y estado salen de la fila actual; el vector nunca se expone.',
+  })
+  @ApiOkResponse({ type: [Vehicle] })
+  @ApiTooManyRequestsResponse({ description: 'Más de 10 búsquedas por minuto' })
+  @ApiServiceUnavailableResponse({ description: 'La búsqueda inteligente no está disponible; usa los filtros' })
+  search(@Query() query: SearchQueryDto): Promise<Vehicle[]> {
+    return this.vehicles.search(query.q, query.limit);
   }
 
   // Debe ir antes de ':id' para que "comparar" no se interprete como un id.

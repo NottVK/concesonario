@@ -49,11 +49,12 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 30 operaciones de la API', () => {
+  it('documenta exactamente las 35 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
     expect(operations).toEqual([
+      'DELETE /api/chat/sesion',
       'DELETE /api/marcas/{id}',
       'DELETE /api/vehiculos/{id}',
       'GET /api/admin/metricas/resumen',
@@ -61,6 +62,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/admin/metricas/ventas-por-mes',
       'GET /api/admin/vehiculos',
       'GET /api/auth/me',
+      'GET /api/chat/estado',
       'GET /api/citas',
       'GET /api/citas/{id}',
       'GET /api/clientes',
@@ -68,6 +70,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/marcas',
       'GET /api/marcas/{id}',
       'GET /api/vehiculos',
+      'GET /api/vehiculos/buscar',
       'GET /api/vehiculos/comparar',
       'GET /api/vehiculos/{id}',
       'GET /api/vehiculos/{id}/disponibilidad',
@@ -75,6 +78,8 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/ventas/{id}',
       'PATCH /api/citas/{id}/estado',
       'POST /api/auth/login',
+      'POST /api/chat',
+      'POST /api/chat/citas/confirmar',
       'POST /api/citas',
       'POST /api/clientes',
       'POST /api/financiacion/simular',
@@ -101,7 +106,8 @@ describe('Contrato OpenAPI (/api/docs)', () => {
   it('marca como protegidas solo las rutas privadas', () => {
     const publicRoutes: [string, string][] = [
       ['post', '/api/auth/login'], ['get', '/api/marcas'], ['get', '/api/marcas/{id}'],
-      ['get', '/api/vehiculos'], ['get', '/api/vehiculos/comparar'], ['get', '/api/vehiculos/{id}'],
+      ['get', '/api/vehiculos'], ['get', '/api/vehiculos/buscar'], ['get', '/api/vehiculos/comparar'], ['get', '/api/vehiculos/{id}'],
+      ['post', '/api/chat'], ['post', '/api/chat/citas/confirmar'], ['delete', '/api/chat/sesion'], ['get', '/api/chat/estado'],
       ['get', '/api/vehiculos/{id}/disponibilidad'], ['post', '/api/clientes'], ['post', '/api/citas'], ['post', '/api/financiacion/simular'],
     ];
     const privateRoutes: [string, string][] = [
@@ -133,6 +139,11 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(names('get', '/api/clientes')).toEqual(['limit', 'page', 'q']);
     expect(names('get', '/api/vehiculos/comparar')).toEqual(['ids']);
     expect(names('get', '/api/ventas')).toEqual(['limit', 'page']);
+  });
+
+  it('GET /vehiculos/buscar documenta q y limit', () => {
+    const names = (operation('get', '/api/vehiculos/buscar').parameters ?? []).map((p) => p.name).sort();
+    expect(names).toEqual(['limit', 'q']);
   });
 
   it('documenta los parámetros de la disponibilidad y de las rutas admin', () => {
@@ -195,7 +206,8 @@ describe('Contrato OpenAPI (/api/docs)', () => {
   it('ningún parámetro ni campo del contrato usa los nombres antiguos en español', () => {
     const names = new Set<string>();
     for (const methods of Object.values(doc.paths)) {
-      for (const op of Object.values(methods)) (op.parameters ?? []).forEach((p) => names.add(p.name));
+      // Las cabeceras HTTP (X-Chat-Session) tienen su propia convención; el camelCase aplica a query, ruta y campos.
+      for (const op of Object.values(methods)) (op.parameters ?? []).filter((p) => p.in !== 'header').forEach((p) => names.add(p.name));
     }
     for (const schema of Object.values(doc.components.schemas)) {
       Object.keys(schema.properties ?? {}).forEach((name) => names.add(name));

@@ -1,6 +1,8 @@
 import { BotExchange } from '../a2a/entities/bot-exchange.entity.js';
 import { ExternalBot } from '../a2a/entities/external-bot.entity.js';
 import { Appointment } from '../citas/entities/appointment.entity.js';
+import { AppointmentProposal } from '../chat/entities/appointment-proposal.entity.js';
+import { ChatSession } from '../chat/entities/chat-session.entity.js';
 import { Conversation } from '../chat/entities/conversation.entity.js';
 import { Customer } from '../clientes/entities/customer.entity.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
@@ -17,6 +19,8 @@ export const entities = [
   Appointment,
   Sale,
   Conversation,
+  ChatSession,
+  AppointmentProposal,
   ExternalBot,
   BotExchange,
 ];

@@ -1,8 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
@@ -12,6 +15,8 @@ import type { Paginated } from '../common/pagination.js';
 import { escapeLike } from '../common/sql.js';
 import { Appointment } from '../citas/entities/appointment.entity.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
+import { EMBEDDING_PROVIDER, toVectorLiteral } from '../embeddings/embedding-provider.js';
+import type { EmbeddingProvider } from '../embeddings/embedding-provider.js';
 import { Sale } from '../ventas/entities/sale.entity.js';
 import type { UpdateVehicleDto, VehicleDto } from './dto/vehicle.dto.js';
 import type { VehicleFilters, VehicleSort } from './dto/vehicle-query.dto.js';
@@ -25,16 +30,55 @@ const SORTS: Record<VehicleSort, [string, 'ASC' | 'DESC']> = {
   year_asc: ['v.year', 'ASC'],
 };
 
+export const SEARCH_UNAVAILABLE_MESSAGE = 'La búsqueda inteligente no está disponible; usa los filtros';
+const DEFAULT_MIN_SIMILARITY = 0.45;
+
+/** Similitud coseno mínima para que un vehículo cuente como resultado; se calibra con `SEARCH_MIN_SIMILARITY`. */
+function minSimilarity(): number {
+  const value = Number(process.env.SEARCH_MIN_SIMILARITY);
+  return process.env.SEARCH_MIN_SIMILARITY && value >= 0 && value <= 1 ? value : DEFAULT_MIN_SIMILARITY;
+}
+
 const SOLD_MESSAGE = 'Un vehículo vendido no se puede modificar';
 const STALE_MESSAGE =
   'Otra persona modificó este vehículo mientras lo editabas. Recarga para ver los cambios y vuelve a intentarlo.';
 
 @Injectable()
 export class VehiculosService {
+  private readonly logger = new Logger(VehiculosService.name);
+
   constructor(
     @InjectRepository(Vehicle) private readonly vehicles: Repository<Vehicle>,
     @InjectRepository(Brand) private readonly brands: Repository<Brand>,
+    @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
   ) {}
+
+  /**
+   * Búsqueda semántica: el vector solo decide el ORDEN. Devuelve únicamente vehículos no vendidos con
+   * similitud mínima, y precio y estado salen de la fila actual (el vector nunca los contiene ni se expone).
+   * Si el servicio de embeddings no responde: 503 y el catálogo con filtros sigue funcionando.
+   */
+  async search(q: string, limit: number): Promise<Vehicle[]> {
+    let vector: number[];
+    try {
+      vector = await this.embeddings.embed(q, 'query');
+    } catch (error) {
+      this.logger.warn(`Búsqueda semántica no disponible: ${error instanceof Error ? error.message : 'error'}`);
+      throw new ServiceUnavailableException(SEARCH_UNAVAILABLE_MESSAGE);
+    }
+    const literal = toVectorLiteral(vector);
+    const rows: { id: number }[] = await this.vehicles.query(
+      `SELECT id FROM vehiculos
+        WHERE estado <> 'vendido' AND embedding IS NOT NULL AND 1 - (embedding <=> $1::vector) >= $2
+        ORDER BY embedding <=> $1::vector ASC, id ASC
+        LIMIT $3`,
+      [literal, minSimilarity(), limit],
+    );
+    if (rows.length === 0) return [];
+    const found = await this.vehicles.find({ where: { id: In(rows.map((r) => r.id)) }, relations: { brand: true } });
+    const byId = new Map(found.filter((v) => v.status !== VehicleStatus.SOLD).map((v) => [v.id, v]));
+    return rows.flatMap((row) => byId.get(row.id) ?? []);
+  }
 
   /** `includeSold` solo lo activa el listado admin; el catálogo público nunca muestra vendidos. */
   async findAll(query: VehicleFilters, includeSold = false): Promise<Paginated<Vehicle>> {

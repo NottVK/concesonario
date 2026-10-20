@@ -174,10 +174,23 @@ describe('Autorización de todas las rutas (e2e)', () => {
     it('el reparto público es el esperado', () => {
       expect(routes.filter((r) => r.isPublic).map((r) => r.label)).toEqual([
         'GET /api/marcas', 'GET /api/marcas/:id', 'GET /api/vehiculos', 'GET /api/vehiculos/:id',
-        'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'POST /api/auth/login',
+        'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'GET /api/vehiculos/buscar', 'POST /api/auth/login',
         'POST /api/citas', 'POST /api/clientes', 'POST /api/financiacion/simular',
+        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado',
       ].sort());
     });
+  });
+
+  it('toda ruta de la lista blanca del bot es pública en la app en marcha (si no, el bot no podría usarla)', () => {
+    const samples: [string, string][] = [
+      ['GET', '/api/marcas'], ['GET', '/api/vehiculos'], ['GET', '/api/vehiculos/comparar'], ['GET', '/api/vehiculos/buscar'],
+      ['GET', '/api/vehiculos/:id'], ['GET', '/api/vehiculos/:id/disponibilidad'], ['POST', '/api/financiacion/simular'],
+      ['POST', '/api/citas'],
+    ];
+    for (const [method, path] of samples) {
+      const route = routes.find((r) => r.method === method && r.path === path);
+      expect(route?.isPublic, `${method} ${path} debe ser @Public`).toBe(true);
+    }
   });
 
   it('un token manipulado o de otro firmante no da acceso a ninguna ruta privada', async () => {

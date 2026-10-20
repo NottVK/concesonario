@@ -31,6 +31,6 @@ export function configureApp(app: INestApplication): void {
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
   app.useGlobalFilters(new DbExceptionFilter(app.get(HttpAdapterHost).httpAdapter));
-  app.enableCors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' });
+  app.enableCors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173', exposedHeaders: ['Retry-After'] });
   setupSwagger(app);
 }
