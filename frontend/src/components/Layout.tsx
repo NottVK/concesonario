@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { ChatWidget } from '@/features/chat/ChatWidget'
 import { CompareTray } from '@/features/compare/CompareTray'
 import { useCompare } from '@/features/compare/CompareContext'
 import { cn } from '@/lib/utils'
@@ -50,6 +51,7 @@ export function Layout() {
         <Outlet />
       </main>
       <CompareTray />
+      <ChatWidget />
       <footer className="border-t border-border py-8 text-sm text-muted">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           © {new Date().getFullYear()} AutoMax. Precios en pesos colombianos (COP).

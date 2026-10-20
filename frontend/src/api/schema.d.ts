@@ -113,6 +113,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehiculos/buscar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Búsqueda inteligente en lenguaje natural (público, 10 por minuto)
+         * @description Ordena por similitud semántica los vehículos NO vendidos. `q` de 3 a 200 caracteres; `limit` de 1 a 10 (5 por defecto). Precio y estado salen de la fila actual; el vector nunca se expone.
+         */
+        get: operations["VehiculosController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehiculos/comparar": {
         parameters: {
             query?: never;
@@ -360,6 +380,80 @@ export interface paths {
         get: operations["MetricasController_stockByBrand"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Un turno del chat con el asistente (público, 6 por minuto y 60 por hora por IP)
+         * @description Mensaje de hasta 500 caracteres. Sin streaming: la respuesta llega validada. La primera respuesta de una sesión trae `sessionToken`; el navegador lo guarda y lo manda en `X-Chat-Session`.
+         */
+        post: operations["ChatController_turn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/sesion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Borrar la conversación de esta sesión (derecho a borrar; en cascada) */
+        delete: operations["ChatController_removeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/estado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Si el asistente está disponible y con qué proveedor (caché de 30 s) */
+        get: operations["ChatController_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/citas/confirmar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirmar la propuesta de cita con los datos de contacto (público, 10 por minuto)
+         * @description Único camino por el que el chat crea una cita. La propuesta es de un solo uso y vence a los 10 minutos.
+         */
+        post: operations["ChatController_confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -911,6 +1005,67 @@ export interface components {
              */
             value: string;
         };
+        ChatMessageDto: {
+            /** @example ¿Cuánto cuesta el Mazda 3? */
+            message: string;
+            /**
+             * @description Vehículo que la persona está viendo en la ficha (se comprueba contra el catálogo)
+             * @example 12
+             */
+            vehicleId?: number;
+        };
+        VehicleCardDto: {
+            id: number;
+            title: string;
+            year: number;
+            /** @example 95000000.00 */
+            price: string;
+            /** @example $95.000.000 */
+            priceText: string;
+            fuel: string;
+            transmission: string;
+            mileage: number;
+            status: string;
+            image: string | null;
+        };
+        ProposalViewDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Resumen armado por el servidor (vehículo, día y hora de Bogotá) */
+            summary: string;
+            vehicleLabel: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        ChatReplyDto: {
+            /** @description Texto plano: el widget nunca lo interpreta como HTML */
+            reply: string;
+            /** @description Fichas estructuradas de los vehículos mencionados */
+            cards: components["schemas"]["VehicleCardDto"][];
+            /** @description Propuesta de cita pendiente de confirmar */
+            proposal: components["schemas"]["ProposalViewDto"] | null;
+            /** @description Solo en la primera respuesta de una sesión nueva; el navegador la guarda y la manda en X-Chat-Session */
+            sessionToken?: string;
+        };
+        ChatStatusDto: {
+            available: boolean;
+            /** @enum {string} */
+            provider: "ollama" | "groq" | "mock";
+            /** @description true si el texto de la persona sale hacia un servicio externo */
+            external: boolean;
+        };
+        ConfirmAppointmentDto: {
+            /** Format: uuid */
+            proposalId: string;
+            /** @description Datos de contacto; solo los ve el formulario, nunca el modelo ni el historial */
+            customer: components["schemas"]["CustomerDto"];
+        };
+        ConfirmedAppointmentDto: {
+            appointmentId: number;
+            message: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1188,6 +1343,43 @@ export interface operations {
             };
             /** @description Ya existe esa marca, modelo, año y versión */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiculosController_search: {
+        parameters: {
+            query: {
+                /** @description Lo que busca la persona, en lenguaje natural */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vehicle"][];
+                };
+            };
+            /** @description Más de 10 búsquedas por minuto */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description La búsqueda inteligente no está disponible; usa los filtros */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1817,6 +2009,133 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StockByBrandDto"][];
                 };
+            };
+        };
+    };
+    ChatController_turn: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Token de sesión que devolvió la primera respuesta del chat */
+                "X-Chat-Session"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatMessageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatReplyDto"];
+                };
+            };
+            /** @description Mensaje vacío o de más de 500 caracteres */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Límite por IP, pausa entre turnos o tope de la conversación (con Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El asistente no está disponible o la cola está llena */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChatController_removeSession: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Token de sesión que devolvió la primera respuesta del chat */
+                "X-Chat-Session"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borrada, o no había nada que borrar */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChatController_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatStatusDto"];
+                };
+            };
+        };
+    };
+    ChatController_confirm: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Token de sesión que devolvió la primera respuesta del chat */
+                "X-Chat-Session"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmAppointmentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmedAppointmentDto"];
+                };
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description La propuesta ya se usó, venció, es de otra sesión o no existe */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

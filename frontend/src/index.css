@@ -61,6 +61,15 @@
   }
 }
 
+/* Puntos de «escribiendo…»: ciclo de 280 ms (menos de 300 ms), sutil. */
+@keyframes chat-dot {
+  from { opacity: 0.3; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(-2px); }
+}
+.chat-dot {
+  animation: chat-dot 280ms ease-in-out infinite alternate;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

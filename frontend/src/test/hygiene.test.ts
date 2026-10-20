@@ -28,8 +28,16 @@ describe('higiene del código fuente', () => {
     expect(offenders(/\blocalStorage\b/, ['/src/auth/AuthContext.tsx'])).toEqual([])
   })
 
-  it('sessionStorage solo guarda el token y los ids del comparador', () => {
-    expect(offenders(/\bsessionStorage\b/, ['/src/api/session.ts', '/src/features/compare/CompareContext.tsx'])).toEqual([])
+  it('sessionStorage solo guarda el token, los ids del comparador y el id de sesión del chat (nunca mensajes)', () => {
+    expect(
+      offenders(/\bsessionStorage\b/, ['/src/api/session.ts', '/src/features/compare/CompareContext.tsx', '/src/features/chat/chatSession.ts']),
+    ).toEqual([])
+  })
+
+  it('el chat no guarda mensajes en ningún almacenamiento del navegador', () => {
+    const chatFiles = productionFiles.filter(([path]) => path.startsWith('/src/features/chat/') && path !== '/src/features/chat/chatSession.ts')
+    expect(chatFiles.length).toBeGreaterThan(3)
+    for (const [path, text] of chatFiles) expect(text, path).not.toMatch(/\b(sessionStorage|localStorage|indexedDB)\b/)
   })
 
   it('no hay cookies, IndexedDB, persistencia de la caché, HTML sin escapar ni ejecución dinámica de código', () => {
