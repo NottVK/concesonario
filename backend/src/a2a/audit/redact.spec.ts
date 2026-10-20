@@ -32,6 +32,21 @@ describe('redactForAudit', () => {
   });
 });
 
+describe('redactForAudit: dominios sueltos y esquemas sin host', () => {
+  it('tapa dominios con TLD frecuente, con o sin ruta, y esquemas sin nada detrás', () => {
+    expect(redactForAudit('entra a bit.ly/oferta-carro hoy')).toBe('entra a [enlace] hoy');
+    expect(redactForAudit('mira automax-promo.example/pagar ya')).toBe('mira [enlace] ya');
+    expect(redactForAudit('en oferta.com y en sub.dominio.co.uk/x')).toBe('en [enlace] y en [enlace]');
+    expect(redactForAudit('http:// o www. sueltos')).toBe('[enlace] o [enlace] sueltos');
+    expect(redactForAudit('escribe a tienda.automax.com.co/ofertas o a mi.tienda.com.mx')).toBe('escribe a [enlace] o a [enlace]');
+  });
+
+  it('no toca texto normal con puntos', () => {
+    expect(redactForAudit('Mazda 3 2024 a $ 85.000.000, versión 2.0 S.A.')).toBe('Mazda 3 2024 a $ 85.000.000, versión 2.0 S.A.');
+    expect(redactForAudit('Sr. Pérez, ver pág. 3.')).toBe('Sr. Pérez, ver pág. 3.');
+  });
+});
+
 describe('auditText', () => {
   it('recorta al máximo y el hash es el del texto redactado COMPLETO', () => {
     const long = `${'a'.repeat(250)} contacto 3001234567`;

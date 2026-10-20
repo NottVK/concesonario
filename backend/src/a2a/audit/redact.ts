@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 
 const EMAIL = /[^\s@<>()[\]]{1,64}@[^\s@<>()[\]]{1,255}\.[A-Za-z]{2,}/g;
-const URL_LIKE = /(?:[a-z][a-z0-9+.-]{1,10}:\/\/|www\.)\S+/gi;
+const URL_LIKE = /(?:[a-z][a-z0-9+.-]{1,10}:\/\/|www\.)\S*/gi;
 /** Números largos con separadores (teléfonos, cédulas, tarjetas): 7 dígitos o más, seguidos o separados por espacio, punto, guion o paréntesis. */
 const LONG_NUMBER = /\+?\d(?:[\s.()-]{0,2}\d){6,}/g;
+/** Dominios sueltos («bit.ly/oferta», «automax-promo.example/pagar», «oferta.com»): nombre con un TLD frecuente, y su ruta si la tiene. */
+const BARE_DOMAIN =
+  /\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?){0,4}\.(?:com|co|net|org|io|ly|me|app|dev|info|biz|xyz|top|site|online|example|test|link|click|live|store|shop|club|vip|cc|us|ru|cn|tk|ml|ga|cf|gq|ws|lat|mx|es|ar|cl|pe|ec|ve|br|gl|gd|su)(?:\.[a-z]{2,3}){0,2}\b(?:\/\S{0,200})?/gi;
 /** Caracteres de control (salvo el espacio), de formato invisibles y de dirección de texto. */
 const INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 
@@ -24,19 +27,35 @@ export function normalizeText(input: string): string {
   return flatten(input).replace(/\s+/g, ' ').trim();
 }
 
+export type MaskKind = 'correo' | 'enlace' | 'numero';
+
+/**
+ * Reemplaza correos, enlaces (con esquema, `www.` o un dominio suelto) y números largos (teléfonos, cédulas) por marcas.
+ * Recibe texto ya aplanado (`normalizeText`). Cada reemplazo avisa por `onMask` para quien quiera registrar qué se tapó.
+ */
+export function maskContacts(flat: string, onMask: (kind: MaskKind) => void = () => undefined): string {
+  const tag = (kind: MaskKind, label: string) => () => {
+    onMask(kind);
+    return label;
+  };
+  return flat
+    .replace(EMAIL, tag('correo', '[correo]'))
+    .replace(URL_LIKE, tag('enlace', '[enlace]'))
+    .replace(BARE_DOMAIN, tag('enlace', '[enlace]'))
+    .replace(LONG_NUMBER, (match, offset: number) => {
+      if (looksLikePrice(flat, offset, offset + match.length)) return match;
+      onMask('numero');
+      return '[número]';
+    });
+}
+
 /**
  * Normaliza un texto antes de guardarlo en la auditoría: NFKC, sin caracteres invisibles ni de control, correos,
  * enlaces y números largos reemplazados por marcas, espacios colapsados. No pretende detectar todo dato personal (un
  * nombre propio pasa); por eso la auditoría además recorta y caduca a los 30 días.
  */
 export function redactForAudit(input: string): string {
-  const flat = flatten(input);
-  return flat
-    .replace(EMAIL, '[correo]')
-    .replace(URL_LIKE, '[enlace]')
-    .replace(LONG_NUMBER, (match, offset: number) => (looksLikePrice(flat, offset, offset + match.length) ? match : '[número]'))
-    .replace(/\s+/g, ' ')
-    .trim();
+  return maskContacts(flatten(input)).replace(/\s+/g, ' ').trim();
 }
 
 export interface AuditText {

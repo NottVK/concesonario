@@ -190,6 +190,7 @@ const TASK_ATTACKS = {
 }
 
 const CARD_ATTACKS = {
+  'card-ok': (ctx) => ctx.json(200, { name: 'Bot Raro Pero Correcto', description: 'Una tarjeta normal', url: `http://${LOOPBACK}:${ctx.port}/a2a`, skills: ['x'] }),
   'card-other-origin': (ctx) => ctx.json(200, { name: 'Bot Raro', description: 'Otro origen', url: 'http://169.254.169.254/a2a', skills: ['x'] }),
   'card-injection': (ctx) => ctx.json(200, { name: INJECTION, description: INJECTION, url: `http://${LOOPBACK}:${ctx.port}/a2a`, skills: [INJECTION] }),
   'card-huge': (ctx) => ctx.json(200, { name: 'Bot Grande', description: 'D'.repeat(64 * 1024), url: `http://${LOOPBACK}:${ctx.port}/a2a`, skills: [] }),
@@ -199,7 +200,7 @@ const CARD_ATTACKS = {
 }
 
 export const MALICIOUS_TASK_MODES = Object.keys(TASK_ATTACKS)
-export const MALICIOUS_CARD_MODES = Object.keys(CARD_ATTACKS)
+export const MALICIOUS_CARD_MODES = Object.keys(CARD_ATTACKS).filter((mode) => mode !== 'card-ok')
 
 /** Utilidades de respuesta que reciben los ataques (todas cierran sus temporizadores si el cliente corta). */
 function responder(req, res, port) {
@@ -252,6 +253,13 @@ function responder(req, res, port) {
 export function createMaliciousBot() {
   const hits = { internal: 0, modes: {}, withAuthorization: 0, withApiKeyHeader: 0 }
   let port = 0
+  // La tarjeta de la RAÍZ (`/.well-known/agent.json`, la que lee «Probar conexión») cambia de modo con `setCardMode`
+  // o con `POST /_card-mode/<modo>`; las rutas `/<modo>/.well-known/agent.json` siempre sirven su modo.
+  let rootCardMode = 'card-ok'
+  const setCardMode = (mode) => {
+    if (!(mode in CARD_ATTACKS)) throw new Error(`Modo de tarjeta desconocido: ${mode}`)
+    rootCardMode = mode
+  }
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local')
     if (url.pathname === '/internal/secret') {
@@ -259,6 +267,17 @@ export function createMaliciousBot() {
       return sendJson(res, 200, { secreto: 'SECRETO-INTERNO-NO-DEBERIA-LEERSE' })
     }
     if (req.method === 'GET' && url.pathname === '/_hits') return sendJson(res, 200, hits)
+    const control = /^\/_card-mode\/([a-z-]+)$/.exec(url.pathname)
+    if (req.method === 'POST' && control) {
+      if (!(control[1] in CARD_ATTACKS)) return sendJson(res, 404, { status: 'failed', error: 'Modo desconocido' })
+      setCardMode(control[1])
+      return sendJson(res, 200, { cardMode: rootCardMode })
+    }
+    if (req.method === 'GET' && url.pathname === '/.well-known/agent.json') {
+      hits.modes[`root:${rootCardMode}`] = (hits.modes[`root:${rootCardMode}`] ?? 0) + 1
+      if (req.headers.authorization) hits.withAuthorization++
+      return CARD_ATTACKS[rootCardMode](responder(req, res, port))
+    }
     const [mode, ...rest] = url.pathname.split('/').filter(Boolean)
     const isTask = req.method === 'POST' && rest.join('/') === 'a2a/tasks' && mode in TASK_ATTACKS
     const isCard = req.method === 'GET' && rest.join('/') === '.well-known/agent.json' && mode in CARD_ATTACKS
@@ -273,5 +292,5 @@ export function createMaliciousBot() {
   server.on('listening', () => {
     port = server.address().port
   })
-  return { server, hits }
+  return { server, hits, setCardMode }
 }

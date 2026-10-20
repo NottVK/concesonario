@@ -39,6 +39,8 @@ Una URL por ataque: `http://127.0.0.1:8101/<modo>/a2a` (la tarea va a `/<modo>/a
 
 Tarjetas hostiles (`/<modo>/.well-known/agent.json`): `card-other-origin`, `card-injection`, `card-huge`, `card-broken`, `card-slow`, `card-redirect`.
 
+La tarjeta de la **raíz** (`/.well-known/agent.json`, la que lee «Probar conexión» del panel) arranca en `card-ok` y se cambia con `curl -X POST http://127.0.0.1:8101/_card-mode/<modo>` (cualquiera de los modos de tarjeta o `card-ok`).
+
 ## En las pruebas automáticas
 
 `backend/test/fixtures/fake-bots.ts` usa **el mismo código** de `bots.mjs` con puertos efímeros, así que los e2e prueban exactamente los comportamientos de la demo.

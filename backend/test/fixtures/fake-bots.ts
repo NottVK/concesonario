@@ -36,7 +36,7 @@ interface DemoModule {
   bindLocal(server: Server, port?: number): Promise<number>;
   closeServer(server: Server): Promise<void>;
   createFriendBot(options?: { key?: string; authMode?: 'bearer' | 'x_api_key'; name?: string }): { server: Server; received: ReceivedTask[]; key: string };
-  createMaliciousBot(): { server: Server; hits: MaliciousHits };
+  createMaliciousBot(): { server: Server; hits: MaliciousHits; setCardMode(mode: string): void };
 }
 
 export const loadDemo = (): Promise<DemoModule> => import(/* @vite-ignore */ DEMO_MODULE) as Promise<DemoModule>;
@@ -57,6 +57,8 @@ export interface RunningMalicious {
   /** URL A2A registrada para un modo de ataque: `http://127.0.0.1:<puerto>/<modo>/a2a`. */
   urlFor(mode: string): string;
   hits: MaliciousHits;
+  /** Modo de la tarjeta de la RAÍZ (`/.well-known/agent.json`, la que lee «Probar conexión»): `card-ok` o cualquiera de `cardModes`. */
+  setCardMode(mode: string): void;
 }
 
 export interface FakeBots {
@@ -82,6 +84,7 @@ export async function startFakeBots(options: { friendKey?: string; authMode?: 'b
       target: `${host}:${evilPort}`,
       urlFor: (mode) => `http://${host}:${evilPort}/${mode}/a2a`,
       hits: evil.hits,
+      setCardMode: (mode) => evil.setCardMode(mode),
     },
     taskModes: demo.MALICIOUS_TASK_MODES,
     cardModes: demo.MALICIOUS_CARD_MODES,
