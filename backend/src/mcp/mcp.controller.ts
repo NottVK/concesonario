@@ -9,26 +9,14 @@ import {
   ApiUnauthorizedResponse,
   ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { Public } from '../common/decorators.js';
 import { BotChannel } from './gateway/bot-channel.js';
 import { BotAuthGuard, BotPreAuthGuard } from './gateway/bot.guards.js';
 import type { BotRequest } from './gateway/bot.guards.js';
 import { MCP_DEFAULTS } from './mcp.config.js';
+import { readBody } from './mcp-http.js';
 import { McpService } from './server/mcp.service.js';
-
-/** Lee el cuerpo contando los bytes REALES recibidos (no solo Content-Length): null si pasa el tope. */
-async function readBody(req: Request, maxBytes: number): Promise<Buffer | null> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of req as AsyncIterable<Buffer | string>) {
-    const piece = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
-    size += piece.length;
-    if (size > maxBytes) return null;
-    chunks.push(piece);
-  }
-  return Buffer.concat(chunks);
-}
 
 @ApiTags('mcp')
 @BotChannel('mcp')

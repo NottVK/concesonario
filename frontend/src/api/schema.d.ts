@@ -538,6 +538,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/.well-known/agent.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tarjeta del bot AutoMax (pública): nombre, URL de las tareas y habilidades */
+        get: operations["AgentCardController_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/a2a/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recibe una tarea de otro bot (key de bot en Authorization: Bearer)
+         * @description Cuerpo: `{ "from": "mi-bot", "message": "¿Tienen Mazda 3 2024?" }`, o con habilidad explícita `{ "skill": "stock" | "precios" | "citas" | "financiacion", "params": { … } }`. Responde solo con información pública (catálogo y simulador); nunca datos de clientes. `citas` es informativa: por este canal no se agenda. Cuerpo de hasta 16 KB, respuesta de hasta 4 KB. Una key falsa, ausente o de un bot desactivado reciben EXACTAMENTE el mismo 401.
+         */
+        post: operations["A2aTasksController_handle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2399,6 +2436,77 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Respuesta JSON-RPC (202 sin cuerpo para notificaciones; 400 con error JSON-RPC si el mensaje no es válido) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Key ausente, falsa, mal formada o de un bot desactivado (respuesta idéntica) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Origin o Host no permitidos */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cuerpo de más de 16 KB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El tipo de contenido no es application/json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Límite por IP, global o del bot (con Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AgentCardController_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tarjeta A2A */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    A2aTasksController_handle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tarea resuelta (`completed`) o falta información (`needs_input`) */
             200: {
                 headers: {
                     [name: string]: unknown;

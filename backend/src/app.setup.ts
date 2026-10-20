@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { HttpAdapterHost } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { BodyShapePipe } from './common/body-shape.pipe.js';
@@ -24,9 +25,15 @@ function setupSwagger(app: INestApplication): void {
   });
 }
 
+/** Rutas que quedan FUERA del prefijo `api` (decisión 111): la tarjeta pública y las tareas de otros bots. */
+export const API_PREFIX_EXCLUDE = ['.well-known/agent.json', 'a2a/tasks'];
+
 /** Configuración compartida entre main.ts y las pruebas e2e. */
 export function configureApp(app: INestApplication): void {
-  app.setGlobalPrefix('api');
+  // La tarjeta y las tareas A2A quedan FUERA del prefijo `api` (decisión 111).
+  // Sin `X-Powered-By: Express`: no hay por qué anunciar el servidor (ni en la tarjeta, ni en los 401 de los bots).
+  (app as NestExpressApplication).disable('x-powered-by');
+  app.setGlobalPrefix('api', { exclude: API_PREFIX_EXCLUDE });
   // Antes que cualquier parser: el cuerpo del MCP lo lee su propio servidor, con tope, después de autenticar.
   applyMcpHttpRules(app);
   app.useGlobalPipes(

@@ -14,13 +14,23 @@ function looksLikePrice(text: string, start: number, end: number): boolean {
   return /\$\s*$/.test(before) || /^\s*(?:cop|pesos)\b/i.test(after);
 }
 
+/** NFKC y sin caracteres de control, invisibles ni de dirección de texto (se reemplazan por un espacio). */
+function flatten(input: string): string {
+  return input.normalize('NFKC').replace(INVISIBLE, ' ');
+}
+
+/** Texto de otro bot listo para analizarlo: normalizado, sin invisibles y con los espacios colapsados. */
+export function normalizeText(input: string): string {
+  return flatten(input).replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Normaliza un texto antes de guardarlo en la auditoría: NFKC, sin caracteres invisibles ni de control, correos,
  * enlaces y números largos reemplazados por marcas, espacios colapsados. No pretende detectar todo dato personal (un
  * nombre propio pasa); por eso la auditoría además recorta y caduca a los 30 días.
  */
 export function redactForAudit(input: string): string {
-  const flat = input.normalize('NFKC').replace(INVISIBLE, ' ');
+  const flat = flatten(input);
   return flat
     .replace(EMAIL, '[correo]')
     .replace(URL_LIKE, '[enlace]')

@@ -3,6 +3,7 @@ import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { ModulesContainer, Reflector } from '@nestjs/core';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { API_PREFIX_EXCLUDE } from '../src/app.setup.js';
 import { IS_PUBLIC_KEY, ROLES_KEY } from '../src/common/decorators.js';
 import { UserRole } from '../src/usuarios/entities/user.entity.js';
 import { auth, createTestContext, createUser, resetDatabase, type TestContext } from './helpers/app.js';
@@ -48,7 +49,8 @@ function discoverRoutes(ctx: TestContext): RouteInfo[] {
         const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod | undefined;
         if (method === undefined) continue;
         const sub = clean(Reflect.getMetadata(PATH_METADATA, handler) as string | undefined);
-        const path = '/api/' + [base, sub].filter(Boolean).join('/');
+        const relative = [base, sub].filter(Boolean).join('/');
+        const path = (API_PREFIX_EXCLUDE.includes(relative) ? '/' : '/api/') + relative;
         const targets = [handler, type];
         routes.push({
           method: RequestMethod[method],
@@ -166,8 +168,8 @@ describe('Autorización de todas las rutas (e2e)', () => {
 
   describe('rutas públicas', () => {
     it('no piden token (excepto el login, que responde 401 por credenciales)', async () => {
-      // El login y el MCP tienen su propia autenticación (credenciales / key de bot) y responden 401 sin ella.
-      for (const route of routes.filter((r) => r.isPublic && r.label !== 'POST /api/auth/login' && r.label !== 'POST /api/mcp')) {
+      // El login, el MCP y las tareas A2A tienen su propia autenticación (credenciales / key de bot) y responden 401 sin ella.
+      for (const route of routes.filter((r) => r.isPublic && r.label !== 'POST /api/auth/login' && r.label !== 'POST /api/mcp' && r.label !== 'POST /a2a/tasks')) {
         const status = (await call(route)).status;
         expect([401, 403], `${route.label} -> ${status}`).not.toContain(status);
       }
@@ -178,6 +180,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
         'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'GET /api/vehiculos/buscar', 'POST /api/auth/login',
         'POST /api/citas', 'POST /api/clientes', 'POST /api/financiacion/simular',
         'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'POST /api/mcp',
+        'GET /.well-known/agent.json', 'POST /a2a/tasks',
       ].sort());
     });
   });

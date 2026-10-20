@@ -27,6 +27,7 @@ import { McpService } from './server/mcp.service.js';
     BotPreAuthGuard,
     BotAuthGuard,
   ],
-  exports: [BotKeysService, AuditService, MCP_SECRETS],
+  // La puerta (servicio y guards) la usa también el canal A2A: una sola IpGate y una sola cuota diaria por bot (decisión 109).
+  exports: [BotKeysService, AuditService, MCP_SECRETS, BotGatewayService, BotPreAuthGuard, BotAuthGuard],
 })
 export class McpModule {}

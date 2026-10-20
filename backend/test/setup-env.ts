@@ -21,3 +21,6 @@ process.env.MCP_KEY_PEPPER = 'pepper-solo-para-pruebas-e2e-0123456789abcdef';
 process.env.BOT_KEY_ENCRYPTION_KEY = '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
 delete process.env.MCP_KEY_PEPPER_PREVIOUS;
 delete process.env.MCP_KEY_PEPPER_VERSION;
+// URL pública del bot para la tarjeta A2A: fija en pruebas (nunca la del .env del usuario).
+process.env.A2A_PUBLIC_BASE_URL = 'https://bot.automax.test';
+delete process.env.A2A_DEV_ALLOWED_TARGETS;
