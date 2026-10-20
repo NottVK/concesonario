@@ -33,13 +33,15 @@ concesionario/
 │   ├── main.ts, app.module.ts
 │   ├── vehiculos/ marcas/ clientes/ ventas/ citas/ financiacion/ usuarios/ auth/
 │   │   └── (cada módulo: *.module.ts, *.controller.ts, *.service.ts, entities/, dto/)
-│   ├── chat/            ← chatbot: endpoint, agente, tools, prompts/ y seguridad (ver docs/PLAN-FASE-4.md)
+│   ├── chat/            ← chatbot: endpoint, agente, tools, prompts/, seguridad y proveedores de modelo (model/: ollama, groq, mock; ver docs/PLAN-FASE-4.md)
+│   ├── embeddings/      ← vectores de la búsqueda semántica (nomic-embed-text), recálculo y `embeddings:sync`
 │   ├── a2a/             ← agent.json y tareas entre bots
 │   ├── database/{migrations/, seeds/}
 │   └── common/          ← guards, filters, interceptors
 ├── backend/test/        ← e2e con Supertest
 ├── frontend/src/{pages/, components/, api/}
-├── chatbot/{bench/, eval/}   ← solo herramientas de desarrollo (medición y evaluación del bot)
+├── chatbot/{bench/, eval/}   ← solo herramientas de desarrollo: medición del modelo (bench/) y evaluación de la búsqueda y de las 20 preguntas (eval/)
+├── docs/GUIA-IA-COMPANEROS.md ← cómo correr el modelo real y devolver los resultados
 ├── mcp-server/server.ts
 └── docker-compose.yml
 ```

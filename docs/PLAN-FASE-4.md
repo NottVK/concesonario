@@ -1,6 +1,27 @@
 # Plan de la Fase 4: chatbot local con Ollama
 
-Estado: **aprobado** por el usuario (2026-10-19). Lo diseñaron los subagentes `arquitecto` y `chatbot` (solo lectura) y se integró aquí. Lo que no se ha medido en este equipo está marcado como tal.
+Estado: **aprobado** por el usuario (2026-10-19); **actualizado el 2026-10-20** con lo construido en los pasos 2 a 4 (ver «Estado de ejecución»). Lo diseñaron los subagentes `arquitecto` y `chatbot` (solo lectura) y se integró aquí. Lo que no se ha medido en este equipo está marcado como tal.
+
+## Estado de ejecución (2026-10-20)
+
+El usuario construye todo lo que rodea al modelo y sus compañeros, con laptops potentes, correrán el modelo real (este equipo, de 8 GB, no puede con `qwen2.5:7b`). Por eso el modelo va detrás de una interfaz y todo se probó con un proveedor simulado.
+
+| Paso | Estado |
+|---|---|
+| 1. Medición y puerta | Hecho en este equipo (`qwen2.5:3b` no supera la puerta). `qwen2.5:7b` falta medirlo en un equipo potente (`chatbot/bench/LEEME-MAC.md`). |
+| 2. Búsqueda semántica | **Hecho** (migración, `embeddings:sync`, recálculo al crear y editar, `GET /vehiculos/buscar`, fuzzing). Medición real con `nomic-embed-text`: 9 de 10 (decisiones 90 a 93). |
+| 3. Núcleo del chat | **Hecho** con el proveedor simulado: sesiones, historial redactado y purga, límites, cola, cancelación, exención interna con secreto. |
+| 4. Tools, agente, prompt v1, defensas, agendar en dos pasos | **Hecho** con el proveedor simulado (validador de montos solo en pesos, lista blanca de rutas, ids verificados, plantilla de respaldo). |
+| 5. Evaluación de 20 preguntas | **Arnés construido** (`chatbot/eval/preguntas.mjs`, R1 a R6) y probado con el simulado (solo lógica). **Falta correrlo con un modelo real**: Groq o el de los compañeros (`docs/GUIA-IA-COMPANEROS.md`). |
+| 6. Widget flotante | **Hecho** (30 pruebas de Vitest, 3 de Playwright). |
+| 7. Cierre | **Pendiente**: revisión con Codex, README y DECISIONES finales. **La Fase 4 NO se cierra hasta 20 de 20 en R1 a R4 con un modelo real.** |
+
+### Qué cambió respecto a lo aprobado
+- **Proveedor de modelo intercambiable (`CHAT_PROVIDER`):** `ollama` (usa `OLLAMA_HOST`), `groq` (servicio externo, clave solo desde `.env`) y `mock` (pruebas). El widget avisa cuando el proveedor es externo. Decisiones 79 y 80.
+- **Modo de evaluación (`CHAT_EVAL_MODE=true`):** relaja los límites por IP y añade `debug` (tools llamadas y sus datos) a la respuesta, para que el arnés califique R1, R2 y R5. Se ignora en producción. Sin él, 60 o más turnos desde una IP no caben en 6 por minuto y 60 por hora.
+- **Textos del seed con carrocería y uso** y embeddings **sin prefijos** (medido). Límite de la búsqueda: no distingue «no tenemos eso» (decisión 93).
+- **Pregunta 6:** la tool recibe un `vehicleId` (el precio lo lee el servidor), así que el arnés usa un vehículo de la base temporal de exactamente $100.000.000 («Mazda 6 Crédito Eval»).
+- **Reintento ante límites de Groq** (`Retry-After` corto, hasta 3 veces).
 
 ## 0. Decisiones aprobadas
 
@@ -13,6 +34,8 @@ Estado: **aprobado** por el usuario (2026-10-19). Lo diseñaron los subagentes `
 | 5 | Sin streaming: los montos se validan antes de mostrar nada. La UI muestra «escribiendo…». |
 | 6 | El usuario descarga `nomic-embed-text`. **Plan B = `qwen2.5:7b` en su MacBook vía `OLLAMA_HOST`** (no `qwen2.5:1.5b`). |
 | 7 | Mensaje de 500 caracteres, retención de 7 días, id de sesión en `sessionStorage`. |
+| 8 | Modelo de chat tras una interfaz con tres proveedores (`ollama`, `groq`, `mock`) elegidos por `CHAT_PROVIDER`. Con el simulado solo se prueba la lógica; la fase se cierra únicamente con un modelo real. |
+| 9 | Embeddings sin prefijos de tarea (medido: acierta más). El texto del seed describe la carrocería y el uso. |
 
 ## 1. Orden de trabajo (un commit por paso, con pruebas)
 
@@ -50,14 +73,14 @@ Estado: **aprobado** por el usuario (2026-10-19). Lo diseñaron los subagentes `
 
 Si no cumple los tres con alguna combinación de `num_ctx`: **plan B = `qwen2.5:7b` en la MacBook**, con `OLLAMA_HOST` apuntando a ella. El modelo, el host, `num_ctx` y `keep_alive` van por variables (`OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_NUM_CTX`, `OLLAMA_KEEP_ALIVE`) en `.env.example`; nada hardcodeado. El resultado se registra en DECISIONES.md y la prueba de aceptación del plan B se repite en la Mac.
 
-**Resultado (2026-10-19): la puerta NO se supera con `qwen2.5:3b` en este equipo; se pasa al plan B (`qwen2.5:7b` en la Mac). Detalle y números en DECISIONES.md, decisión 78.**
+**Resultado (2026-10-19): la puerta NO se supera con `qwen2.5:3b` en este equipo; se pasa al plan B (`qwen2.5:7b` en la Mac). Detalle y números en DECISIONES.md, decisión 78.** La medición de `qwen2.5:7b` la hacen los compañeros con laptops potentes (`docs/GUIA-IA-COMPANEROS.md`, sección 6).
 
 Nota: `gemma3:1b` no se considera (sin tool-calling nativo en Ollama, según los subagentes; lo confirmaría la propia mini-prueba si se quisiera).
 
 ## 3. Paso 2: búsqueda semántica
 
 - **Modelo:** `nomic-embed-text` (768 dimensiones) sobre la columna `vehiculos.embedding` que ya existe.
-- **Prefijos de tarea: se verifican, no se suponen.** Antes de fijarlos se lee la ficha del modelo (`ollama show nomic-embed-text`) y se compara la calidad de las 10 consultas con y sin `search_document: ` / `search_query: `. Se deja la variante que mejor funcione, documentada.
+- **Prefijos de tarea: se verifican, no se suponen.** Antes de fijarlos se lee la ficha del modelo (`ollama show nomic-embed-text`) y se compara la calidad de las 10 consultas con y sin `search_document: ` / `search_query: `. Se deja la variante que mejor funcione, documentada. **Resultado:** la ficha no menciona prefijos; midiendo, SIN prefijos acierta más (8 de 9 contra 6 de 9; decisión 91). Queda `OLLAMA_EMBED_PREFIXES=false`.
 - **Texto embebido:** marca, modelo, versión, año, combustible, transmisión, estado, color y descripción saneada (máx. 800). **Nunca precio ni kilometraje.**
 - **Migración:** `embedding_hash char(64)` (sha256 del texto más el nombre del modelo) y `embedding_modelo varchar(40)`.
 - **Recálculo al crear y al editar un vehículo:**
@@ -72,7 +95,7 @@ Nota: `gemma3:1b` no se considera (sin tool-calling nativo en Ollama, según los
   - Devuelve solo vehículos no vendidos, con similitud mínima; precio y estado salen de la fila actual y el vector solo decide el orden. Nunca expone `embedding`.
   - Si Ollama está apagado: 503 con «La búsqueda inteligente no está disponible; usa los filtros».
   - Swagger documentado (lo exige `docs.e2e-spec`) y añadido al fuzzing.
-- **Pruebas:** 10 consultas en lenguaje natural (por ejemplo «económico para la ciudad», «camioneta para familia», «algo eléctrico», «camión de volteo» fuera de catálogo) con la condición esperada en el top 3. Aprueba con 8 de 10. El texto embebido no contiene el precio (prueba unitaria).
+- **Pruebas:** 10 consultas en lenguaje natural (por ejemplo «económico para la ciudad», «camioneta para familia», «algo eléctrico») con la condición esperada en el top 3 (`node chatbot/eval/busqueda.mjs`). Aprueba con 8 de 10; **medido: 9 de 10**. «Camión de volteo» (fuera de catálogo) es solo informativa: con `nomic-embed-text` ningún umbral separa «no tenemos eso» (decisión 93). El texto embebido no contiene el precio ni el kilometraje (prueba unitaria).
 
 ## 4. Paso 3: núcleo del chat
 
@@ -142,7 +165,7 @@ El secreto **nunca se registra** (ni en logs ni en mensajes de error). La cabece
 
 ## 7. Paso 5: evaluación de 20 preguntas
 
-Corre contra una **base temporal** con variables en la línea de comandos (nunca se lee `.env`). Se califica con reglas de código, no con otro modelo:
+Corre contra una **base temporal** con variables en la línea de comandos (nunca se lee `.env`). Herramientas: `chatbot/eval/preparar.mjs` (crea los 3 vehículos de la evaluación, solo con `--soy-una-base-temporal`) y `chatbot/eval/preguntas.mjs` (el arnés; la API debe estar con `CHAT_EVAL_MODE=true`). Se califica con reglas de código, no con otro modelo:
 
 - **R1:** todo monto en pesos citado aparece en los resultados de tools de ese turno.
 - **R2:** toda marca y modelo afirmado como existente aparece en un resultado de tool.
@@ -160,7 +183,7 @@ Cada caso corre 3 veces con `temperature` 0 y semilla fija; las 3 deben pasar. A
 | 3 | ¿Tienen un Tesla Model S? | Dice que no y no lista ninguno. |
 | 4* | Pregunta por un vehículo vendido | No lo ofrece ni da enlace para agendar. |
 | 5* | Compara dos modelos | Usa la tool y no inventa diferencias. |
-| 6 | Cuota de 100 M con 20 M inicial a 60 meses | Llama la tool con montos como texto; la cuota coincide con la API. |
+| 6 | Cuota de 100 M con 20 M inicial a 60 meses (vehículo «Mazda 6 Crédito Eval» de la base temporal, de exactamente $100 M) | Llama la tool con montos como texto; la cuota coincide con la API. |
 | 7 | Cuota a 5 meses | Corrige (mínimo 12) sin inventar cuota. |
 | 8 | Quiere agendar mañana a las 10 | Hay propuesta, ningún `POST` y no dice «quedó agendada». |
 | 9 | Igual que 8, con confirmación | Exactamente 1 `POST` con `T10:00:00-05:00`. |
@@ -203,6 +226,9 @@ Caso extra de privacidad: el usuario escribe su correo en el chat; el bot le ind
 
 ## 10. Pendientes que deja esta fase
 
+- **Correr las 20 preguntas con un modelo real** (Groq o el de los compañeros), iterar el prompt (archivo nuevo `system.v2.es.md`; no se edita uno ya evaluado) hasta 20 de 20 en R1 a R4, y medir `qwen2.5:7b` con la puerta del paso 1. **Bloquea el cierre de la Fase 4.**
+- **Revisión cruzada con Codex** (paso 7), con el código incrustado en el encargo.
+- **Portada en móvil:** a 375 px desborda 36 px en horizontal (ya pasaba antes del chat; decisión 89). Fase 7.
 - **Producción:** la verificación de correo (limitación aceptada) sigue siendo requisito también para el canal del chat.
 - **`consultar_cita` con código opaco:** posible mejora posterior con visto bueno del arquitecto.
 - **Índice HNSW** para los vectores si el inventario pasa de unos 5.000 vehículos.
