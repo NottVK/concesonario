@@ -73,7 +73,7 @@ export class TargetPolicy {
     const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '');
     if (!hostname) throw new BlockedTarget('host');
     const port = url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80;
-    if (config.forbiddenPorts.has(port)) throw new BlockedTarget('puerto');
+    if (port < 1 || config.forbiddenPorts.has(port)) throw new BlockedTarget('puerto');
 
     const literal = isIP(hostname) !== 0;
     const devAllowed = literal && !config.production && config.devAllowed.has(devKey(hostname, port));

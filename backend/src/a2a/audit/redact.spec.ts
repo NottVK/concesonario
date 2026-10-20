@@ -47,6 +47,38 @@ describe('redactForAudit: dominios sueltos y esquemas sin host', () => {
   });
 });
 
+describe('redactForAudit: formas ofuscadas (revisión con Codex)', () => {
+  it('tapa correos escritos con [at]/(arroba) y [dot]/punto', () => {
+    expect(redactForAudit('escribe a ana [at] correo [dot] com hoy')).toBe('escribe a [correo] hoy');
+    expect(redactForAudit('ana(at)correo.com y luis {arroba} correo [punto] co')).toBe('[correo] y [correo]');
+    expect(redactForAudit('mi correo: ana arroba correo punto com')).toBe('mi correo: [correo]');
+  });
+
+  it('tapa cifras dichas con palabras (siete o más seguidas) y números con separadores largos', () => {
+    expect(redactForAudit('llámame al tres cero cero uno dos tres cuatro cinco seis siete')).toBe('llámame al [número]');
+    expect(redactForAudit('mi número es 3 -- 0 .. 0 1 2 3 4 5 6 7')).toBe('mi número es [número]');
+  });
+
+  it('no toca palabras sueltas ni cifras escritas en pocas palabras', () => {
+    expect(redactForAudit('uno dos tres, tengo tres carros y dos motos')).toBe('uno dos tres, tengo tres carros y dos motos');
+    expect(redactForAudit('hay un arroba de arroz y 25 arrobas de café')).toBe('hay un arroba de arroz y 25 arrobas de café');
+  });
+
+  it('el precio se respeta aunque antes haya un enlace o un correo que cambió los largos del texto', () => {
+    expect(redactForAudit('mira https://x.example/a/b/c/d/e/f y el precio es $ 85.000.000')).toBe('mira [enlace] y el precio es $ 85.000.000');
+    expect(redactForAudit('ana@correo.com pregunta por 120.000.000 COP')).toBe('[correo] pregunta por 120.000.000 COP');
+  });
+
+  it('las expresiones nuevas no se vuelven lentas con entradas patológicas', () => {
+    const nasty = ['a'.repeat(5_000) + ' [at] ', '[at] '.repeat(1_000), 'x arroba '.repeat(1_000), 'uno '.repeat(2_000), '1 '.repeat(3_000), ('a [at] b [dot] ').repeat(500), '(' .repeat(4_000)];
+    for (const input of nasty) {
+      const started = performance.now();
+      redactForAudit(input);
+      expect(performance.now() - started, input.slice(0, 20)).toBeLessThan(250);
+    }
+  });
+});
+
 describe('auditText', () => {
   it('recorta al máximo y el hash es el del texto redactado COMPLETO', () => {
     const long = `${'a'.repeat(250)} contacto 3001234567`;

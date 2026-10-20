@@ -202,6 +202,13 @@ const CARD_ATTACKS = {
 export const MALICIOUS_TASK_MODES = Object.keys(TASK_ATTACKS)
 export const MALICIOUS_CARD_MODES = Object.keys(CARD_ATTACKS).filter((mode) => mode !== 'card-ok')
 
+let bomb = null
+/** 64 MB de ceros comprimidos pesan unos 64 KB: la «bomba» que revienta a quien descomprime sin tope. Se calcula UNA vez (tarda ~1 s y bloquearía al bot en cada petición). */
+function getBomb() {
+  bomb ??= gzipSync(Buffer.concat([Buffer.from('{"answer":"'), Buffer.alloc(64 * 1024 * 1024, 0x41), Buffer.from('"}')]))
+  return bomb
+}
+
 /** Utilidades de respuesta que reciben los ataques (todas cierran sus temporizadores si el cliente corta). */
 function responder(req, res, port) {
   const timers = new Set()
@@ -236,8 +243,7 @@ function responder(req, res, port) {
       timers.add(timer)
     },
     gzipBomb() {
-      // 64 MB de ceros comprimidos pesan unos 64 KB: la «bomba» que revienta a quien descomprime sin tope.
-      const body = gzipSync(Buffer.concat([Buffer.from('{"answer":"'), Buffer.alloc(64 * 1024 * 1024, 0x41), Buffer.from('"}')]))
+      const body = getBomb()
       res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', 'Content-Length': body.length })
       res.end(body)
     },
@@ -251,6 +257,7 @@ function responder(req, res, port) {
  * siguió una redirección hasta `/internal/secret` (debe quedar en 0: el cliente nunca sigue redirecciones).
  */
 export function createMaliciousBot() {
+  getBomb() // se calcula al crear el bot, no a mitad de una petición
   const hits = { internal: 0, modes: {}, withAuthorization: 0, withApiKeyHeader: 0 }
   let port = 0
   // La tarjeta de la RAÍZ (`/.well-known/agent.json`, la que lee «Probar conexión») cambia de modo con `setCardMode`

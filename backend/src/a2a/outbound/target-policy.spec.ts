@@ -117,6 +117,8 @@ const BLOCKED: [string, string][] = [
   ['https://example.com:5432/a2a', 'puerto'],
   ['https://example.com:11434/a2a', 'puerto'],
   ['https://8.8.8.8:8000/a2a', 'puerto'],
+  ['https://example.com:0/a2a', 'puerto'],
+  ['https://8.8.8.8:0/a2a', 'puerto'],
 ];
 
 const ALLOWED: string[] = [
