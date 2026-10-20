@@ -366,6 +366,13 @@ Diseño del arquitecto, aprobado por el usuario con sus 5 respuestas (tarjeta ap
 121. **Proceso de la fase:** un commit por subfase (6.0 a 6.8); pruebas con base y variables temporales, sin leer `.env`. **Revisión intermedia con Codex al terminar la 6.5, con los archivos COMPLETOS, pidiendo una lista de bypass de SSRF** (IPv6 mapeado, `0.0.0.0`, octal, hexadecimal, rebinding); revisión final en la 6.8. Cierre con bots propios más un intento real con otro grupo; si no están listos, el intercambio real queda pendiente con fecha (PRD §8).
 122. **`docs/ARQUITECTURA.md` se quita de CLAUDE.md §3:** nunca se creó y el contenido vive en DECISIONES.md, el README y el PRD. CLAUDE.md §3 (`a2a-demo/`), §6 y §7 se actualizaron.
 
+**Detalles de implementación de la 6.2 (sin cambiar las decisiones anteriores):**
+- 116: el AAD es `bot:<id>|<origen>` con el origen normalizado por WHATWG (esquema, host en minúsculas y puerto), así que cambiar solo la ruta conserva la key y cambiar esquema, host o puerto la borra. Una key saliente exige URL (400 si falta) y quitar la URL la borra. Como el `id` no existe hasta guardar, al crear el bot la key se cifra en un segundo paso dentro de la misma transacción. Las `enc:v1` se migran al arrancar (`BotKeysService.onModuleInit`) y también al leerlas; las que no tienen URL quedan en v1 hasta que se les ponga una.
+- 109: la cuota diaria cuenta las llamadas con `direccion = 'entrante'` (MCP y A2A); las salientes tienen sus propios límites (115).
+- 115: la migración 009 añade `bots_externos.auth_saliente` (`bearer` o `x_api_key`, por defecto `bearer`) y `limite_saliente_minuto` (1 a 60, por defecto 10). Aún no se exponen en la API del panel (6.7).
+- Migraciones de las keys: la 008 NO conserva un `api_key` en texto plano (se niega a migrar hasta que se borre a mano) y su `down` descarta las keys cifradas. La 009 `down` descarta las `enc:v2` porque el código anterior no las lee y no se pueden re-cifrar en SQL (la clave vive en la aplicación); las `enc:v1` se conservan. Probado en `migracion-claves.e2e-spec.ts` con varias keys.
+- 117: el texto de la auditoría pasa por `redactForAudit` (NFKC, sin invisibles ni bidi, correos, enlaces y números de 7 o más dígitos tapados; los precios con `$` o `COP` se respetan). El hash es el del texto redactado completo, antes de recortar. Un nombre propio escrito en una pregunta no se detecta: por eso el recorte y los 30 días.
+
 Limitación aceptada: un bot lento retiene el turno del chat hasta el plazo de 8 s (la inferencia es de una a la vez); el circuit breaker lo acota.
 
 ## Pendientes registrados

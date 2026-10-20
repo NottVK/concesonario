@@ -5,14 +5,18 @@ export interface Queryable {
 }
 
 /**
- * Retención de la auditoría del canal MCP: 90 días. (Las filas del canal a2a tendrán su propia regla en la Fase 6.)
- * Devuelve cuántas filas borró. Un CTE da el conteo como fila normal (un DELETE ... RETURNING cambia de forma según el driver).
+ * Retención de la auditoría: canal MCP 90 días y canal a2a 30 (lleva texto redactado). Devuelve cuántas filas borró.
+ * Un CTE da el conteo como fila normal (un DELETE ... RETURNING cambia de forma según el driver).
  */
 export async function purgeBotAudit(db: Queryable, now = new Date()): Promise<number> {
-  const limit = new Date(now.getTime() - MCP_DEFAULTS.auditRetentionDays * 24 * 60 * 60 * 1000);
+  const daysAgo = (days: number): Date => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   const rows = (await db.query(
-    `WITH borradas AS (DELETE FROM intercambios_bots WHERE canal = 'mcp' AND creado_en < $1 RETURNING 1) SELECT count(*)::int AS n FROM borradas`,
-    [limit],
+    `WITH borradas AS (
+       DELETE FROM intercambios_bots
+       WHERE (canal = 'mcp' AND creado_en < $1) OR (canal = 'a2a' AND creado_en < $2)
+       RETURNING 1)
+     SELECT count(*)::int AS n FROM borradas`,
+    [daysAgo(MCP_DEFAULTS.auditRetentionDays), daysAgo(MCP_DEFAULTS.a2aAuditRetentionDays)],
   )) as { n: number }[];
   return rows[0]?.n ?? 0;
 }

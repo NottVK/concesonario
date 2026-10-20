@@ -316,7 +316,8 @@ describe('Puerta de entrada del MCP (e2e)', () => {
       await expect(insert("canal, respuesta, herramienta, estado", "'mcp', 'texto libre', 'x', 'ok'")).rejects.toThrow();
       await expect(insert("canal, herramienta", "'mcp', 'x'")).rejects.toThrow();
       await expect(insert("canal", "'a2a'")).rejects.toThrow(); // a2a exige pregunta
-      await insert("canal, pregunta", "'a2a', '¿Tienen Mazda 3?'");
+      await expect(insert("canal, pregunta", "'a2a', '¿Tienen Mazda 3?'")).rejects.toThrow(); // y estado, hash y peticion_id (migración 009)
+      await insert("canal, pregunta, pregunta_hash, estado, peticion_id", `'a2a', '¿Tienen Mazda 3?', '${'a'.repeat(64)}', 'ok', gen_random_uuid()`);
     });
 
     it('un resumen de argumentos largo se recorta a 200 caracteres', async () => {
@@ -326,11 +327,14 @@ describe('Puerta de entrada del MCP (e2e)', () => {
       expect(row).toEqual({ h: 40, a: 200 });
     });
 
-    it('la purga borra a los 91 días y no a los 89, y no toca el canal a2a', async () => {
+    it('la purga borra mcp a los 91 días y no a los 89, y no toca un a2a reciente (el a2a caduca a los 30: ver a2a-auditoria)', async () => {
       const bot = await createBot('Bot Purga');
       const audit = ctx.app.get(AuditService);
       for (let i = 0; i < 3; i++) await audit.record({ botId: bot.id, tool: 'listar_marcas', argsSummary: null, status: ExchangeStatus.OK, durationMs: 1, bytesIn: 1, bytesOut: 1 });
-      await ctx.dataSource.query("INSERT INTO intercambios_bots (bot_id, direccion, canal, pregunta, creado_en) VALUES ($1, 'entrante', 'a2a', '¿Hola?', now() - interval '400 days')", [bot.id]);
+      await ctx.dataSource.query(
+        "INSERT INTO intercambios_bots (bot_id, direccion, canal, pregunta, pregunta_hash, estado, peticion_id, creado_en) VALUES ($1, 'entrante', 'a2a', '¿Hola?', $2, 'ok', gen_random_uuid(), now() - interval '10 days')",
+        [bot.id, 'a'.repeat(64)],
+      );
       await ctx.dataSource.query("UPDATE intercambios_bots SET creado_en = now() - interval '91 days' WHERE id = (SELECT min(id) FROM intercambios_bots WHERE canal = 'mcp')");
       await ctx.dataSource.query("UPDATE intercambios_bots SET creado_en = now() - interval '89 days' WHERE id = (SELECT max(id) FROM intercambios_bots WHERE canal = 'mcp')");
       expect(await purgeBotAudit(ctx.dataSource)).toBe(1);

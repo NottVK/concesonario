@@ -1,3 +1,4 @@
+import { createCipheriv, randomBytes } from 'node:crypto';
 import type { Repository } from 'typeorm';
 import type { ExternalBot } from '../../a2a/entities/external-bot.entity.js';
 import { loadMcpSecrets, MCP_DEFAULTS } from '../mcp.config.js';
@@ -63,37 +64,75 @@ describe('loadMcpSecrets: el servidor no arranca sin el pepper ni la clave AES',
   });
 });
 
-describe('SecretBox (AES-256-GCM)', () => {
-  const box = new SecretBox(Buffer.alloc(32, 1));
+describe('SecretBox (AES-256-GCM con AAD)', () => {
+  const keyBytes = Buffer.alloc(32, 1);
+  const box = new SecretBox(keyBytes);
+  const aad = SecretBox.aadFor(7, 'https://bot.ejemplo.com/a2a');
+
+  /** Un valor `enc:v1` como lo escribía la Fase 5 (sin AAD). */
+  const legacyV1 = (plain: string): string => {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', keyBytes, iv);
+    const data = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+    return `enc:v1:${iv.toString('base64url')}:${cipher.getAuthTag().toString('base64url')}:${data.toString('base64url')}`;
+  };
 
   it('cifra y descifra; cada cifrado es distinto y no contiene el texto', () => {
-    const a = box.encrypt('clave-saliente-123');
-    const b = box.encrypt('clave-saliente-123');
+    const a = box.encrypt('clave-saliente-123', aad);
+    const b = box.encrypt('clave-saliente-123', aad);
     expect(a).not.toBe(b);
-    expect(a.startsWith('enc:v1:')).toBe(true);
+    expect(a.startsWith('enc:v2:')).toBe(true);
     expect(a).not.toContain('clave-saliente-123');
-    expect(box.decrypt(a)).toBe('clave-saliente-123');
+    expect(box.decrypt(a, aad)).toBe('clave-saliente-123');
     expect(SecretBox.isEncrypted(a)).toBe(true);
     expect(SecretBox.isEncrypted('clave-saliente-123')).toBe(false);
   });
 
+  it('el AAD ata el valor a la fila y al origen: otro id, otro origen, otro esquema u otro puerto no descifran', () => {
+    const stored = box.encrypt('secreto', aad);
+    const others = [
+      SecretBox.aadFor(8, 'https://bot.ejemplo.com/a2a'),
+      SecretBox.aadFor(7, 'https://otro.ejemplo.com/a2a'),
+      SecretBox.aadFor(7, 'http://bot.ejemplo.com/a2a'),
+      SecretBox.aadFor(7, 'https://bot.ejemplo.com:8443/a2a'),
+      SecretBox.aadFor(7, null),
+      '',
+    ];
+    for (const other of others) expect(() => box.decrypt(stored, other)).toThrow('No se pudo descifrar la clave guardada');
+    // La ruta no cuenta, solo el origen; y las mayúsculas del host se normalizan.
+    expect(box.decrypt(stored, SecretBox.aadFor(7, 'https://BOT.ejemplo.com/otra/ruta?x=1'))).toBe('secreto');
+  });
+
+  it('exige AAD al cifrar', () => {
+    expect(() => box.encrypt('secreto', '')).toThrow(/AAD/);
+  });
+
+  it('lee el formato enc:v1 heredado (sin AAD) y reporta su versión', () => {
+    const old = legacyV1('clave-vieja-123');
+    expect(SecretBox.versionOf(old)).toBe(1);
+    expect(SecretBox.versionOf(box.encrypt('x', aad))).toBe(2);
+    expect(SecretBox.versionOf('en-claro')).toBeNull();
+    expect(box.decrypt(old, aad)).toBe('clave-vieja-123');
+  });
+
   it('un valor alterado, en claro o cifrado con otra clave falla con un error genérico', () => {
-    const stored = box.encrypt('secreto');
+    const stored = box.encrypt('secreto', aad);
     const parts = stored.split(':');
     const tampered = [...parts.slice(0, -1), `${parts.at(-1)!.slice(0, -2)}AA`].join(':');
     const other = new SecretBox(Buffer.alloc(32, 2));
-    const [iv, tag, data] = stored.slice('enc:v1:'.length).split(':');
+    const [iv, tag, data] = stored.slice('enc:v2:'.length).split(':');
     const malformed = [
-      `enc:v1:${iv}:${tag}`, // faltan segmentos
-      `enc:v1:${iv}:${tag}:${data}:extra`, // sobran
-      `enc:v1:${iv}=:${tag}:${data}`, // base64url no canónico
-      `enc:v1:${Buffer.alloc(8).toString('base64url')}:${tag}:${data}`, // IV de 8 bytes
-      `enc:v1:${iv}:${Buffer.alloc(8).toString('base64url')}:${data}`, // etiqueta de 8 bytes
-      `enc:v1:${iv}:${tag}:`, // texto cifrado vacío
-      `enc:v1:${iv}:${tag}:!!!`,
+      `enc:v2:${iv}:${tag}`, // faltan segmentos
+      `enc:v2:${iv}:${tag}:${data}:extra`, // sobran
+      `enc:v2:${iv}=:${tag}:${data}`, // base64url no canónico
+      `enc:v2:${Buffer.alloc(8).toString('base64url')}:${tag}:${data}`, // IV de 8 bytes
+      `enc:v2:${iv}:${Buffer.alloc(8).toString('base64url')}:${data}`, // etiqueta de 8 bytes
+      `enc:v2:${iv}:${tag}:`, // texto cifrado vacío
+      `enc:v2:${iv}:${tag}:!!!`,
+      `enc:v1:${iv}:${tag}:${data}`, // un v2 disfrazado de v1 (se descifra sin AAD y falla)
     ];
-    for (const bad of [tampered, 'en-claro', 'enc:v1:', 'enc:v1:a:b', other.encrypt('secreto'), ...malformed]) {
-      expect(() => box.decrypt(bad)).toThrow('No se pudo descifrar la clave guardada');
+    for (const bad of [tampered, 'en-claro', 'enc:v2:', 'enc:v2:a:b', 'enc:v3:a:b:c', other.encrypt('secreto', aad), ...malformed]) {
+      expect(() => box.decrypt(bad, aad)).toThrow('No se pudo descifrar la clave guardada');
     }
     expect(() => new SecretBox(Buffer.alloc(16))).toThrow(/32 bytes/);
   });

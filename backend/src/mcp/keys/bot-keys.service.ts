@@ -1,11 +1,12 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Like, QueryFailedError, Repository } from 'typeorm';
 import { ExternalBot } from '../../a2a/entities/external-bot.entity.js';
 import { MCP_SECRETS } from '../mcp.config.js';
 import type { McpSecrets } from '../mcp.config.js';
-import { SecretBox } from './secret-box.js';
+import { originOf, SecretBox } from './secret-box.js';
 
 /** `amx_<prefijo 8 hex>_<32 bytes aleatorios en base64url>`. El prefijo NO es secreto: solo localiza la fila. */
 export const KEY_FORMAT = /^amx_([0-9a-f]{8})_([A-Za-z0-9_-]{43})$/;
@@ -69,7 +70,8 @@ function isUniqueViolation(error: unknown, constraint?: string): boolean {
  * y por el mismo camino aunque la key sea falsa, esté mal formada o el bot no exista.
  */
 @Injectable()
-export class BotKeysService {
+export class BotKeysService implements OnModuleInit {
+  private readonly logger = new Logger(BotKeysService.name);
   private readonly box: SecretBox;
 
   constructor(
@@ -77,6 +79,33 @@ export class BotKeysService {
     @Inject(MCP_SECRETS) private readonly secrets: McpSecrets,
   ) {
     this.box = new SecretBox(secrets.encryptionKey);
+  }
+
+  /** Al arrancar, pasa las keys salientes `enc:v1` (sin AAD) a `enc:v2`. Un fallo se registra y no impide arrancar. */
+  async onModuleInit(): Promise<void> {
+    try {
+      const upgraded = await this.upgradeLegacyKeys();
+      if (upgraded > 0) this.logger.log(`Keys salientes migradas a enc:v2: ${upgraded}`);
+    } catch (error) {
+      this.logger.error(`No se pudieron migrar las keys salientes a enc:v2: ${error instanceof Error ? error.message : 'error desconocido'}`);
+    }
+  }
+
+  /** Re-cifra con AAD las keys `enc:v1` que tengan URL (sin URL no hay origen al que atarlas). Devuelve cuántas migró. */
+  async upgradeLegacyKeys(): Promise<number> {
+    const rows = await this.bots.find({ where: { outboundApiKey: Like('enc:v1:%') }, select: { id: true, url: true, outboundApiKey: true } });
+    let upgraded = 0;
+    for (const row of rows) {
+      if (row.url && row.outboundApiKey && (await this.upgradeOne(row.id, row.url, row.outboundApiKey))) upgraded++;
+    }
+    return upgraded;
+  }
+
+  /** Re-cifra una key v1 con la condición de que siga siendo la misma (si alguien la cambió mientras tanto, no pisa). */
+  private async upgradeOne(id: number, url: string, stored: string): Promise<boolean> {
+    const aad = SecretBox.aadFor(id, url);
+    const result = await this.bots.update({ id, outboundApiKey: stored }, { outboundApiKey: this.box.encrypt(this.box.decrypt(stored, aad), aad) });
+    return (result.affected ?? 0) > 0;
   }
 
   /** Key nueva (con prefijo al azar). */
@@ -103,6 +132,7 @@ export class BotKeysService {
   }
 
   async create(input: CreateBotInput): Promise<{ bot: BotView; apiKey: string }> {
+    if (input.outboundApiKey && !input.url) throw new BadRequestException('La key saliente exige la url del bot (queda atada a su origen)');
     for (let attempt = 0; attempt < PREFIX_RETRIES; attempt++) {
       const { key, prefix } = BotKeysService.generate();
       try {
@@ -114,7 +144,6 @@ export class BotKeysService {
             repo.create({
               name: input.name,
               url: input.url ?? null,
-              outboundApiKey: input.outboundApiKey ? this.box.encrypt(input.outboundApiKey) : null,
               keyPrefix: prefix,
               keyHash: this.hash(key),
               pepperVersion: this.secrets.pepperVersion,
@@ -123,6 +152,10 @@ export class BotKeysService {
               ...(input.limitPerDay ? { limitPerDay: input.limitPerDay } : {}),
             }),
           );
+          // El AAD lleva el id de la fila, que solo existe después de guardar: la key saliente se cifra en este segundo paso.
+          if (input.outboundApiKey) {
+            await repo.update({ id: saved.id }, { outboundApiKey: this.box.encrypt(input.outboundApiKey, SecretBox.aadFor(saved.id, input.url!)) });
+          }
           return this.view(saved.id, repo);
         });
         return { bot, apiKey: key };
@@ -164,16 +197,35 @@ export class BotKeysService {
       ...(input.url === undefined ? {} : { url: input.url }),
       ...(input.limitPerMinute === undefined ? {} : { limitPerMinute: input.limitPerMinute }),
       ...(input.limitPerDay === undefined ? {} : { limitPerDay: input.limitPerDay }),
-      ...(input.outboundApiKey === undefined ? {} : { outboundApiKey: input.outboundApiKey === null ? null : this.box.encrypt(input.outboundApiKey) }),
+      ...(await this.outboundKeyPatch(id, input)),
     };
     if (Object.keys(patch).length > 0) await this.bots.update({ id }, patch);
     return this.view(id);
   }
 
-  /** La key saliente en claro (Fase 6). Solo para uso interno del servidor; nunca sale por la API. */
+  /**
+   * Qué pasa con la key saliente al editar: una nueva se cifra atada al id y al origen de la URL resultante; `null` la
+   * borra; y si cambia el ORIGEN de la URL sin key nueva, se borra (no se envía una key a un destino que no se le dio).
+   */
+  private async outboundKeyPatch(id: number, input: UpdateBotInput): Promise<Partial<ExternalBot>> {
+    const current = await this.bots.findOne({ where: { id }, select: { id: true, url: true, outboundApiKey: true } });
+    const nextUrl = input.url === undefined ? (current?.url ?? null) : input.url;
+    if (typeof input.outboundApiKey === 'string') {
+      if (!nextUrl) throw new BadRequestException('La key saliente exige la url del bot (queda atada a su origen)');
+      return { outboundApiKey: this.box.encrypt(input.outboundApiKey, SecretBox.aadFor(id, nextUrl)) };
+    }
+    if (input.outboundApiKey === null) return { outboundApiKey: null };
+    const moved = input.url !== undefined && originOf(current?.url ?? '') !== originOf(nextUrl ?? '');
+    return moved && current?.outboundApiKey ? { outboundApiKey: null } : {};
+  }
+
+  /** La key saliente en claro. Solo para uso interno del servidor; nunca sale por la API. Una `enc:v1` se migra al leerla. */
   async outboundKeyOf(id: number): Promise<string | null> {
-    const row = await this.bots.findOne({ where: { id }, select: { id: true, outboundApiKey: true } });
-    return row?.outboundApiKey ? this.box.decrypt(row.outboundApiKey) : null;
+    const row = await this.bots.findOne({ where: { id }, select: { id: true, url: true, outboundApiKey: true } });
+    if (!row?.outboundApiKey) return null;
+    const plain = this.box.decrypt(row.outboundApiKey, SecretBox.aadFor(id, row.url));
+    if (SecretBox.versionOf(row.outboundApiKey) === 1 && row.url) await this.upgradeOne(id, row.url, row.outboundApiKey);
+    return plain;
   }
 
   /**

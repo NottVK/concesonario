@@ -76,7 +76,7 @@ describe('Bots externos: keys para el MCP (admin, e2e)', () => {
     });
 
     it('la key no vuelve a aparecer: ni en el listado ni en ningún GET', async () => {
-      const created = await create({ name: 'Bot Uno', outboundApiKey: 'clave-saliente-de-prueba-123' }).expect(201);
+      const created = await create({ name: 'Bot Uno', url: 'https://bot-uno.example.com/a2a', outboundApiKey: 'clave-saliente-de-prueba-123' }).expect(201);
       const apiKey = created.body.apiKey as string;
       const list = await request(ctx.server).get('/api/admin/bots').set(auth(adminToken)).expect(200);
       const text = JSON.stringify(list.body);
@@ -88,9 +88,9 @@ describe('Bots externos: keys para el MCP (admin, e2e)', () => {
     });
 
     it('la key saliente se guarda CIFRADA y se recupera solo desde el servidor', async () => {
-      const created = await create({ name: 'Bot Dos', outboundApiKey: 'clave-saliente-de-prueba-123' }).expect(201);
+      const created = await create({ name: 'Bot Dos', url: 'https://bot-dos.example.com/a2a', outboundApiKey: 'clave-saliente-de-prueba-123' }).expect(201);
       const [row] = await rows();
-      expect(row!.api_key_saliente!.startsWith('enc:v1:')).toBe(true);
+      expect(row!.api_key_saliente!.startsWith('enc:v2:')).toBe(true);
       expect(row!.api_key_saliente).not.toContain('clave-saliente');
       expect(await keys.outboundKeyOf(created.body.bot.id as number)).toBe('clave-saliente-de-prueba-123');
     });
@@ -172,7 +172,7 @@ describe('Bots externos: keys para el MCP (admin, e2e)', () => {
     });
 
     it('la key saliente se puede cambiar y quitar sin que nunca salga', async () => {
-      const { body } = await create({ name: 'Bot Nueve' }).expect(201);
+      const { body } = await create({ name: 'Bot Nueve', url: 'https://bot-nueve.example.com/a2a' }).expect(201);
       const set = await request(ctx.server).patch(`/api/admin/bots/${body.bot.id}`).set(auth(adminToken)).send({ outboundApiKey: 'otra-clave-saliente-9999' }).expect(200);
       expect(set.body.hasOutboundKey).toBe(true);
       expect(JSON.stringify(set.body)).not.toContain('otra-clave');

@@ -34,6 +34,8 @@ export const MCP_DEFAULTS = {
   /** Auditoría. */
   argsSummaryMaxChars: 200,
   auditRetentionDays: 90,
+  /** Retención de la auditoría del canal a2a (lleva texto redactado, así que dura menos; decisión 117). */
+  a2aAuditRetentionDays: 30,
 } as const;
 
 /**

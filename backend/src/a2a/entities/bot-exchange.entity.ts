@@ -24,11 +24,20 @@ export enum ExchangeStatus {
   OK = 'ok',
   VALIDATION_ERROR = 'error_validacion',
   INTERNAL_ERROR = 'error_interno',
+  /** Solo canal `a2a` (decisión 117). */
+  REJECTED = 'rechazado',
+  TIMEOUT = 'timeout',
+  REMOTE_ERROR = 'error_remoto',
+  SSRF_BLOCKED = 'bloqueado_ssrf',
+  INVALID_RESPONSE = 'respuesta_invalida',
+  CIRCUIT_OPEN = 'circuito_abierto',
+  LIMITED = 'limite',
 }
 
 /**
  * Auditoría de lo que intercambian los bots. Canal `mcp`: solo campos estructurados (herramienta, resumen de
- * argumentos YA validados, estado, tamaños), nunca texto libre ni datos personales. Canal `a2a`: pregunta y respuesta.
+ * argumentos YA validados, estado, tamaños), nunca texto libre ni datos personales. Canal `a2a`: pregunta (≤ 200) y
+ * respuesta (≤ 600) REDACTADAS y recortadas, con sus hashes y el `peticion_id`; un CHECK de la base lo impone.
  */
 @Entity('intercambios_bots')
 @Index(['botId', 'createdAt'])
@@ -50,7 +59,7 @@ export class BotExchange {
   @Column({ name: 'canal', type: 'enum', enum: ExchangeChannel, enumName: 'canal_intercambio_enum', default: ExchangeChannel.A2A })
   channel: ExchangeChannel;
 
-  /** Obligatoria en `a2a`; prohibida en `mcp` (lo garantiza un CHECK de la base). */
+  /** Obligatoria en `a2a` (redactada, ≤ 200); prohibida en `mcp` (lo garantiza un CHECK de la base). */
   @Column({ name: 'pregunta', type: 'text', nullable: true })
   question: string | null;
 
@@ -74,6 +83,17 @@ export class BotExchange {
 
   @Column({ name: 'bytes_salida', type: 'int', nullable: true })
   bytesOut: number | null;
+
+  /** Identifica un intercambio `a2a` en los registros; null en `mcp`. */
+  @Column({ name: 'peticion_id', type: 'uuid', nullable: true })
+  requestId: string | null;
+
+  /** SHA-256 (hex) del texto redactado y normalizado, ANTES de recortarlo. */
+  @Column({ name: 'pregunta_hash', type: 'char', length: 64, nullable: true })
+  questionHash: string | null;
+
+  @Column({ name: 'respuesta_hash', type: 'char', length: 64, nullable: true })
+  answerHash: string | null;
 
   @CreateDateColumn({ name: 'creado_en', type: 'timestamptz' })
   createdAt: Date;

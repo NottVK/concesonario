@@ -17,9 +17,17 @@ export class ExternalBot {
   @Column({ name: 'url', type: 'varchar', length: 255, nullable: true })
   url: string | null;
 
-  /** Key saliente CIFRADA (`enc:v1:…`); nunca se expone en la API. */
+  /** Key saliente CIFRADA (`enc:v2:…`, atada a la fila y al origen de la URL); nunca se expone en la API. */
   @Column({ name: 'api_key_saliente', type: 'varchar', length: 255, nullable: true, select: false })
   outboundApiKey: string | null;
+
+  /** Cómo se autentica NUESTRA llamada saliente: `Authorization: Bearer` o cabecera `X-API-Key` (decisión 115). */
+  @Column({ name: 'auth_saliente', type: 'varchar', length: 12, default: 'bearer' })
+  outboundAuth: 'bearer' | 'x_api_key';
+
+  /** Máximo de llamadas salientes por minuto a este bot. */
+  @Column({ name: 'limite_saliente_minuto', type: 'int', default: 10 })
+  outboundLimitPerMinute: number;
 
   @Column({ name: 'activo', type: 'boolean', default: true })
   active: boolean;
