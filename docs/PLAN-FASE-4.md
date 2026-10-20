@@ -228,7 +228,7 @@ Caso extra de privacidad: el usuario escribe su correo en el chat; el bot le ind
 
 - **Correr las 20 preguntas con un modelo real** (Groq o el de los compañeros), iterar el prompt (archivo nuevo `system.v2.es.md`; no se edita uno ya evaluado) hasta 20 de 20 en R1 a R4, y medir `qwen2.5:7b` con la puerta del paso 1. **Bloquea el cierre de la Fase 4.**
 - **Revisión cruzada con Codex** (paso 7), con el código incrustado en el encargo.
-- **Portada en móvil:** a 375 px desborda 36 px en horizontal (ya pasaba antes del chat; decisión 89). Fase 7.
+- **Portada en móvil:** a 375 px desbordaba 36 px en horizontal (decisión 89). Corregida por clases y fijada con pruebas (decisión 123); falta medirla en un navegador con `e2e/portada.spec.ts`.
 - **Producción:** la verificación de correo (limitación aceptada) sigue siendo requisito también para el canal del chat.
 - **`consultar_cita` con código opaco:** posible mejora posterior con visto bueno del arquitecto.
 - **Índice HNSW** para los vectores si el inventario pasa de unos 5.000 vehículos.

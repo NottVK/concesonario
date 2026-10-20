@@ -11,8 +11,12 @@ import { cn, formatCOP } from '@/lib/utils'
  * Misma rejilla y proporciones para el esqueleto y el hero real, así que al llegar los datos
  * nada se mueve: la foto reserva su 16/10 y el texto, su alto mínimo.
  */
-const frame = 'mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-14 lg:py-16'
-const copy = 'min-h-[22rem] lg:min-h-[26rem]'
+// En móvil la rejilla es de UNA columna que puede encogerse (`minmax(0,1fr)`) y sus hijos llevan `min-w-0`: sin eso, una palabra
+// larga del título («Volkswagen») o el precio empujan la columna más ancha que la pantalla y la portada desborda en horizontal.
+const frame = 'mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-14 lg:py-16'
+const copy = 'min-w-0 min-h-[22rem] lg:min-h-[26rem]'
+/** Títulos del hero: 36 px en móvil (cabe «Volkswagen» en 343 px), y si aun así una palabra no cabe, se parte en vez de desbordar. */
+const heading = 'text-4xl font-semibold leading-[1.05] [overflow-wrap:anywhere] sm:text-6xl'
 
 export function HeroSkeleton() {
   return (
@@ -55,11 +59,11 @@ export function Hero({ vehicle }: { vehicle: VehicleWithBrand }) {
         >
           Recién llegado, {STATUS_LABELS[vehicle.status].toLowerCase()}
         </span>
-        <h1 className="mt-5 text-5xl font-semibold leading-[1.05] sm:text-6xl">{title}</h1>
+        <h1 className={cn('mt-5', heading)}>{title}</h1>
         <p className="mt-2 text-lg text-muted">
           {vehicle.version}, {vehicle.year}
         </p>
-        <p className="mt-6 font-display text-4xl font-semibold text-accent sm:text-5xl">{formatCOP(vehicle.price)}</p>
+        <p className="mt-6 font-display text-3xl font-semibold text-accent [overflow-wrap:anywhere] sm:text-5xl">{formatCOP(vehicle.price)}</p>
         <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <Spec icon={<Calendar size={15} />}>{vehicle.year}</Spec>
           <Spec icon={<Gauge size={15} />}>{formatKm(vehicle.mileage)}</Spec>
@@ -75,7 +79,7 @@ export function Hero({ vehicle }: { vehicle: VehicleWithBrand }) {
           </Link>
         </div>
       </div>
-      <Link to={`/catalogo/${vehicle.id}`} aria-label={`Ver ${title} ${vehicle.year}`} tabIndex={-1}>
+      <Link to={`/catalogo/${vehicle.id}`} aria-label={`Ver ${title} ${vehicle.year}`} tabIndex={-1} className="block min-w-0">
         <CarImage
           priority
           src={vehicle.images[0]}
@@ -90,9 +94,9 @@ export function Hero({ vehicle }: { vehicle: VehicleWithBrand }) {
 /** Hero de respaldo: la Home sigue siendo útil si no hay datos o la API falla. */
 export function FallbackHero({ children }: { children?: React.ReactNode }) {
   return (
-    <div className={cn(frame, 'lg:grid-cols-1')}>
-      <div className="max-w-2xl">
-        <h1 className="text-5xl font-semibold leading-[1.05] sm:text-6xl">Tu próximo carro está en AutoMax</h1>
+    <div className={cn(frame, 'lg:grid-cols-[minmax(0,1fr)]')}>
+      <div className="min-w-0 max-w-2xl">
+        <h1 className={heading}>Tu próximo carro está en AutoMax</h1>
         <p className="mt-4 text-lg text-muted">Nuevos y usados, con simulador de crédito y test-drive.</p>
         {children}
         <div className="mt-8">

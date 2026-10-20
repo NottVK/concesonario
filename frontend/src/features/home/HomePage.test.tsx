@@ -147,3 +147,43 @@ describe('HomePage', () => {
     expect(await screen.findByText(/No pudimos cargar las marcas/)).toBeInTheDocument()
   })
 })
+
+/**
+ * La portada desbordaba 36 px en horizontal a 375 px (decisión 89). jsdom no calcula el layout, así que aquí se fijan las
+ * CLASES que lo evitan; la medición real en un navegador está en `e2e/portada.spec.ts`.
+ */
+describe('portada en móvil: sin desborde horizontal', () => {
+  it('el hero es una rejilla de una columna que puede encogerse, con hijos que pueden encogerse', async () => {
+    renderHome()
+    const title = await heroTitle('BMW iX3')
+    const grid = title.closest('div.grid')!
+    expect(grid).toHaveClass('grid-cols-[minmax(0,1fr)]')
+    expect(grid.firstElementChild).toHaveClass('min-w-0')
+    expect(grid.lastElementChild).toHaveClass('min-w-0')
+  })
+
+  it('el título y el precio se parten si una palabra no cabe, y el título es de 36 px en móvil', async () => {
+    renderHome()
+    const title = await heroTitle('BMW iX3')
+    expect(title).toHaveClass('text-4xl', 'sm:text-6xl', '[overflow-wrap:anywhere]')
+    expect(title.className).not.toMatch(/(^|\s)text-5xl(\s|$)/)
+    expect(screen.getByText(/\$\s?170\.000\.000/)).toHaveClass('[overflow-wrap:anywhere]')
+  })
+
+  it('la portada de respaldo y la rejilla de destacados tampoco ensanchan la página', async () => {
+    vehiclesResponse = () => HttpResponse.json({ data: [], meta: { total: 0, page: 1, limit: 7, pages: 0 } })
+    renderHome()
+    const fallback = await heroTitle(FALLBACK)
+    expect(fallback).toHaveClass('text-4xl', '[overflow-wrap:anywhere]')
+    expect(fallback.closest('div.grid')).toHaveClass('grid-cols-[minmax(0,1fr)]')
+  })
+
+  it('los destacados van en una columna encogible en móvil', async () => {
+    renderHome()
+    await heroTitle('BMW iX3')
+    // El primer <ul> de la sección es la rejilla de destacados (las tarjetas traen sus propias listas de datos).
+    const list = screen.getByRole('region', { name: 'Destacados' }).querySelector('ul')!
+    expect(list).toHaveClass('grid-cols-1')
+  })
+})
+

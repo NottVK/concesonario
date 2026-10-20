@@ -62,5 +62,17 @@ describe('higiene del código fuente', () => {
     expect(text.length).toBeGreaterThan(200)
     expect(text).not.toMatch(/<(a|img|iframe|video|audio|object|embed|script)\b|\bhref\s*=|\bsrc\s*=|<Link\b|\bdangerouslySetInnerHTML\b/)
   })
+
+  it('ninguna pantalla puede ensanchar la página en horizontal: el contenido principal recorta el desborde (sin crear scroll)', () => {
+    const [, layout] = productionFiles.find(([path]) => path === '/src/components/Layout.tsx') ?? ['', '']
+    expect(layout).toMatch(/<main[^>]*overflow-x-clip/)
+  })
+
+  it('la portada no fija anchos de píxeles de móvil (nada de w-[…px] ni min-w-[…px] de 340 o más)', () => {
+    const wide = productionFiles
+      .filter(([path]) => path.startsWith('/src/features/home/'))
+      .filter(([, text]) => [...text.matchAll(/\b(?:min-)?w-\[(\d+)px\]/g)].some((match) => Number(match[1]) >= 340))
+    expect(wide.map(([path]) => path)).toEqual([])
+  })
 })
 

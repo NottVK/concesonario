@@ -69,7 +69,7 @@ export function HomePage() {
             </Link>
           }
         >
-          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {newest.isPending
               ? Array.from({ length: FEATURED_COUNT }, (_, i) => <VehicleCardSkeleton key={i} />)
               : featured.map((vehicle) => <VehicleCard key={vehicle.id} vehicle={vehicle} />)}

@@ -427,6 +427,8 @@ Diseño del arquitecto, aprobado por el usuario con sus 5 respuestas (tarjeta ap
 - Aceptado: el 413 posterior a autenticar y el fallo al insertar la auditoría no cuentan para el tope diario (sí para el minuto); un cliente que corta la conexión libera su reserva antes de que se inserte la fila (ventana acotada por las 5 simultáneas).
 - Ampliado en Pendientes: `trust proxy` (ahora también bloquea a todos los bots de MCP y A2A durante 15 minutos con 10 keys falsas).
 
+123. **Portada a 375 px (atiende el hallazgo de la 89):** la portada desbordaba 36 px en horizontal. No se pudo medir con un navegador en esta pasada (sin Playwright), así que se corrigieron las causas estructurales probables y se fijaron con pruebas: el hero es una rejilla de una columna que puede encogerse (`grid-cols-[minmax(0,1fr)]`, hijos con `min-w-0`), el título pasa de 48 a 36 px en móvil (`text-4xl`, 60 px desde `sm`) y título y precio se parten si una palabra no cabe (`[overflow-wrap:anywhere]`), los destacados van en `grid-cols-1`, y `<main>` lleva `overflow-x-clip` (recorta sin crear un contenedor de scroll, así que ninguna pantalla puede ensanchar la página). Vitest fija esas clases y una prueba de higiene prohíbe anchos fijos de 340 px o más en la portada. **Falta confirmar en un navegador:** `frontend/e2e/portada.spec.ts` mide el desborde a 320, 360, 375, 390 y 414 px y que ningún elemento sobresalga del borde derecho (el recorte de `<main>` no debe estar tapando un desborde real); está escrito y NO se ha ejecutado.
+
 Limitación aceptada: un bot lento retiene el turno del chat hasta el plazo de 8 s (la inferencia es de una a la vez); el circuit breaker lo acota.
 
 ## Pendientes registrados

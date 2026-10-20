@@ -47,7 +47,8 @@ export function Layout() {
           </nav>
         </div>
       </header>
-      <main id="contenido" className={cn('flex-1', ids.length > 0 && 'pb-24')}>
+      {/* `overflow-x-clip` (no crea un contenedor de scroll): ninguna pantalla puede ensanchar la página en horizontal. */}
+      <main id="contenido" className={cn('min-w-0 flex-1 overflow-x-clip', ids.length > 0 && 'pb-24')}>
         <Outlet />
       </main>
       <CompareTray />
