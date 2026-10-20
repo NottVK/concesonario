@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => {
       css: false,
       // Con 23 archivos en paralelo el formulario de citas (jsdom + <dialog>) pasaba de 5 s en equipos lentos.
       testTimeout: 15_000,
+      // Los archivos de pruebas son pesados (jsdom): con todos los núcleos el equipo se satura y salen fallos por tiempo.
+      maxWorkers: 3,
     },
   }
 })

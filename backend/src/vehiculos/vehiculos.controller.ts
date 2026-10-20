@@ -25,7 +25,7 @@ import type { Paginated } from '../common/pagination.js';
 import { ApiPaginatedResponse } from '../common/swagger.js';
 import { UserRole } from '../usuarios/entities/user.entity.js';
 import { CompareQueryDto } from './dto/compare-query.dto.js';
-import { VehicleDto } from './dto/vehicle.dto.js';
+import { UpdateVehicleDto, VehicleDto } from './dto/vehicle.dto.js';
 import { VehicleQueryDto } from './dto/vehicle-query.dto.js';
 import { Vehicle } from './entities/vehicle.entity.js';
 import { VehiculosService } from './vehiculos.service.js';
@@ -77,8 +77,8 @@ export class VehiculosController {
   @Put(':id')
   @ApiOperation({ summary: 'Reemplazar un vehículo (admin); uno vendido no se modifica' })
   @ApiOkResponse({ type: Vehicle })
-  @ApiConflictResponse({ description: 'El vehículo ya está vendido o el dato se repite' })
-  update(@Param('id', ParseIdPipe) id: number, @Body() dto: VehicleDto): Promise<Vehicle> {
+  @ApiConflictResponse({ description: 'Ya está vendido, otra persona lo modificó (revisión desactualizada) o el dato se repite' })
+  update(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateVehicleDto): Promise<Vehicle> {
     return this.vehicles.update(id, dto);
   }
 

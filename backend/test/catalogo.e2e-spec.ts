@@ -218,9 +218,10 @@ describe('Marcas y vehículos (e2e)', () => {
 
       const updated = await request(ctx.server)
         .put(`/api/vehiculos/${created.body.id}`).set(auth(adminToken))
-        .send(vehicleBody(kia.id, { model: 'Seltos', price: '95500000.50', images: ['/autos/kia-seltos.webp'] }))
+        .send(vehicleBody(kia.id, { model: 'Seltos', price: '95500000.50', images: ['/autos/kia-seltos.webp'], revision: created.body.revision }))
         .expect(200);
-      expect(updated.body).toMatchObject({ price: '95500000.50', images: ['/autos/kia-seltos.webp'] });
+      expect(created.body.revision).toBe(1);
+      expect(updated.body).toMatchObject({ price: '95500000.50', images: ['/autos/kia-seltos.webp'], revision: 2 });
 
       await request(ctx.server).delete(`/api/vehiculos/${created.body.id}`).set(auth(adminToken)).expect(204);
       await request(ctx.server).get(`/api/vehiculos/${created.body.id}`).expect(404);
@@ -244,7 +245,7 @@ describe('Marcas y vehículos (e2e)', () => {
       const sold = await ctx.dataSource.getRepository(Vehicle).findOneByOrFail({ model: 'Picanto' });
       await request(ctx.server)
         .put(`/api/vehiculos/${sold.id}`).set(auth(adminToken))
-        .send(vehicleBody(kia.id, { model: 'Picanto', year: 2021 })).expect(409);
+        .send(vehicleBody(kia.id, { model: 'Picanto', year: 2021, revision: sold.revision })).expect(409);
     });
   });
 });

@@ -24,7 +24,7 @@ function cita(id: number, name: string, over: Partial<AppointmentRow> = {}): App
     vehicle: {
       id: 100 + id, brandId: 1, brand: { id: 1, name: 'Mazda', country: 'Japón', logoUrl: null }, model: `Modelo ${id}`, year: 2024,
       version: 'Touring', price: '100000000.00', mileage: 0, fuel: 'gasolina', transmission: 'manual', color: 'Gris',
-      status: 'nuevo', description: null, images: [],
+      status: 'nuevo', revision: 1, description: null, images: [],
     },
     ...over,
   }

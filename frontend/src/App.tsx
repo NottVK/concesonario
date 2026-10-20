@@ -6,6 +6,7 @@ import { Layout } from '@/components/Layout'
 import { AdminLayout } from '@/features/admin/AdminLayout'
 import { CitasPage } from '@/features/admin/citas/CitasPage'
 import { ClientesPage } from '@/features/admin/clientes/ClientesPage'
+import { InventarioPage } from '@/features/admin/inventario/InventarioPage'
 import { LoginPage } from '@/features/admin/LoginPage'
 import { MetricasPage } from '@/features/admin/metricas/MetricasPage'
 import { RegistrarVentaPage } from '@/features/admin/ventas/RegistrarVentaPage'
@@ -55,6 +56,14 @@ export default function App() {
                   element={
                     <RequireRole roles={['admin']}>
                       <MetricasPage />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="inventario"
+                  element={
+                    <RequireRole roles={['admin']}>
+                      <InventarioPage />
                     </RequireRole>
                   }
                 />

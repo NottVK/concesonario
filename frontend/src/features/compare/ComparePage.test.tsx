@@ -11,7 +11,7 @@ import { ComparePage } from './ComparePage'
 const brand = (id: number, name: string): Brand => ({ id, name, country: 'X', logoUrl: null })
 const car = (id: number, brandName: string, model: string, extra: Partial<VehicleWithBrand> = {}): VehicleWithBrand => ({
   id, brandId: id, brand: brand(id, brandName), model, year: 2022, version: `Ver ${id}`, price: '100000000.00', mileage: 20000,
-  fuel: 'gasolina', transmission: 'manual', color: 'Gris', status: 'usado', description: null, images: [], ...extra,
+  fuel: 'gasolina', transmission: 'manual', color: 'Gris', status: 'usado', revision: 1, description: null, images: [], ...extra,
 })
 
 const DB: Record<number, VehicleWithBrand> = {

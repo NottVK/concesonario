@@ -15,7 +15,7 @@ const brands: Brand[] = brandNames.map((name, index) => ({
 
 const car = (id: number, model: string): VehicleWithBrand => ({
   id, brandId: 1, brand: brands[0], model, year: 2024, version: 'Base', price: `${100 + id}000000.00`, mileage: 0,
-  fuel: 'gasolina', transmission: 'automatica', color: 'Negro', status: 'nuevo', description: null,
+  fuel: 'gasolina', transmission: 'automatica', color: 'Negro', status: 'nuevo', revision: 1, description: null,
   images: [`/autos/bmw-${model.toLowerCase()}.webp`],
 })
 const seven = [car(70, 'iX3'), car(69, 'X5'), car(68, 'X3'), car(67, 'X1'), car(66, 'Serie 3'), car(65, 'Serie 1'), car(64, 'Amarok')]

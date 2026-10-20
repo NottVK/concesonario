@@ -1,3 +1,4 @@
+import { IsVehicleImage, MAX_IMAGE_LENGTH } from '../../common/image-path.js';
 import { MAX_DB_INT, MAX_MILEAGE_KM, tooBig } from '../../common/limits.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
@@ -72,11 +73,27 @@ export class VehicleDto {
   @MaxLength(2000)
   description?: string;
 
-  @ApiPropertyOptional({ type: [String], maxItems: 10, example: ['/autos/toyota-corolla.webp'] })
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: 10,
+    example: ['/autos/toyota-corolla.webp'],
+    description: 'Solo rutas propias `/autos/...` o URL `https://`; cualquier otro esquema se rechaza',
+  })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(10)
   @IsString({ each: true })
-  @MaxLength(255, { each: true })
+  @MaxLength(MAX_IMAGE_LENGTH, { each: true })
+  @IsVehicleImage({ each: true })
   images?: string[];
+}
+
+/** Cuerpo de PUT /vehiculos/:id: todos los campos más la revisión que leyó el cliente. */
+export class UpdateVehicleDto extends VehicleDto {
+  @ApiProperty({ example: 1, description: 'Revisión leída del vehículo; si cambió mientras se editaba, la API responde 409' })
+  @Type(() => Number)
+  @IsInt({ message: 'revision debe ser un entero' })
+  @Min(1, { message: 'revision debe ser al menos 1' })
+  @Max(MAX_DB_INT, tooBig('revision'))
+  revision: number;
 }

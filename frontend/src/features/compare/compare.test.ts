@@ -76,7 +76,7 @@ describe('parseCompareIds: la URL nunca pide más de 3 vehículos', () => {
 const car = (id: number, extra: Partial<VehicleWithBrand> = {}): VehicleWithBrand => ({
   id, brandId: 1, brand: { id: 1, name: 'Marca', country: 'X', logoUrl: null }, model: `M${id}`, year: 2022,
   version: 'Base', price: '100000000.00', mileage: 10000, fuel: 'gasolina', transmission: 'manual', color: 'Gris',
-  status: 'usado', description: null, images: [], ...extra,
+  status: 'usado', revision: 1, description: null, images: [], ...extra,
 })
 
 describe('bestIds: mejor valor por fila', () => {

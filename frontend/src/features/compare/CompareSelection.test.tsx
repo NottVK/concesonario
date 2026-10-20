@@ -10,7 +10,7 @@ import { CompareTray } from './CompareTray'
 const car = (id: number): VehicleWithBrand => ({
   id, brandId: 1, brand: { id: 1, name: 'Kia', country: 'X', logoUrl: null }, model: `Modelo ${id}`, year: 2024,
   version: 'Base', price: '90000000.00', mileage: 0, fuel: 'gasolina', transmission: 'manual', color: 'Gris',
-  status: 'nuevo', description: null, images: [],
+  status: 'nuevo', revision: 1, description: null, images: [],
 })
 
 function Probe() {

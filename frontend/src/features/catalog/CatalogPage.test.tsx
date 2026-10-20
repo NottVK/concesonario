@@ -12,7 +12,7 @@ const toyota: Brand = { id: 1, name: 'Toyota', country: 'Japón', logoUrl: null 
 const corolla: VehicleWithBrand = {
   id: 7, brandId: 1, brand: toyota, model: 'Corolla', year: 2024, version: 'XEI', price: '95000000.00',
   mileage: 0, fuel: 'gasolina', transmission: 'automatica', color: 'Blanco', status: 'nuevo',
-  description: null, images: ['/autos/toyota-corolla.webp'],
+  revision: 1, description: null, images: ['/autos/toyota-corolla.webp'],
 }
 
 const requests: URL[] = []

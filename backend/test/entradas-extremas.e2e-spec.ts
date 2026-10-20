@@ -41,7 +41,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
     path.includes('/citas') ? appointmentId : path.includes('/clientes') ? customerId : path.includes('/marcas') ? brandId : vehicleId;
   const bodyForPathFuzz = (method: string, path: string): unknown => {
     if (path.includes('/citas/{id}/estado')) return { status: 'cancelada' };
-    if (path.includes('/vehiculos/{id}')) return validVehicle();
+    if (path.includes('/vehiculos/{id}')) return putVehicle();
     if (path.includes('/marcas/{id}')) return { name: 'X', country: 'Y' };
     if (path.includes('/clientes/{id}')) return { name: 'Ana', email: 'a@b.co', version: 1 };
     return method === 'POST' ? {} : undefined;
@@ -184,6 +184,15 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
     brandId, model: 'Prueba', year: 2024, version: 'V', price: '90000000', mileage: 0, fuel: 'gasolina',
     transmission: 'manual', color: 'Gris', status: 'nuevo',
   });
+  /** PUT /vehiculos/:id lleva además la revisión leída (POST no la acepta). */
+  const putVehicle = () => ({ ...validVehicle(), revision: 1 });
+  /** Imágenes hostiles: nada de esto puede dar un 5xx y, salvo las rutas válidas, todo debe rechazarse con 400. */
+  const HOSTILE_IMAGES = [
+    'javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,<script>alert(1)</script>', 'data:image/svg+xml;base64,PHN2Zz4=',
+    'http://ejemplo.com/a.jpg', '//evil.com/a.jpg', '/\\evil.com/a.jpg', '/autos/../../etc/passwd', '/autos//evil.com', 'file:///etc/passwd',
+    'ftp://ejemplo.com/a.jpg', 'https://', 'https://user:pass@ejemplo.com/a.jpg', 'https://ejemplo.com/ .jpg', 'vbscript:msgbox(1)',
+    ' ', ' ', '%00', '/autos/%2e%2e/secreto', `https://ejemplo.com/${'a'.repeat(5000)}`, 'https://' + 'a.'.repeat(200) + 'com',
+  ];
   const bodyTasks = (
     label: string, base: Record<string, unknown>, fields: string[],
     send: (body: unknown) => request.Test, values: string[] = GARBAGE,
@@ -228,7 +237,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
 
     it('PUT de vehículo, marca y cliente y PATCH de cita (sobre filas reales)', async () => {
       const tasks = [
-        ...bodyTasks('PUT /vehiculos/:id', validVehicle(), ['brandId', 'model', 'year', 'version', 'price', 'mileage', 'fuel', 'transmission', 'color', 'status', 'description', 'images'],
+        ...bodyTasks('PUT /vehiculos/:id', putVehicle(), ['brandId', 'model', 'year', 'version', 'price', 'mileage', 'fuel', 'transmission', 'color', 'status', 'description', 'images', 'revision'],
           (body) => request(ctx.server).put(`/api/vehiculos/${vehicleId}`).set(auth(adminToken)).send(body as object)),
         ...bodyTasks('PUT /marcas/:id', { name: 'Marca ' + Date.now(), country: 'País' }, ['name', 'country', 'logoUrl'],
           (body) => request(ctx.server).put(`/api/marcas/${brandId}`).set(auth(adminToken)).send(body as object)),
@@ -240,6 +249,22 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       await runAll(tasks);
       expectNoFailures();
     }, 180_000);
+
+    it('imágenes hostiles en POST y PUT /vehiculos: nunca un 5xx y siempre un 400', async () => {
+      const statuses: string[] = [];
+      const record = (label: string, send: () => request.Test): (() => Promise<void>) => async () => {
+        const res = await send();
+        if (res.status >= 500) failures.push(`${label} -> ${res.status}`);
+        else if (res.status !== 400) statuses.push(`${label} -> ${res.status}`);
+      };
+      const tasks = HOSTILE_IMAGES.flatMap((image) => [
+        record(`POST images=[${image.slice(0, 30)}]`, () => request(ctx.server).post('/api/vehiculos').set(auth(adminToken)).send({ ...validVehicle(), images: [image] })),
+        record(`PUT images=[${image.slice(0, 30)}]`, () => request(ctx.server).put(`/api/vehiculos/${vehicleId}`).set(auth(adminToken)).send({ ...putVehicle(), images: ['/autos/ok.webp', image] })),
+      ]);
+      await runAll(tasks);
+      expectNoFailures();
+      expect(statuses, `Imágenes hostiles que NO dieron 400: ${statuses.join(' | ')}`).toEqual([]);
+    }, 120_000);
 
     it('POST /auth/login (limitado a 5 por minuto: pasado el límite responde 429, que tampoco es un 5xx)', async () => {
       const tasks = bodyTasks('POST /auth/login', { email: 'x@y.co', password: 'una-clave-valida' }, ['email', 'password'],

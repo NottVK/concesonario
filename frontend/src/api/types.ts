@@ -26,3 +26,6 @@ export interface Paginated<T> {
   data: T[]
   meta: PageMeta
 }
+
+export type VehicleInput = Schemas['VehicleDto']
+export type UpdateVehicleInput = Schemas['UpdateVehicleDto']

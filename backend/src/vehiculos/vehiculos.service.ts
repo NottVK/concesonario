@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import type { SelectQueryBuilder } from 'typeorm';
 import { paginate } from '../common/pagination.js';
 import type { Paginated } from '../common/pagination.js';
@@ -13,7 +13,7 @@ import { escapeLike } from '../common/sql.js';
 import { Appointment } from '../citas/entities/appointment.entity.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
 import { Sale } from '../ventas/entities/sale.entity.js';
-import type { VehicleDto } from './dto/vehicle.dto.js';
+import type { UpdateVehicleDto, VehicleDto } from './dto/vehicle.dto.js';
 import type { VehicleFilters, VehicleSort } from './dto/vehicle-query.dto.js';
 import { Vehicle, VehicleStatus } from './entities/vehicle.entity.js';
 
@@ -24,6 +24,10 @@ const SORTS: Record<VehicleSort, [string, 'ASC' | 'DESC']> = {
   year_desc: ['v.year', 'DESC'],
   year_asc: ['v.year', 'ASC'],
 };
+
+const SOLD_MESSAGE = 'Un vehículo vendido no se puede modificar';
+const STALE_MESSAGE =
+  'Otra persona modificó este vehículo mientras lo editabas. Recarga para ver los cambios y vuelve a intentarlo.';
 
 @Injectable()
 export class VehiculosService {
@@ -76,14 +80,27 @@ export class VehiculosService {
     return this.findOne(saved.id);
   }
 
-  async update(id: number, dto: VehicleDto): Promise<Vehicle> {
+  /**
+   * Reemplaza el vehículo solo si sigue en la revisión que leyó el cliente y no se ha vendido. La condición va
+   * en el propio UPDATE (no solo en una lectura previa): si una venta o una edición se cuela en medio, no se
+   * pisa en silencio. Se responde 409 con el motivo (vendido o desactualizado).
+   */
+  async update(id: number, dto: UpdateVehicleDto): Promise<Vehicle> {
     const vehicle = await this.findOne(id);
-    if (vehicle.status === VehicleStatus.SOLD) {
-      throw new ConflictException('Un vehículo vendido no se puede modificar');
-    }
+    this.assertEditable(vehicle, dto.revision);
     await this.assertBrandExists(dto.brandId);
-    await this.vehicles.update(id, this.toFields(dto));
+    const result = await this.vehicles.update(
+      { id, revision: dto.revision, status: Not(VehicleStatus.SOLD) },
+      { ...this.toFields(dto), revision: () => 'revision + 1' },
+    );
+    if (!result.affected) this.assertEditable(await this.findOne(id), dto.revision, true);
     return this.findOne(id);
+  }
+
+  /** `afterConflict`: el UPDATE condicionado no tocó filas, así que algo cambió aunque la versión coincida. */
+  private assertEditable(vehicle: Vehicle, revision: number, afterConflict = false): void {
+    if (vehicle.status === VehicleStatus.SOLD) throw new ConflictException(SOLD_MESSAGE);
+    if (vehicle.revision !== revision || afterConflict) throw new ConflictException(STALE_MESSAGE);
   }
 
   /** Un vehículo con ventas o citas (aunque estén canceladas) es parte del historial y no se borra. */

@@ -17,6 +17,7 @@ interface NavItem {
 /** Secciones del panel por rol. Solo se listan las que ya existen; las demás se agregan al construirlas. */
 export const ADMIN_NAV: NavItem[] = [
   { to: '/admin/metricas', label: 'Métricas', roles: ['admin'] },
+  { to: '/admin/inventario', label: 'Inventario', roles: ['admin'] },
   { to: '/admin/citas', label: 'Citas', roles: ['admin', 'vendedor'] },
   { to: '/admin/clientes', label: 'Clientes', roles: ['admin', 'vendedor'] },
   { to: '/admin/ventas/nueva', label: 'Registrar venta', roles: ['admin', 'vendedor'] },

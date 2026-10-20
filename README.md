@@ -7,7 +7,7 @@ Plataforma de concesionario con API, base de datos y un chatbot local (Ollama). 
 
 - Fase 2 lista: API REST con JWT, pruebas e2e y Swagger en `/api/docs`.
 - Backend del panel listo: disponibilidad de test-drive, métricas y listado admin (ver Swagger en `/api/docs`).
-- Fase 3 en curso: frontend (listos: base, tema, cliente API tipado y Catálogo con filtros y Detalle con simulador de crédito y agendar test-drive con horas ocupadas, Home, Comparador y panel: login, sesión, citas, clientes, registrar venta y métricas solo admin).
+- Fase 3 en curso: frontend (listos: base, tema, cliente API tipado y Catálogo con filtros y Detalle con simulador de crédito y agendar test-drive con horas ocupadas, Home, Comparador y panel: login, sesión, citas, clientes, registrar venta, y solo admin: métricas e inventario con control de ediciones simultáneas).
 
 ## Arranque rápido
 ```bash

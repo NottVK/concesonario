@@ -42,7 +42,8 @@ export class VentasService {
           payment: dto.payment,
         }),
       );
-      await manager.update(Vehicle, dto.vehicleId, { status: VehicleStatus.SOLD });
+      // La revisión sube para que una edición abierta antes de la venta ya no pueda guardarse.
+      await manager.update(Vehicle, dto.vehicleId, { status: VehicleStatus.SOLD, revision: () => 'revision + 1' });
       await this.cancelOpenAppointments(manager, dto.vehicleId);
       return manager.findOneOrFail(Sale, { where: { id: sale.id }, relations: SALE_RELATIONS });
     });

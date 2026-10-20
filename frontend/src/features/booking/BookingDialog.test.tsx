@@ -12,7 +12,7 @@ const mazda: Brand = { id: 3, name: 'Mazda', country: 'Japón', logoUrl: null }
 const cx30: VehicleWithBrand = {
   id: 21, brandId: 3, brand: mazda, model: 'CX-30', year: 2024, version: 'Grand Touring', price: '140000000.00',
   mileage: 0, fuel: 'gasolina', transmission: 'automatica', color: 'Rojo', status: 'nuevo',
-  description: null, images: [],
+  revision: 1, description: null, images: [],
 }
 
 // Miércoles 4 de noviembre de 2026, 10:30 a. m. en Bogotá. Solo se simula Date; los temporizadores son reales.

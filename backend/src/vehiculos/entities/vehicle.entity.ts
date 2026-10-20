@@ -103,6 +103,11 @@ export class Vehicle {
   @Column({ name: 'imagenes', type: 'text', array: true, default: () => "'{}'" })
   images: string[];
 
+  /** Control de ediciones simultáneas: PUT debe traer la revisión leída; vender el vehículo también la sube. */
+  @ApiProperty({ example: 1, description: 'Revisión para detectar ediciones simultáneas (no es la versión comercial)' })
+  @Column({ name: 'revision', type: 'int', default: 1 })
+  revision: number;
+
   /** Vector de 768 dimensiones (nomic-embed-text); se llena en la fase del chatbot. Oculto en la API. */
   @Column({ name: 'embedding', type: 'vector', length: 768, nullable: true, select: false })
   embedding: string | null;

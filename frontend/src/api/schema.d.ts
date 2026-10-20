@@ -501,6 +501,11 @@ export interface components {
              *     ]
              */
             images: string[];
+            /**
+             * @description Revisión para detectar ediciones simultáneas (no es la versión comercial)
+             * @example 1
+             */
+            revision: number;
         };
         PageMeta: {
             /** @example 60 */
@@ -541,11 +546,53 @@ export interface components {
             status: "nuevo" | "usado";
             description?: string;
             /**
+             * @description Solo rutas propias `/autos/...` o URL `https://`; cualquier otro esquema se rechaza
              * @example [
              *       "/autos/toyota-corolla.webp"
              *     ]
              */
             images?: string[];
+        };
+        UpdateVehicleDto: {
+            /** @example 1 */
+            brandId: number;
+            /** @example Corolla */
+            model: string;
+            /** @example 2024 */
+            year: number;
+            /** @example XEI */
+            version: string;
+            /**
+             * @description Precio en COP como texto, hasta 2 decimales, mayor que cero
+             * @example 95000000
+             */
+            price: string;
+            /** @example 0 */
+            mileage: number;
+            /** @enum {string} */
+            fuel: "gasolina" | "diesel" | "hibrido" | "electrico";
+            /** @enum {string} */
+            transmission: "manual" | "automatica";
+            /** @example Blanco */
+            color: string;
+            /**
+             * @description `vendido` solo lo asigna una venta
+             * @enum {string}
+             */
+            status: "nuevo" | "usado";
+            description?: string;
+            /**
+             * @description Solo rutas propias `/autos/...` o URL `https://`; cualquier otro esquema se rechaza
+             * @example [
+             *       "/autos/toyota-corolla.webp"
+             *     ]
+             */
+            images?: string[];
+            /**
+             * @description Revisión leída del vehículo; si cambió mientras se editaba, la API responde 409
+             * @example 1
+             */
+            revision: number;
         };
         CustomerDto: {
             /** @example Ana Pérez */
@@ -1123,7 +1170,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VehicleDto"];
+                "application/json": components["schemas"]["UpdateVehicleDto"];
             };
         };
         responses: {
@@ -1135,7 +1182,7 @@ export interface operations {
                     "application/json": components["schemas"]["Vehicle"];
                 };
             };
-            /** @description El vehículo ya está vendido o el dato se repite */
+            /** @description Ya está vendido, otra persona lo modificó (revisión desactualizada) o el dato se repite */
             409: {
                 headers: {
                     [name: string]: unknown;

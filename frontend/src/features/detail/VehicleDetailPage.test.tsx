@@ -13,7 +13,7 @@ const kia: Brand = { id: 5, name: 'Kia', country: 'Corea', logoUrl: null }
 const sportage: VehicleWithBrand = {
   id: 9, brandId: 5, brand: kia, model: 'Sportage', year: 2023, version: 'GT Line', price: '150000000.00',
   mileage: 8000, fuel: 'hibrido', transmission: 'automatica', color: 'Gris', status: 'usado',
-  description: 'Un solo dueño.', images: ['/autos/kia-sportage.webp', '/autos/kia-sportage-2.webp'],
+  revision: 1, description: 'Un solo dueño.', images: ['/autos/kia-sportage.webp', '/autos/kia-sportage-2.webp'],
 }
 
 const simulations: unknown[] = []

@@ -16,7 +16,7 @@ import { RegistrarVentaPage } from './RegistrarVentaPage'
 function car(id: number, model: string, price: string, over: Partial<VehicleWithBrand> = {}): VehicleWithBrand {
   return {
     id, brandId: 1, brand: { id: 1, name: 'Mazda', country: 'Japón', logoUrl: null }, model, year: 2024, version: 'Touring', price,
-    mileage: 0, fuel: 'gasolina', transmission: 'manual', color: 'Gris', status: 'nuevo', description: null, images: [], ...over,
+    mileage: 0, fuel: 'gasolina', transmission: 'manual', color: 'Gris', status: 'nuevo', revision: 1, description: null, images: [], ...over,
   }
 }
 const customer = (id: number, name: string): Customer => ({
