@@ -42,8 +42,18 @@ docker compose up -d
 cd backend
 npm run migration:run
 npm run seed
+npm run embeddings:sync         # vuelve a calcular los vectores de la búsqueda inteligente (ver abajo)
 ```
+**`down -v` también borra los vectores** de la búsqueda inteligente (viven en `vehiculos.embedding`). Tras recrear la base hay que correr `migration:run`, `seed` y luego `embeddings:sync`; el seed no falla si Ollama está apagado (avisa en una línea y sigue), pero sin vectores `GET /vehiculos/buscar` no devuelve resultados hasta que corras `embeddings:sync`. El catálogo con filtros no se afecta.
+
 `down -v` también elimina la base de pruebas (`concesionario_test`); se vuelve a crear sola al correr `npm run test:e2e`. Si tienes datos que quieres conservar, no lo hagas.
+
+## Búsqueda inteligente y embeddings
+`GET /api/vehiculos/buscar?q=camioneta para familia` ordena por parecido de significado (10 por minuto; solo vehículos no vendidos). Usa el modelo `nomic-embed-text` de Ollama (`ollama pull nomic-embed-text`, ~270 MB; se descarga de la memoria al terminar, `keep_alive: 0`, para no competir con el modelo de chat).
+- Los vectores se **recalculan solos** al crear o editar un vehículo (si cambia algo del texto: marca, modelo, versión, año, combustible, transmisión, estado, color o descripción; el precio y el kilometraje no entran). Si Ollama no responde, la operación del administrador no falla: el vehículo queda en el catálogo y fuera de la búsqueda inteligente hasta el siguiente `npm run embeddings:sync`.
+- `npm run embeddings:sync` calcula lo que falta o cambió (idempotente: la segunda corrida no calcula nada). Usa `OLLAMA_HOST` y `OLLAMA_EMBED_MODEL`.
+- Evaluación: con la API encendida, `node chatbot/eval/busqueda.mjs` corre 10 consultas en lenguaje natural (aprueba con 8 de 10).
+- Detalle de la medición y de por qué se usan los embeddings **sin prefijos** en `docs/DECISIONES.md`.
 
 ## Comandos del backend
 | Comando | Qué hace |
@@ -52,7 +62,9 @@ npm run seed
 | `npm run test` | Pruebas unitarias (Vitest) |
 | `npm run migration:run` / `migration:revert` | Aplica / revierte migraciones |
 | `npm run migration:generate` | Genera una migración a partir de las entidades |
-| `npm run seed` | Carga datos de ejemplo (idempotente; ver abajo cómo recrear la base) |
+| `npm run seed` | Carga datos de ejemplo (idempotente; ver abajo cómo recrear la base) y, si Ollama responde, sus vectores |
+| `npm run embeddings:sync` | Calcula los vectores de búsqueda que faltan o cambiaron (idempotente) |
+| `npm run chat:purge` | Borra conversaciones del chat con más de 7 días sin actividad |
 | `npm run clean` | Borra `dist/` con `rimraf` (funciona igual en Windows, macOS y Linux) |
 
 Usuarios demo: `admin@automax.co` y `vendedor@automax.co`, contraseña = `SEED_DEMO_PASSWORD` del `.env`.

@@ -20,7 +20,7 @@ export class MockEmbeddingProvider implements EmbeddingProvider {
   available = true;
   calls = 0;
 
-  async embed(text: string): Promise<number[]> {
+  async embed(text: string, _kind?: 'query' | 'document'): Promise<number[]> {
     this.calls += 1;
     if (!this.available) throw new Error('mock apagado');
     const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0);

@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { buildDataSourceOptions, loadRootEnv } from '../db.config.js';
-import { runSeed } from './seed.service.js';
+import { runSeed, seedEmbeddings } from './seed.service.js';
 
 loadRootEnv();
 
@@ -11,6 +11,7 @@ try {
   console.log(
     `Seed listo: ${result.brands} marcas, ${result.vehicles} vehículos, ${result.users} usuarios.`,
   );
+  console.log(await seedEmbeddings(dataSource));
 } catch (error: unknown) {
   console.error('Falló el seed:', error);
   process.exitCode = 1;

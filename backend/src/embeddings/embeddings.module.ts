@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
-import { EMBEDDING_PROVIDER } from './embedding-provider.js';
 import { createEmbeddingProvider } from './embedding-factory.js';
+import { EMBEDDING_PROVIDER } from './embedding-provider.js';
+import { EmbeddingsService } from './embeddings.service.js';
 
 @Module({
-  // EMBEDDING_PROVIDER=ollama (por defecto) o mock (pruebas). Una configuración mala impide arrancar.
-  providers: [{ provide: EMBEDDING_PROVIDER, useFactory: () => createEmbeddingProvider() }],
-  exports: [EMBEDDING_PROVIDER],
+  providers: [
+    // EMBEDDING_PROVIDER=ollama (por defecto) o mock (pruebas). Una configuración mala impide arrancar.
+    { provide: EMBEDDING_PROVIDER, useFactory: () => createEmbeddingProvider() },
+    EmbeddingsService,
+  ],
+  exports: [EMBEDDING_PROVIDER, EmbeddingsService],
 })
 export class EmbeddingsModule {}

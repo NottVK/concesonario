@@ -20,7 +20,8 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   private readonly http: AxiosInstance;
 
   constructor(private readonly config: OllamaEmbeddingConfig) {
-    this.model = config.model;
+    // El modo de prefijos forma parte de la identidad del vector: si se cambia, los vectores viejos se recalculan.
+    this.model = config.usePrefixes ? config.model : `${config.model}+sinprefijo`;
     this.http = axios.create({ baseURL: config.host, timeout: config.timeoutMs, maxRedirects: 0 });
   }
 

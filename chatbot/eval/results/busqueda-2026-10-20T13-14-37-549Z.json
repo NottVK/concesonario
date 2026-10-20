@@ -1,0 +1,117 @@
+{
+  "apiUrl": "http://localhost:8000/api",
+  "passed": 9,
+  "total": 10,
+  "rows": [
+    {
+      "query": "económico para la ciudad",
+      "expectation": "un auto pequeño/económico",
+      "ok": true,
+      "top": [
+        "Chevrolet Spark GT (usado, gasolina, $42.500.000)",
+        "Kia Picanto (nuevo, gasolina, $62.900.000)",
+        "Ford Fiesta (usado, gasolina, $48.500.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "camioneta para familia",
+      "expectation": "una camioneta o SUV familiar",
+      "ok": true,
+      "top": [
+        "Hyundai Creta (nuevo, gasolina, $119.900.000)",
+        "Kia Sorento (usado, hibrido, $229.000.000)",
+        "Volkswagen Taos (usado, gasolina, $149.900.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "algo eléctrico",
+      "expectation": "combustible eléctrico",
+      "ok": true,
+      "top": [
+        "Kia EV6 (nuevo, electrico, $299.900.000)",
+        "Hyundai Ioniq 5 (nuevo, electrico, $289.900.000)",
+        "BMW iX3 (nuevo, electrico, $389.000.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "camioneta de siete puestos para viajes largos",
+      "expectation": "una SUV grande de siete puestos",
+      "ok": true,
+      "top": [
+        "Chevrolet Captiva (usado, gasolina, $119.000.000)",
+        "Ford Explorer (nuevo, gasolina, $259.000.000)",
+        "Kia Seltos (nuevo, gasolina, $118.900.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "pickup para trabajo en el campo",
+      "expectation": "una pickup",
+      "ok": true,
+      "top": [
+        "Ford Ranger (nuevo, diesel, $219.900.000)",
+        "Nissan Frontier (nuevo, diesel, $206.000.000)",
+        "Volkswagen Amarok (usado, diesel, $268.000.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "carro híbrido para ahorrar gasolina",
+      "expectation": "combustible híbrido",
+      "ok": false,
+      "top": [
+        "BMW Serie 1 (usado, gasolina, $189.000.000)",
+        "Renault Koleos (usado, gasolina, $128.000.000)",
+        "Chevrolet Equinox (nuevo, gasolina, $168.000.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "deportivo descapotable",
+      "expectation": "el Mazda MX-5",
+      "ok": true,
+      "top": [
+        "BMW Serie 3 (nuevo, gasolina, $275.000.000)",
+        "Ford Fiesta (usado, gasolina, $48.500.000)",
+        "Mazda MX-5 (usado, gasolina, $195.000.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "lujo alemán",
+      "expectation": "una BMW",
+      "ok": true,
+      "top": [
+        "BMW Serie 3 (nuevo, gasolina, $275.000.000)",
+        "Volkswagen Polo (nuevo, gasolina, $87.900.000)",
+        "Ford Bronco Sport (usado, gasolina, $199.000.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "automático barato y usado",
+      "expectation": "usado, automático y de menos de 100 millones",
+      "ok": true,
+      "top": [
+        "Ford Bronco Sport (usado, gasolina, $199.000.000)",
+        "Ford Fiesta (usado, gasolina, $48.500.000)",
+        "Toyota Land Cruiser Prado (usado, gasolina, $285.000.000)"
+      ],
+      "returned": 5
+    },
+    {
+      "query": "SUV compacta nueva",
+      "expectation": "una SUV compacta nueva",
+      "ok": true,
+      "top": [
+        "Hyundai Tucson (nuevo, gasolina, $159.900.000)",
+        "Nissan Kicks (nuevo, gasolina, $109.900.000)",
+        "Hyundai Creta (nuevo, gasolina, $119.900.000)"
+      ],
+      "returned": 5
+    }
+  ]
+}

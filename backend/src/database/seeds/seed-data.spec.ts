@@ -1,4 +1,5 @@
 import { BRANDS, VEHICLES } from './seed-data.js';
+import { MODEL_PROFILES } from './seed-profiles.js';
 import { describeVehicle, interleavedVehicleSeeds, slugify } from './seed.service.js';
 
 const EXPECTED_BRANDS = [
@@ -45,6 +46,22 @@ describe('helpers del seed', () => {
   it('describeVehicle genera una descripción en español', () => {
     const [row] = VEHICLES.Toyota;
     expect(describeVehicle('Toyota', row)).toContain('Toyota Corolla Cross');
+  });
+
+  it('todo modelo del seed tiene su perfil (tipo de carrocería y uso) y todo perfil corresponde a un modelo', () => {
+    const models = Object.values(VEHICLES).flatMap((rows) => rows.map((row) => row[0]));
+    expect(models.filter((model) => !MODEL_PROFILES[model])).toEqual([]);
+    expect(Object.keys(MODEL_PROFILES).filter((model) => !models.includes(model))).toEqual([]);
+  });
+
+  it('las descripciones del seed no contienen órdenes ni precios, y caben en 300 caracteres', () => {
+    for (const [brand, rows] of Object.entries(VEHICLES)) {
+      for (const row of rows) {
+        const text = describeVehicle(brand, row);
+        expect(text.length, text).toBeLessThanOrEqual(300);
+        expect(text).not.toMatch(/\$|pesos|ignora|instrucci/i);
+      }
+    }
   });
 });
 

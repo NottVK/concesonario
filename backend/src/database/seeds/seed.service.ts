@@ -1,9 +1,14 @@
 import * as bcrypt from 'bcrypt';
 import type { DataSource } from 'typeorm';
+import { FUEL_LABEL, label, TRANSMISSION_LABEL } from '../../common/labels.js';
+import { createEmbeddingProvider } from '../../embeddings/embedding-factory.js';
+import type { EmbeddingProvider } from '../../embeddings/embedding-provider.js';
+import { EmbeddingSync } from '../../embeddings/embedding-sync.js';
 import { Brand } from '../../marcas/entities/brand.entity.js';
 import { User, UserRole } from '../../usuarios/entities/user.entity.js';
 import { Vehicle } from '../../vehiculos/entities/vehicle.entity.js';
 import { BRANDS, VEHICLES } from './seed-data.js';
+import { MODEL_PROFILES } from './seed-profiles.js';
 import type { VehicleRow } from './seed-data.js';
 
 export interface SeedResult {
@@ -30,7 +35,8 @@ export function slugify(text: string): string {
 export function describeVehicle(brand: string, row: VehicleRow): string {
   const [model, version, year, , mileage, fuel, transmission, color, status] = row;
   const state = status === 'nuevo' ? 'nuevo, 0 km' : `usado, ${mileage.toLocaleString('es-CO')} km`;
-  return `${brand} ${model} ${version} ${year} color ${color.toLowerCase()}, ${state}. Motor ${fuel}, transmisión ${transmission}.`;
+  const profile = MODEL_PROFILES[model] ?? '';
+  return `${brand} ${model} ${version} ${year} color ${color.toLowerCase()}, ${state}. Motor ${label(FUEL_LABEL, fuel)}, transmisión ${label(TRANSMISSION_LABEL, transmission)}. ${profile}`.trim();
 }
 
 function toVehicle(brand: Brand, row: VehicleRow): Partial<Vehicle> {
@@ -131,4 +137,20 @@ export async function runSeed(ds: DataSource): Promise<SeedResult> {
     vehicles: await ds.getRepository(Vehicle).count(),
     users: await ds.getRepository(User).count(),
   };
+}
+
+/**
+ * Los vectores son opcionales para el seed: si Ollama está apagado (o falta el modelo) devuelve un aviso de una
+ * línea y NO falla; los vectores se llenan después con `npm run embeddings:sync`.
+ */
+export async function seedEmbeddings(ds: DataSource, makeProvider: () => EmbeddingProvider = createEmbeddingProvider): Promise<string> {
+  const later = 'los vectores de búsqueda se llenan después con `npm run embeddings:sync`';
+  try {
+    const provider = makeProvider();
+    if (!(await provider.isAvailable())) return `Aviso: Ollama no responde; ${later}.`;
+    const stats = await new EmbeddingSync(ds, provider).syncAll();
+    return `Embeddings (${provider.model}): ${stats.updated} calculados, ${stats.skipped} ya vigentes.`;
+  } catch (error: unknown) {
+    return `Aviso: no se calcularon los vectores (${error instanceof Error ? error.message : 'error desconocido'}); ${later}.`;
+  }
 }

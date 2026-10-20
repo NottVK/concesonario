@@ -18,7 +18,8 @@ export function createEmbeddingProvider(env: Env = process.env): EmbeddingProvid
   return new OllamaEmbeddingProvider({
     host,
     model,
-    usePrefixes: (env.OLLAMA_EMBED_PREFIXES ?? 'true').trim().toLowerCase() !== 'false',
+    // Sin prefijos por defecto: en la medición con el catálogo real (ver docs/DECISIONES.md) acertaron más sin ellos.
+    usePrefixes: (env.OLLAMA_EMBED_PREFIXES ?? 'false').trim().toLowerCase() === 'true',
     timeoutMs: 60_000,
   });
 }

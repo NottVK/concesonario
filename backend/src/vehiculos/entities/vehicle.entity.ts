@@ -111,4 +111,11 @@ export class Vehicle {
   /** Vector de 768 dimensiones (nomic-embed-text); se llena en la fase del chatbot. Oculto en la API. */
   @Column({ name: 'embedding', type: 'vector', length: 768, nullable: true, select: false })
   embedding: string | null;
+
+  /** sha256 del texto embebido + modelo; permite recalcular solo lo que cambió. Oculto en la API. */
+  @Column({ name: 'embedding_hash', type: 'char', length: 64, nullable: true, select: false })
+  embeddingHash: string | null;
+
+  @Column({ name: 'embedding_modelo', type: 'varchar', length: 40, nullable: true, select: false })
+  embeddingModel: string | null;
 }

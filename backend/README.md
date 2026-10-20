@@ -36,6 +36,8 @@ Con la API corriendo: **http://localhost:8000/api/docs** (JSON OpenAPI en `/api/
 | `GET /marcas`, `GET /marcas/:id` | público |
 | `POST/PUT/DELETE /marcas` | admin |
 | `GET /vehiculos` (filtros + paginación), `GET /vehiculos/:id`, `GET /vehiculos/comparar?ids=1,2,3` | público |
+| `GET /vehiculos/buscar?q=&limit=` (búsqueda semántica; `q` de 3 a 200 caracteres, `limit` de 1 a 10) | público (10/min) |
+| `POST /chat`, `DELETE /chat/sesion`, `GET /chat/estado`, `POST /chat/citas/confirmar` | público (ver «Chat») |
 | `POST/PUT/DELETE /vehiculos` | admin |
 | `POST /clientes` | público (solo devuelve `{ id }`) |
 | `GET /clientes`, `GET /clientes/:id`, `PUT /clientes/:id` | vendedor, admin |
@@ -61,7 +63,7 @@ Dinero: siempre `string` con hasta 2 decimales, en COP.
 
 ## Límites de peticiones
 
-100 por minuto por IP en general (`THROTTLE_LIMIT`); login 5/min; `POST /clientes`, `POST /citas` 10/min; simulador 30/min.
+100 por minuto por IP en general (`THROTTLE_LIMIT`); login 5/min; `POST /clientes`, `POST /citas` 10/min; simulador 30/min; `GET /vehiculos/buscar` 10/min; `POST /chat` 6/min y 60/h por IP, 2 s entre turnos de una sesión y 60 turnos por sesión.
 
 ## Pruebas
 

@@ -17,6 +17,7 @@ import { Appointment } from '../citas/entities/appointment.entity.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
 import { EMBEDDING_PROVIDER, toVectorLiteral } from '../embeddings/embedding-provider.js';
 import type { EmbeddingProvider } from '../embeddings/embedding-provider.js';
+import { EmbeddingsService } from '../embeddings/embeddings.service.js';
 import { Sale } from '../ventas/entities/sale.entity.js';
 import type { UpdateVehicleDto, VehicleDto } from './dto/vehicle.dto.js';
 import type { VehicleFilters, VehicleSort } from './dto/vehicle-query.dto.js';
@@ -31,12 +32,31 @@ const SORTS: Record<VehicleSort, [string, 'ASC' | 'DESC']> = {
 };
 
 export const SEARCH_UNAVAILABLE_MESSAGE = 'La búsqueda inteligente no está disponible; usa los filtros';
-const DEFAULT_MIN_SIMILARITY = 0.45;
+const DEFAULT_MIN_SIMILARITY = 0.4;
 
-/** Similitud coseno mínima para que un vehículo cuente como resultado; se calibra con `SEARCH_MIN_SIMILARITY`. */
+/**
+ * Similitud coseno mínima para que un vehículo cuente como resultado (`SEARCH_MIN_SIMILARITY`). Es solo un piso
+ * contra la basura: con nomic-embed-text las consultas fuera de catálogo puntúan tan alto como las buenas (0,5 a 0,6),
+ * así que no distingue «no tenemos eso»; esa decisión la toma el bot con los resultados y las reglas del prompt.
+ */
 function minSimilarity(): number {
   const value = Number(process.env.SEARCH_MIN_SIMILARITY);
   return process.env.SEARCH_MIN_SIMILARITY && value >= 0 && value <= 1 ? value : DEFAULT_MIN_SIMILARITY;
+}
+
+/** ¿Cambió algún campo que entra al texto embebido (marca, modelo, versión, año, combustible, transmisión, estado, color, descripción)? */
+export function embeddedTextChanged(current: Vehicle, next: UpdateVehicleDto): boolean {
+  return (
+    current.brandId !== next.brandId ||
+    current.model !== next.model ||
+    current.version !== next.version ||
+    current.year !== next.year ||
+    current.fuel !== next.fuel ||
+    current.transmission !== next.transmission ||
+    current.color !== next.color ||
+    current.status !== next.status ||
+    (current.description ?? null) !== (next.description ?? null)
+  );
 }
 
 const SOLD_MESSAGE = 'Un vehículo vendido no se puede modificar';
@@ -51,6 +71,7 @@ export class VehiculosService {
     @InjectRepository(Vehicle) private readonly vehicles: Repository<Vehicle>,
     @InjectRepository(Brand) private readonly brands: Repository<Brand>,
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
+    private readonly embeddingSync: EmbeddingsService,
   ) {}
 
   /**
@@ -121,6 +142,8 @@ export class VehiculosService {
     await this.assertBrandExists(dto.brandId);
     const vehicle = this.vehicles.create(this.toFields(dto));
     const saved = await this.vehicles.save(vehicle);
+    // Nace sin vector; se calcula en segundo plano y, si Ollama no responde, no falla la creación.
+    this.embeddingSync.refreshInBackground(saved.id);
     return this.findOne(saved.id);
   }
 
@@ -133,11 +156,15 @@ export class VehiculosService {
     const vehicle = await this.findOne(id);
     this.assertEditable(vehicle, dto.revision);
     await this.assertBrandExists(dto.brandId);
+    // Si cambia algo del texto embebido, el vector viejo se anula en la MISMA sentencia: nunca queda un vector
+    // que describa otra cosa. Cambiar solo el precio o el kilometraje no lo toca (no entran al texto).
+    const staleVector = embeddedTextChanged(vehicle, dto) ? { embedding: null, embeddingHash: null, embeddingModel: null } : {};
     const result = await this.vehicles.update(
       { id, revision: dto.revision, status: Not(VehicleStatus.SOLD) },
-      { ...this.toFields(dto), revision: () => 'revision + 1' },
+      { ...this.toFields(dto), ...staleVector, revision: () => 'revision + 1' },
     );
     if (!result.affected) this.assertEditable(await this.findOne(id), dto.revision, true);
+    this.embeddingSync.refreshInBackground(id);
     return this.findOne(id);
   }
 
