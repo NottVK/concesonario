@@ -16,10 +16,10 @@
 
 **Fase 4 (chatbot) — ABIERTA:** está construido todo lo que rodea al modelo y probado con el proveedor simulado (proveedor `ollama`/`groq`/`mock`, sesiones, límites, validador de montos, tools, agendar con confirmación, búsqueda semántica con `nomic-embed-text`, widget flotante, arnés de evaluación en `chatbot/eval/`, guía `docs/GUIA-IA-COMPANEROS.md`). **La Fase 4 queda ABIERTA hasta que las 20 preguntas pasen R1 a R4 con 20 de 20 usando un modelo real** (Groq o el de los compañeros). Con el simulado solo se prueba la lógica. Pendientes: correr esa evaluación, iterar el prompt, medir `qwen2.5:7b` con la puerta del paso 1 y la revisión cruzada con Codex. Detalle en `docs/PLAN-FASE-4.md` y decisiones 79 a 94.
 
-**Fase 5 (servidor MCP) — construida, pendiente de revisión final:** módulo `backend/src/mcp/` con keys de bots (HMAC con pepper, key saliente cifrada), endpoints admin para crear y rotar, puerta de entrada con 401 idéntico y límites, auditoría sin datos personales, y las tools `consultar_stock`, `consultar_precio` y `listar_marcas` sobre un catálogo público con campos explícitos. `agendar_cita` no se expone. Detalle en las decisiones 95 a 106 de `docs/DECISIONES.md`. Falta la segunda revisión cruzada con Codex.
+**Fase 5 (servidor MCP) — cerrada (dos revisiones cruzadas con Codex aplicadas):** módulo `backend/src/mcp/` con keys de bots (HMAC con pepper, key saliente cifrada), endpoints admin para crear y rotar, puerta de entrada con 401 idéntico y límites, auditoría sin datos personales, y las tools `consultar_stock`, `consultar_precio` y `listar_marcas` sobre un catálogo público con campos explícitos. `agendar_cita` no se expone. Detalle en las decisiones 95 a 107 de `docs/DECISIONES.md`.
 
 ## Qué sigue
-La Fase 3 está cerrada y la Fase 4 sigue abierta (ver arriba). La Fase 5 (servidor MCP) está construida y falta su revisión final; no cierra la Fase 4. Sigue la Fase 6 (A2A y `preguntar_a_otro_bot`). Los e2e formales de navegador, las imágenes reales y el pulido visual quedan para la Fase 7.
+La Fase 3 está cerrada y la Fase 4 sigue abierta (ver arriba). La Fase 5 (servidor MCP) está cerrada; no cierra la Fase 4. Sigue la Fase 6 (A2A y `preguntar_a_otro_bot`). Los e2e formales de navegador, las imágenes reales y el pulido visual quedan para la Fase 7.
 
 ## Ramas
 `main` (integración) y una rama por integrante: `devKevin`, `devVioleta`, `devEmerson`, `devCarlos`.

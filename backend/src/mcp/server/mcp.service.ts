@@ -39,7 +39,7 @@ interface CallRecord {
 
 type Parsed =
   | { kind: 'request'; id: RequestId; method: string; params: unknown }
-  | { kind: 'notification' }
+  | { kind: 'notification'; method: string }
   | { kind: 'invalid'; code: number; id: RequestId | null; message: string };
 
 /** JSON-RPC de error con cuerpo fijo. */
@@ -59,7 +59,7 @@ function parseMessage(raw: Buffer): Parsed {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return bad();
   const message = value as Record<string, unknown>;
   if (message.jsonrpc !== '2.0' || typeof message.method !== 'string' || !METHOD_FORMAT.test(message.method)) return bad();
-  if (!('id' in message)) return { kind: 'notification' };
+  if (!('id' in message)) return { kind: 'notification', method: message.method };
   const id = message.id;
   const validId = typeof id === 'number' ? Number.isSafeInteger(id) : typeof id === 'string' && ID_FORMAT.test(id);
   if (!validId) return bad();
@@ -112,8 +112,10 @@ export class McpService {
     const parsed = parseMessage(raw);
     if (parsed.kind === 'invalid') return { status: 400, body: rpcError(parsed.id, parsed.code, parsed.message) };
     if (parsed.kind === 'notification') {
-      call.tool = 'notificacion';
-      call.status = ExchangeStatus.OK;
+      // Las notificaciones normales («notifications/…») no se auditan (ruido); un método raro sin `id` SÍ queda registrado.
+      const normal = parsed.method.startsWith('notifications/');
+      call.tool = normal ? 'notificacion' : 'metodo_no_disponible';
+      call.status = normal ? ExchangeStatus.OK : ExchangeStatus.VALIDATION_ERROR;
       return { status: 202, body: null };
     }
     if (!ALLOWED_METHODS.has(parsed.method)) return { status: 200, body: rpcError(parsed.id, -32601, 'Método no disponible') };
@@ -191,10 +193,24 @@ export class McpService {
     }
     call.args = run.summary;
     // La respuesta completa (con el sobre JSON-RPC) no pasa de 4 KB: se reduce el NÚMERO de elementos, nunca se corta el JSON.
-    for (let count = run.available; count >= 0; count--) {
+    // El tamaño crece con el número de elementos: se busca el mayor que cabe con una búsqueda binaria (no una prueba por elemento).
+    const fits = (count: number): string | null => {
       const text = JSON.stringify(run.make(count));
-      if (envelopeBytes(requestId, text) <= MCP_DEFAULTS.maxResponseBytes) return { content: [{ type: 'text', text }] };
+      return envelopeBytes(requestId, text) <= MCP_DEFAULTS.maxResponseBytes ? text : null;
+    };
+    let low = 0;
+    let high = run.available;
+    let best = fits(0);
+    while (best !== null && low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      const attempt = fits(mid);
+      if (attempt === null) high = mid - 1;
+      else {
+        best = attempt;
+        low = mid;
+      }
     }
+    if (best !== null) return { content: [{ type: 'text', text: best }] };
     call.status = ExchangeStatus.INTERNAL_ERROR;
     return errorResult(UNAVAILABLE);
   }

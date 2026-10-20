@@ -78,7 +78,8 @@ const listarMarcas: ToolDefinition = {
   inputSchema: INPUT_JSON_SCHEMAS.listar_marcas,
   async execute(raw, catalog) {
     if (!listarMarcasSchema.safeParse(raw ?? {}).success) return { kind: 'invalid' };
-    const marcas = await catalog.listBrands();
+    // Tope de marcas por llamada: la respuesta se arma sobre una lista acotada, no sobre toda la tabla.
+    const marcas = (await catalog.listBrands()).slice(0, 200);
     return { kind: 'ok', summary: {}, available: marcas.length, make: (count) => ({ marcas: marcas.slice(0, count), nota: NOTE }) };
   },
 };
