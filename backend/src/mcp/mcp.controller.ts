@@ -11,8 +11,9 @@ import {
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { Public } from '../common/decorators.js';
-import { McpAuthGuard, McpPreAuthGuard } from './gateway/mcp.guards.js';
-import type { McpRequest } from './gateway/mcp.guards.js';
+import { BotChannel } from './gateway/bot-channel.js';
+import { BotAuthGuard, BotPreAuthGuard } from './gateway/bot.guards.js';
+import type { BotRequest } from './gateway/bot.guards.js';
 import { MCP_DEFAULTS } from './mcp.config.js';
 import { McpService } from './server/mcp.service.js';
 
@@ -30,12 +31,13 @@ async function readBody(req: Request, maxBytes: number): Promise<Buffer | null> 
 }
 
 @ApiTags('mcp')
+@BotChannel('mcp')
 @Controller('mcp')
 export class McpController {
   constructor(private readonly mcp: McpService) {}
 
   @Public()
-  @UseGuards(McpPreAuthGuard, McpAuthGuard)
+  @UseGuards(BotPreAuthGuard, BotAuthGuard)
   @Post()
   @ApiOperation({
     summary: 'Servidor MCP para bots externos (key de bot en Authorization: Bearer)',
@@ -52,7 +54,7 @@ export class McpController {
   @ApiPayloadTooLargeResponse({ description: 'Cuerpo de más de 16 KB' })
   @ApiUnsupportedMediaTypeResponse({ description: 'El tipo de contenido no es application/json' })
   @ApiTooManyRequestsResponse({ description: 'Límite por IP, global o del bot (con Retry-After)' })
-  async handle(@Req() req: McpRequest, @Res() res: Response): Promise<void> {
+  async handle(@Req() req: BotRequest, @Res() res: Response): Promise<void> {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     const body = await readBody(req, MCP_DEFAULTS.maxBodyBytes);
@@ -66,7 +68,7 @@ export class McpController {
     }
     let result;
     try {
-      result = await this.mcp.handle(req.mcpBot!, body);
+      result = await this.mcp.handle(req.bot!, body);
     } finally {
       // Ya auditada (o fallida): la llamada deja de estar «en curso» para el tope diario.
       req.releaseQuota?.();

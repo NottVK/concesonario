@@ -1,13 +1,23 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { HttpException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { allowedHosts, clientIp, hostOf } from '../mcp-http.js';
 import { MCP_DEFAULTS } from '../mcp.config.js';
-import { McpGatewayService } from './mcp-gateway.service.js';
-import type { AuthenticatedBot } from './mcp-gateway.service.js';
+import { BOT_CHANNEL_KEY } from './bot-channel.js';
+import type { BotChannelName } from './bot-channel.js';
+import { BotGatewayService } from './bot-gateway.service.js';
+import type { AuthenticatedBot } from './bot-gateway.service.js';
 
-/** Petición con el bot ya autenticado (lo pone `McpAuthGuard`). */
-export type McpRequest = Request & { mcpBot?: AuthenticatedBot; releaseQuota?: () => void };
+/** Petición con el bot ya autenticado (lo pone `BotAuthGuard`). */
+export type BotRequest = Request & { bot?: AuthenticatedBot; releaseQuota?: () => void };
+
+/** Canal declarado con `@BotChannel`; si falta es un error de programación y la petición no pasa. */
+function channelOf(reflector: Reflector, context: ExecutionContext): BotChannelName {
+  const channel = reflector.getAllAndOverride<BotChannelName | undefined>(BOT_CHANNEL_KEY, [context.getHandler(), context.getClass()]);
+  if (!channel) throw new InternalServerErrorException('Ruta de bots sin @BotChannel');
+  return channel;
+}
 
 /** Respuesta de error con cuerpo FIJO: nada de lo que mandó el cliente vuelve en ella. */
 function refuse(res: Response, status: number, message: string, headers: Record<string, string> = {}): never {
@@ -21,14 +31,17 @@ function refuse(res: Response, status: number, message: string, headers: Record<
  * tamaño anunciado. Un fallo aquí no revela nada sobre las keys.
  */
 @Injectable()
-export class McpPreAuthGuard implements CanActivate {
+export class BotPreAuthGuard implements CanActivate {
   private readonly hosts = allowedHosts();
 
-  constructor(private readonly gateway: McpGatewayService) {}
+  constructor(
+    private readonly gateway: BotGatewayService,
+    private readonly reflector: Reflector,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const http = context.switchToHttp();
-    const req = http.getRequest<McpRequest>();
+    const req = http.getRequest<BotRequest>();
     const res = http.getResponse<Response>();
 
     const gate = this.gateway.enter(clientIp(req));
@@ -56,22 +69,26 @@ export class McpPreAuthGuard implements CanActivate {
  * sale antes de leer el cuerpo, así que tampoco se devuelve el `id` de la petición JSON-RPC.
  */
 @Injectable()
-export class McpAuthGuard implements CanActivate {
-  constructor(private readonly gateway: McpGatewayService) {}
+export class BotAuthGuard implements CanActivate {
+  constructor(
+    private readonly gateway: BotGatewayService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const http = context.switchToHttp();
-    const req = http.getRequest<McpRequest>();
+    const req = http.getRequest<BotRequest>();
     const res = http.getResponse<Response>();
 
-    const bot = await this.gateway.authenticate(req.headers.authorization, clientIp(req));
+    const channel = channelOf(this.reflector, context);
+    const bot = await this.gateway.authenticate(req.headers.authorization, clientIp(req), channel);
     if (!bot) {
       res.setHeader('Connection', 'close');
-      refuse(res, 401, 'Credenciales no válidas', { 'WWW-Authenticate': 'Bearer realm="automax-mcp"' });
+      refuse(res, 401, 'Credenciales no válidas', { 'WWW-Authenticate': `Bearer realm="automax-${channel}"` });
     }
     const quota = await this.gateway.checkQuota(bot);
     if (!quota.ok) refuse(res, 429, 'Límite de uso alcanzado', { 'Retry-After': String(quota.retryAfterSeconds) });
-    req.mcpBot = bot;
+    req.bot = bot;
     // La reserva del tope diario se libera al terminar la llamada (el controlador, ya auditada) o, si se corta, al cerrarse la conexión.
     req.releaseQuota = quota.release;
     res.once('close', quota.release);

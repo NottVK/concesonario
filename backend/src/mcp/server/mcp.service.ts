@@ -7,7 +7,7 @@ import { PublicCatalogService } from '../../catalogo/public-catalog.service.js';
 import { summarizeArgs } from '../audit/args-summary.js';
 import type { ValidatedArgs } from '../audit/args-summary.js';
 import { AuditService } from '../audit/audit.service.js';
-import type { AuthenticatedBot } from '../gateway/mcp-gateway.service.js';
+import type { AuthenticatedBot } from '../gateway/bot-gateway.service.js';
 import { MCP_DEFAULTS } from '../mcp.config.js';
 import { TOOL_BY_NAME, TOOLS } from '../tools/tools.js';
 import { OneShotTransport } from './one-shot-transport.js';

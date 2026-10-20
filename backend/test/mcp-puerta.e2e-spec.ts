@@ -108,6 +108,23 @@ describe('Puerta de entrada del MCP (e2e)', () => {
     });
   });
 
+  describe('la key del bot no es una credencial del resto de la API', () => {
+    it('no abre rutas de personal ni de admin (401) y en POST /citas no cambia nada frente a no mandarla', async () => {
+      const bot = await createBot('Bot Sin Privilegios');
+      const bearer = `Bearer ${bot.apiKey}`;
+      for (const path of ['/api/citas', '/api/clientes', '/api/ventas', '/api/admin/bots', '/api/admin/metricas/resumen', '/api/admin/vehiculos']) {
+        const res = await request(ctx.server).get(path).set('Authorization', bearer);
+        expect(res.status, path).toBe(401);
+      }
+      await request(ctx.server).post('/api/admin/bots').set('Authorization', bearer).send({ name: 'Intruso' }).expect(401);
+      // POST /citas es pública: con o sin key responde igual (aquí, 400 por cuerpo vacío), sin ningún trato especial.
+      const without = await request(ctx.server).post('/api/citas').send({});
+      const withKey = await request(ctx.server).post('/api/citas').set('Authorization', bearer).send({});
+      expect(withKey.status).toBe(without.status);
+      expect(withKey.body).toEqual(without.body);
+    });
+  });
+
   describe('la key nunca se registra', () => {
     it('ni en los logs de un fallo ni en los de un acierto', async () => {
       const lines: string[] = [];

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
 import { BotKeysService } from '../keys/bot-keys.service.js';
 import { gateConfig, MCP_DEFAULTS } from '../mcp.config.js';
+import type { BotChannelName } from './bot-channel.js';
 import { IpGate } from './ip-gate.js';
 import type { GateResult } from './ip-gate.js';
 import { RateWindow } from './rate-window.js';
@@ -19,13 +20,13 @@ export type Quota = { ok: true; release: () => void } | { ok: false; scope: 'min
 const BEARER = /^Bearer[ \t]+(\S{1,200})$/i;
 
 /**
- * Puerta de entrada del MCP: límites antes de autenticar, autenticación de la key, y cuota propia de cada bot. El
+ * Puerta de entrada de los bots externos (MCP y A2A comparten IP, 401 y cuota): límites antes de autenticar, autenticación de la key, y cuota propia de cada bot. El
  * contador vive aquí (en el backend, donde está la configuración de cada bot) y el tope diario sale de la tabla de
  * auditoría, así que sobrevive a un reinicio.
  */
 @Injectable()
-export class McpGatewayService {
-  private readonly logger = new Logger(McpGatewayService.name);
+export class BotGatewayService {
+  private readonly logger = new Logger(BotGatewayService.name);
   private readonly ipGate = new IpGate(gateConfig());
   private readonly botMinute = new RateWindow(60_000);
   private readonly reservedToday = new Map<number, number>();
@@ -46,12 +47,12 @@ export class McpGatewayService {
    * prefijo inexistente, bot desactivado) da el MISMO resultado hacia afuera; el motivo real solo queda en el log, con
    * el prefijo (que no es secreto) y nunca la key.
    */
-  async authenticate(authorization: string | undefined, ip: string): Promise<AuthenticatedBot | null> {
+  async authenticate(authorization: string | undefined, ip: string, channel: BotChannelName): Promise<AuthenticatedBot | null> {
     const candidate = typeof authorization === 'string' ? BEARER.exec(authorization)?.[1] : undefined;
     const result = await this.keys.verify(candidate);
     if (!result.ok) {
       this.ipGate.recordFailure(ip);
-      this.logger.warn(`Autenticación MCP fallida (motivo=${result.reason}, bot=${result.botId ?? '-'}, prefijo=${result.prefix ?? '-'}, ip=${ip})`);
+      this.logger.warn(`Autenticación ${channel.toUpperCase()} fallida (motivo=${result.reason}, bot=${result.botId ?? '-'}, prefijo=${result.prefix ?? '-'}, ip=${ip})`);
       return null;
     }
     this.ipGate.recordSuccess(ip);

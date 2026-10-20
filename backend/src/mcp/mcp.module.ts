@@ -6,8 +6,8 @@ import { CatalogoModule } from '../catalogo/catalogo.module.js';
 import { AdminBotsController } from './admin/admin-bots.controller.js';
 import { AuditPurgeService } from './audit/audit-purge.service.js';
 import { AuditService } from './audit/audit.service.js';
-import { McpAuthGuard, McpPreAuthGuard } from './gateway/mcp.guards.js';
-import { McpGatewayService } from './gateway/mcp-gateway.service.js';
+import { BotAuthGuard, BotPreAuthGuard } from './gateway/bot.guards.js';
+import { BotGatewayService } from './gateway/bot-gateway.service.js';
 import { BotKeysService } from './keys/bot-keys.service.js';
 import { McpController } from './mcp.controller.js';
 import { loadMcpSecrets, MCP_SECRETS } from './mcp.config.js';
@@ -22,10 +22,10 @@ import { McpService } from './server/mcp.service.js';
     BotKeysService,
     AuditService,
     AuditPurgeService,
-    McpGatewayService,
+    BotGatewayService,
     McpService,
-    McpPreAuthGuard,
-    McpAuthGuard,
+    BotPreAuthGuard,
+    BotAuthGuard,
   ],
   exports: [BotKeysService, AuditService, MCP_SECRETS],
 })
