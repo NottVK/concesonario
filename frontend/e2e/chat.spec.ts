@@ -90,7 +90,8 @@ test('3. en un móvil de 375 px el panel ocupa la pantalla y no hay scroll horiz
   const box = await dialog.boundingBox()
   expect(box?.width).toBeGreaterThanOrEqual(374)
   expect(box?.height).toBeGreaterThanOrEqual(699)
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  // Como texto: el proyecto de e2e no incluye los tipos del DOM.
+  const overflow = await page.evaluate<number>('document.documentElement.scrollWidth - document.documentElement.clientWidth')
   expect(overflow).toBeLessThanOrEqual(0)
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
