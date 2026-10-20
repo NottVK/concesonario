@@ -1,12 +1,10 @@
 // Mini-prueba de tool-calling (puerta del paso 1): ¿el modelo elige la herramienta correcta con los argumentos correctos?
 // Uso: OLLAMA_MODEL=qwen2.5:3b NUM_CTX=4096 REPS=1 node chatbot/bench/toolcall.mjs
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { MODEL, chat, systemPrompt } from './common.mjs'
+import { join } from 'node:path'
+import { MODEL, RESULTS_DIR, chat, environmentInfo, safeName, stamp, systemPrompt } from './common.mjs'
 import { TOOLS } from './tools.mjs'
 
-const here = dirname(fileURLToPath(import.meta.url))
 const NUM_CTX = Number(process.env.NUM_CTX ?? 4096)
 const REPS = Number(process.env.REPS ?? 1)
 
@@ -69,7 +67,8 @@ for (const testCase of CASES) {
 const total = CASES.length * REPS
 const accuracy = +((passed / total) * 100).toFixed(1)
 console.log(`\nAcierto: ${passed}/${total} = ${accuracy} % (modelo ${MODEL}, num_ctx ${NUM_CTX})`)
-mkdirSync(join(here, 'results'), { recursive: true })
-const file = join(here, 'results', `toolcall-${MODEL.replace(/[:/]/g, '_')}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`)
-writeFileSync(file, JSON.stringify({ model: MODEL, numCtx: NUM_CTX, reps: REPS, passed, total, accuracy, rows }, null, 2))
+const environment = await environmentInfo()
+mkdirSync(RESULTS_DIR, { recursive: true })
+const file = join(RESULTS_DIR, `toolcall-${safeName(MODEL)}-${safeName(environment.host)}-${stamp()}.json`)
+writeFileSync(file, JSON.stringify({ model: MODEL, numCtx: NUM_CTX, reps: REPS, passed, total, accuracy, environment, rows }, null, 2))
 console.log(`Resultados: ${file}`)

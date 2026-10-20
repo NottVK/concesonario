@@ -1,15 +1,14 @@
 // Medición de tiempo de respuesta y memoria del modelo local (paso 1 de la Fase 4).
 // Uso (sin leer .env; todo por variables de entorno):
-//   OLLAMA_MODEL=qwen2.5:3b RUNS=5 CTXS=2048,4096 node chatbot/bench/bench.mjs
+//   OLLAMA_MODEL=qwen2.5:7b RUNS=5 CTXS=4096,2048 node bench.mjs
+// El archivo de resultados se reescribe después de CADA medición: si el proceso se detiene, lo medido hasta ahí queda guardado.
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { MODEL, OLLAMA_HOST, chat, loadedInfo, median, percentile, startRamSampler, systemPrompt, unload } from './common.mjs'
+import { join } from 'node:path'
+import { MODEL, OLLAMA_HOST, RESULTS_DIR, chat, environmentInfo, loadedInfo, median, percentile, safeName, stamp, startRamSampler, systemPrompt, unload } from './common.mjs'
 import { TOOLS, runStubTool } from './tools.mjs'
 
-const here = dirname(fileURLToPath(import.meta.url))
 const RUNS = Number(process.env.RUNS ?? 5)
-const CTXS = (process.env.CTXS ?? '2048,4096').split(',').map(Number)
+const CTXS = (process.env.CTXS ?? '4096,2048').split(',').map(Number)
 const COLD_RUNS = Number(process.env.COLD_RUNS ?? 3)
 const MAX_LOOPS = 4
 
@@ -60,18 +59,25 @@ async function runTurn(testCase, numCtx) {
   }
   totals.wallMs = performance.now() - started
   totals.tokensPerSecond = totals.evalMs > 0 ? totals.evalTokens / (totals.evalMs / 1000) : 0
-  // Tiempo hasta el primer token aproximado: carga + procesar el prompt de la primera llamada (aquí, de todas).
+  // Tiempo hasta el primer token aproximado: carga + procesar el prompt (sumado sobre las llamadas del turno).
   totals.ttftApproxMs = totals.loadMs + totals.promptMs
   return totals
 }
 
 const sec = (ms) => +(ms / 1000).toFixed(1)
+const environment = await environmentInfo()
+const results = { model: MODEL, host: OLLAMA_HOST, startedAt: new Date().toISOString(), finished: false, runs: RUNS, environment, cells: [], cold: [] }
+mkdirSync(RESULTS_DIR, { recursive: true })
+const file = join(RESULTS_DIR, `bench-${safeName(MODEL)}-${safeName(environment.host)}-${stamp()}.json`)
+const save = () => writeFileSync(file, JSON.stringify(results, null, 2))
+
 const sampler = startRamSampler()
-const results = { model: MODEL, host: OLLAMA_HOST, startedAt: new Date().toISOString(), runs: RUNS, cells: [], cold: [] }
 try {
+  console.log(`Equipo: ${environment.platform}, ${environment.cpu}, ${environment.totalRamGB} GB de RAM, Ollama ${environment.ollamaVersion}`)
   await new Promise((resolve) => setTimeout(resolve, 2500)) // primer muestreo de RAM
   results.baseline = sampler.snapshot()
   console.log(`Base: RAM disponible ${results.baseline.minAvailableMB} MB, libre estricta ${results.baseline.minFreeMB} MB`)
+  save()
 
   for (const numCtx of CTXS) {
     // Arranque en frío: descargar el modelo y medir la primera respuesta (caso b).
@@ -82,6 +88,7 @@ try {
       const info = await loadedInfo()
       results.cold.push({ numCtx, ...turn, ...sampler.snapshot(), loaded: info })
       console.log(`[frío ctx=${numCtx}] total ${sec(turn.wallMs)} s, carga ${sec(turn.loadMs)} s, RAM disp. mín ${sampler.snapshot().minAvailableMB} MB`)
+      save()
     }
     for (const testCase of CASES) {
       await runTurn(testCase, numCtx) // calentamiento descartado
@@ -106,16 +113,18 @@ try {
         minAvailableMB: Math.min(...measured.map((m) => m.minAvailableMB ?? Infinity)),
         minFreeMB: Math.min(...measured.map((m) => m.minFreeMB)),
         modelGB: info?.sizeGB ?? null,
+        modelVramGB: info?.vramGB ?? null,
         raw: measured,
       }
       results.cells.push(cell)
       console.log(`[ctx=${numCtx}] ${testCase.label}: total ${cell.totalS.median}/${cell.totalS.p90} s (mediana/p90), ${cell.tokensPerSecond} tok/s, RAM disp. mín ${cell.minAvailableMB} MB, modelo ${cell.modelGB} GB`)
+      save()
     }
   }
+  results.finished = true
+  results.finishedAt = new Date().toISOString()
+  save()
 } finally {
   sampler.stop()
 }
-mkdirSync(join(here, 'results'), { recursive: true })
-const file = join(here, 'results', `bench-${MODEL.replace(/[:/]/g, '_')}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`)
-writeFileSync(file, JSON.stringify(results, null, 2))
 console.log(`Resultados: ${file}`)
