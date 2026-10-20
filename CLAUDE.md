@@ -33,13 +33,13 @@ concesionario/
 │   ├── main.ts, app.module.ts
 │   ├── vehiculos/ marcas/ clientes/ ventas/ citas/ financiacion/ usuarios/ auth/
 │   │   └── (cada módulo: *.module.ts, *.controller.ts, *.service.ts, entities/, dto/)
-│   ├── chat/            ← endpoint del chatbot
+│   ├── chat/            ← chatbot: endpoint, agente, tools, prompts/ y seguridad (ver docs/PLAN-FASE-4.md)
 │   ├── a2a/             ← agent.json y tareas entre bots
 │   ├── database/{migrations/, seeds/}
 │   └── common/          ← guards, filters, interceptors
 ├── backend/test/        ← e2e con Supertest
 ├── frontend/src/{pages/, components/, api/}
-├── chatbot/{agent.ts, tools.ts, prompts/}
+├── chatbot/{bench/, eval/}   ← solo herramientas de desarrollo (medición y evaluación del bot)
 ├── mcp-server/server.ts
 └── docker-compose.yml
 ```
