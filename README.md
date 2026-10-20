@@ -55,6 +55,15 @@ npm run embeddings:sync         # vuelve a calcular los vectores de la búsqueda
 - Evaluación: con la API encendida, `node chatbot/eval/busqueda.mjs` corre 10 consultas en lenguaje natural (aprueba con 8 de 10).
 - Detalle de la medición y de por qué se usan los embeddings **sin prefijos** en `docs/DECISIONES.md`.
 
+## Servidor MCP para bots externos (Fase 5)
+Los bots amigos consultan el catálogo público por MCP (`POST /api/mcp`, JSON-RPC sin estado, `Authorization: Bearer <key>`). Herramientas de **solo lectura**: `consultar_stock`, `consultar_precio` y `listar_marcas` (`agendar_cita` no se expone).
+- **Requiere** `MCP_KEY_PEPPER` y `BOT_KEY_ENCRYPTION_KEY` en el `.env` (ver `.env.example`; genera cada una con `openssl rand -hex 32`): **la API no arranca sin ellas**.
+- El admin crea el bot con `POST /api/admin/bots` y la API devuelve su key **una sola vez** (no se puede recuperar; si se pierde, `POST /api/admin/bots/:id/rotar-clave`). `PATCH /api/admin/bots/:id` desactiva el bot o cambia sus límites (por defecto 30 por minuto y 2.000 por día).
+- Una key falsa, mal formada, ausente o de un bot desactivado reciben el **mismo** 401. Cuerpo de hasta 16 KB; respuesta de hasta 4 KB; hasta 10 resultados por llamada.
+- **Al desplegar:** el bloqueo por IP (10 fallos de autenticación en 5 min bloquean la IP 15 min) usa `req.ip`, así que depende de `trust proxy`: sin él, tras un proxy inverso todos comparten IP; con uno demasiado permisivo, `X-Forwarded-For` se puede falsificar. Para recibir llamadas con un nombre de host propio, agrégalo en `MCP_ALLOWED_HOSTS`. Los contadores viven en el proceso (una sola réplica).
+- Rotar el pepper: sube `MCP_KEY_PEPPER_VERSION` y deja el anterior en `MCP_KEY_PEPPER_PREVIOUS` hasta que cada bot haya llamado una vez (su hash se recalcula solo).
+- Detalle y justificación: decisiones 95 a 106 en `docs/DECISIONES.md`.
+
 ## Comandos del backend
 | Comando | Qué hace |
 |---|---|

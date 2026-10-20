@@ -15,7 +15,7 @@ Plataforma de concesionario con interfaces web, APIs, base de datos y un **chatb
 | BD | PostgreSQL 16 (+ pgvector para búsqueda semántica) |
 | Frontend | React + Vite + TypeScript + Tailwind + shadcn/ui |
 | Chatbot | Ollama local (`qwen2.5:3b` en PC de 8 GB, `qwen2.5:7b` en Mac; con tool-calling) vía librería `ollama` de npm |
-| MCP | Servidor MCP propio (`mcp-server/`) con `@modelcontextprotocol/sdk` (TypeScript) |
+| MCP | Servidor MCP propio, módulo `backend/src/mcp/` de Nest, con `@modelcontextprotocol/sdk` y `zod` (TypeScript) |
 | A2A | Endpoints `/.well-known/agent.json` + `/a2a/tasks` |
 | Validación | `class-validator` + `class-transformer` (DTOs) |
 | Infra | Docker Compose |
@@ -35,6 +35,8 @@ concesionario/
 │   │   └── (cada módulo: *.module.ts, *.controller.ts, *.service.ts, entities/, dto/)
 │   ├── chat/            ← chatbot: endpoint, agente, tools, prompts/, seguridad y proveedores de modelo (model/: ollama, groq, mock; ver docs/PLAN-FASE-4.md)
 │   ├── embeddings/      ← vectores de la búsqueda semántica (nomic-embed-text), recálculo y `embeddings:sync`
+│   ├── catalogo/        ← PublicCatalogService: catálogo público con campos explícitos (nunca entidades); lo usa el MCP
+│   ├── mcp/             ← servidor MCP de solo lectura DENTRO de Nest (POST /api/mcp): keys de bots, puerta de entrada y límites, auditoría, tools
 │   ├── a2a/             ← agent.json y tareas entre bots
 │   ├── database/{migrations/, seeds/}
 │   └── common/          ← guards, filters, interceptors
@@ -42,7 +44,6 @@ concesionario/
 ├── frontend/src/{pages/, components/, api/}
 ├── chatbot/{bench/, eval/}   ← solo herramientas de desarrollo: medición del modelo (bench/) y evaluación de la búsqueda y de las 20 preguntas (eval/)
 ├── docs/GUIA-IA-COMPANEROS.md ← cómo correr el modelo real y devolver los resultados
-├── mcp-server/server.ts
 └── docker-compose.yml
 ```
 
@@ -77,7 +78,7 @@ Mínimo 5 modelos reales por marca en `backend/src/database/seeds/` (año, preci
 ## 7. Conexión entre chatbots
 Dos canales, ambos obligatorios:
 
-**A) MCP** — `mcp-server/` expone: `consultar_stock`, `consultar_precio`, `agendar_cita`, `listar_marcas`.
+**A) MCP** — módulo `backend/src/mcp/` (POST `/api/mcp`, JSON-RPC sin estado) expone, **solo lectura**: `consultar_stock`, `consultar_precio` y `listar_marcas`. **`agendar_cita` NO se expone** (decisión 97 de DECISIONES.md): un bot externo no puede dar la confirmación humana que exige una cita. Cada bot tiene su API key (guardada como HMAC, mostrada una sola vez), su límite propio y se puede desactivar (`bots_externos`).
 
 **B) A2A** — el bot publica su "tarjeta":
 ```json
@@ -114,7 +115,7 @@ cd backend && npm run test:e2e                    # pruebas e2e (Supertest)
 cd backend && npm run migration:run               # aplicar migraciones
 cd backend && npm run seed                        # cargar marcas y vehículos
 cd frontend && npm run dev
-cd mcp-server && npm run start
+# el servidor MCP corre con la API (POST /api/mcp); requiere MCP_KEY_PEPPER y BOT_KEY_ENCRYPTION_KEY en .env
 ollama pull qwen2.5:3b                            # modelo del chatbot (7b si hay 16 GB)
 ```
 

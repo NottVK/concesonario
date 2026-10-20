@@ -460,6 +460,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/bots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista de bots externos, sin ningún secreto (admin) */
+        get: operations["AdminBotsController_list"];
+        put?: never;
+        /**
+         * Crear un bot y su key (admin)
+         * @description La key en claro (`apiKey`) se muestra UNA sola vez en esta respuesta (`Cache-Control: no-store`); en la base solo queda su prefijo y un HMAC. Si se pierde, se rota.
+         */
+        post: operations["AdminBotsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/bots/{id}/rotar-clave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotar la key de un bot (admin)
+         * @description Genera una key nueva y la anterior deja de servir al instante. La nueva se muestra UNA sola vez (`Cache-Control: no-store`).
+         */
+        post: operations["AdminBotsController_rotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/bots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Activar o desactivar un bot y cambiar sus límites o su key saliente (admin) */
+        patch: operations["AdminBotsController_update"];
+        trace?: never;
+    };
+    "/api/mcp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Servidor MCP para bots externos (key de bot en Authorization: Bearer)
+         * @description JSON-RPC de MCP (sin estado, respuestas JSON). Herramientas de SOLO LECTURA sobre el catálogo público: `consultar_stock`, `consultar_precio` y `listar_marcas` (no hay ninguna herramienta que escriba o agende). Autenticación con la key del bot (`Authorization: Bearer amx_…`): una key falsa, mal formada, ausente o de un bot desactivado reciben EXACTAMENTE el mismo 401. Cuerpo de hasta 16 KB; respuesta de hasta 4 KB. Límite propio por bot (30 por minuto y 2.000 por día por defecto) y límites por IP antes de autenticar; el bloqueo por IP depende de `trust proxy` (ver DECISIONES.md).
+         */
+        post: operations["McpController_handle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1039,6 +1117,17 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        ChatDebugDto: {
+            /** @description Nombres de las tools que llamó el modelo en este turno */
+            tools: string[];
+            /**
+             * @description none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija
+             * @enum {string}
+             */
+            fallback: "none" | "template" | "refusal";
+            /** @description Resultados de las tools de este turno (los que vio el modelo) */
+            results: Record<string, never>[];
+        };
         ChatReplyDto: {
             /** @description Texto plano: el widget nunca lo interpreta como HTML */
             reply: string;
@@ -1048,6 +1137,8 @@ export interface components {
             proposal: components["schemas"]["ProposalViewDto"] | null;
             /** @description Solo en la primera respuesta de una sesión nueva; el navegador la guarda y la manda en X-Chat-Session */
             sessionToken?: string;
+            /** @description Solo con CHAT_EVAL_MODE=true (evaluación) y nunca en producción */
+            debug?: components["schemas"]["ChatDebugDto"];
         };
         ChatStatusDto: {
             available: boolean;
@@ -1065,6 +1156,58 @@ export interface components {
         ConfirmedAppointmentDto: {
             appointmentId: number;
             message: string;
+        };
+        BotViewDto: {
+            id: number;
+            name: string;
+            url: string | null;
+            active: boolean;
+            /** @description Prefijo público de la key (no es secreto) */
+            keyPrefix: string | null;
+            /** @description Si tiene key para consultar a AutoMax por MCP */
+            hasKey: boolean;
+            /** @description Si hay una key saliente guardada (cifrada) */
+            hasOutboundKey: boolean;
+            /** Format: date-time */
+            lastUsedAt: string | null;
+            /** Format: date-time */
+            keyRotatedAt: string | null;
+            limitPerMinute: number;
+            limitPerDay: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreateBotDto: {
+            /** @example Concesionario Amigo */
+            name: string;
+            /**
+             * @description Solo si AutoMax también va a llamarlo (Fase 6)
+             * @example https://bot-amigo.example/a2a
+             */
+            url?: string;
+            /** @example 30 */
+            limitPerMinute?: number;
+            /** @example 2000 */
+            limitPerDay?: number;
+            /** @description Key que AutoMax enviará a ese bot. Se guarda CIFRADA y nunca vuelve a mostrarse */
+            outboundApiKey?: string;
+        };
+        BotWithKeyDto: {
+            bot: components["schemas"]["BotViewDto"];
+            /**
+             * @description Se muestra UNA sola vez y no se puede recuperar: si se pierde, se rota
+             * @example amx_1a2b3c4d_…
+             */
+            apiKey: string;
+        };
+        UpdateBotDto: {
+            /** @description false desactiva al bot: sus llamadas dan el mismo 401 que una key falsa */
+            active?: boolean;
+            url?: string | null;
+            limitPerMinute?: number;
+            limitPerDay?: number;
+            /** @description Cambia la key saliente (cifrada) o la quita con null */
+            outboundApiKey?: string | null;
         };
     };
     responses: never;
@@ -2132,6 +2275,166 @@ export interface operations {
             };
             /** @description La propuesta ya se usó, venció, es de otra sesión o no existe */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminBotsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotViewDto"][];
+                };
+            };
+        };
+    };
+    AdminBotsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBotDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotWithKeyDto"];
+                };
+            };
+            /** @description Ya existe un bot con ese nombre */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminBotsController_rotate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotWithKeyDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminBotsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBotDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotViewDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    McpController_handle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Respuesta JSON-RPC (202 sin cuerpo para notificaciones; 400 con error JSON-RPC si el mensaje no es válido) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Key ausente, falsa, mal formada o de un bot desactivado (respuesta idéntica) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Origin o Host no permitidos */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cuerpo de más de 16 KB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El tipo de contenido no es application/json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Límite por IP, global o del bot (con Retry-After) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

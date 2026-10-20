@@ -201,7 +201,7 @@ describe('Fuzzing del servidor MCP (e2e)', () => {
     const vehicle = inner.vehiculos[0]!;
     expect(vehicle.version).toBe(''); // la orden escondida se descarta
     expect(vehicle.modelo).toBe('Mazda 3'); // sin caracteres invisibles ni bidireccionales
-    expect(vehicle.color).not.toMatch(/[\u0000\n]/);
+    expect(vehicle.color.includes('\u0000') || vehicle.color.includes('\n')).toBe(false);
     expect(res.text).not.toMatch(/gratis|ignora/i);
   });
 
