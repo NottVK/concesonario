@@ -50,6 +50,8 @@ Estado: **aprobado** por el usuario (2026-10-19). Lo diseñaron los subagentes `
 
 Si no cumple los tres con alguna combinación de `num_ctx`: **plan B = `qwen2.5:7b` en la MacBook**, con `OLLAMA_HOST` apuntando a ella. El modelo, el host, `num_ctx` y `keep_alive` van por variables (`OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_NUM_CTX`, `OLLAMA_KEEP_ALIVE`) en `.env.example`; nada hardcodeado. El resultado se registra en DECISIONES.md y la prueba de aceptación del plan B se repite en la Mac.
 
+**Resultado (2026-10-19): la puerta NO se supera con `qwen2.5:3b` en este equipo; se pasa al plan B (`qwen2.5:7b` en la Mac). Detalle y números en DECISIONES.md, decisión 78.**
+
 Nota: `gemma3:1b` no se considera (sin tool-calling nativo en Ollama, según los subagentes; lo confirmaría la propia mini-prueba si se quisiera).
 
 ## 3. Paso 2: búsqueda semántica

@@ -275,6 +275,30 @@ Codex no pudo leer el repositorio (su `exec_command` está bloqueado por políti
 - **Fase 7 (pulido):** e2e formales de Playwright (el smoke es solo el comienzo), imágenes WebP reales en `frontend/public/autos/` y logos en `/autos/marcas/` (hoy se ven los marcadores de posición), interruptor de modo claro, y cookie `httpOnly` + `SameSite` en lugar de `sessionStorage` (exige emitir cookie y protección CSRF en el backend; revisar antes de producción).
 - **Limitación aceptada:** `POST /ventas` devuelve el cliente completo a quien registra la venta (decisión 66).
 
+## 2026-10-19 — Fase 4, paso 1: medición del modelo local y puerta
+
+78. **Resultado de la medición de `qwen2.5:3b` en este equipo (Ryzen 5 3500U de 4 núcleos, sin GPU dedicada, ~6 GB de RAM para Windows, Postgres en Docker y el resto del escritorio abiertos).** Herramientas en `chatbot/bench/` (`bench.mjs`, `toolcall.mjs`); resultados en `chatbot/bench/results/`. Modelo en memoria: 2,17 GB, 100 % CPU.
+
+| Caso (`num_ctx` 4096, modelo tibio, 5 medidas) | Total mediana / p90 | tokens/s | RAM disponible mínima |
+|---|---|---|---|
+| Saludo sin tool | 2,1 / 2,2 s | 7,8 | 425 MB |
+| **Una tool + respuesta (típico)** | **18,2 / 20,6 s** | 7,1 | **355 MB** |
+| Dos tools encadenadas | 58,1 / 60,0 s | 3,3 | 255 MB |
+| Respuesta larga (5 vehículos) | 129,8 / 134,5 s | 3,2 | 644 MB |
+| Conversación de 10 turnos | 68,6 / 68,8 s | 3,2 | 824 MB |
+| Arranque en frío (caso típico, 3 medidas) | 114,6 / 99,4 / 80,0 s (carga 7 a 11 s) | | 242 a 351 MB |
+| Arranque en frío con `num_ctx` 2048 (solo 2 de 3) | 116,5 / 116,3 s | | 838 y 906 MB |
+
+**Mini-prueba de tool-calling (20 casos, `num_ctx` 4096, 1 pasada): 18 de 20 = 90 %.** Fallos: «quiero un carro usado y barato» (no llamó ninguna tool) y «compara el Mazda 3 con el Kia Cerato» (llamó `compare_vehicles` en vez de buscar primero los ids). El segundo confirma que el servidor debe validar que todo `vehicleId` salió de una tool de la sesión.
+
+**Veredicto de la puerta (< 20 s típica, > 1 GB de RAM libre en el pico, ≥ 90 % de acierto): NO se supera.**
+- Respuesta típica: la mediana en tibio (18,2 s) entra, pero el p90 (20,6 s) no y el arranque en frío tarda 80 a 116 s; cualquier turno con dos tools o una lista larga tarda de 58 a 130 s.
+- RAM: **en todas las celdas la memoria disponible mínima quedó por debajo de 1 GB** (242 a 906 MB). Además el sistema detuvo el benchmark por memoria crítica, que es la señal más fuerte.
+- Tool-calling: 90 % justo en el umbral, con una sola pasada.
+- Salvedades: el benchmark no terminó (faltan los casos con `num_ctx` 2048 y no hay JSON, solo la salida de consola), la sesión de Claude Code y el navegador estaban abiertos (es el escenario real de trabajo), y el tiempo hasta el primer token es aproximado.
+
+**Decisión:** se aplica el plan B aprobado: **`qwen2.5:7b` en la MacBook del usuario vía `OLLAMA_HOST`** (no `qwen2.5:1.5b`). Falta medirlo allí con las mismas herramientas y la misma puerta. El modelo, el host, `num_ctx` y `keep_alive` van por variables de entorno. Con el plan B también los embeddings (`nomic-embed-text`) deberían correr en ese Ollama, para no volver a cargar el PC; sin la Mac encendida, la búsqueda semántica y el chat degradan con 503 y mensajes claros (ya previsto).
+
 ## Pendientes registrados
 - **REQUISITO para la gestión de usuarios:** hoy el JWT confía en `sub` y `role` hasta que expira (1 h), y los guards solo leen el rol del token. Antes de que exista desactivar usuarios o cambiar roles hay que **revalidar el rol (y que el usuario siga activo) contra la base en cada petición protegida**, o añadir revocación/versión de sesión. Sin eso, un vendedor ascendido o un admin degradado conservaría su permiso anterior hasta 1 h; esto afecta sobre todo a las métricas y las ventas, que muestran montos. No se puede lanzar la gestión de usuarios sin resolverlo.
 - **Despliegue:** no hay `trust proxy` configurado; detrás de un proxy inverso todas las peticiones compartirían IP en el rate limit. Configurarlo al desplegar.

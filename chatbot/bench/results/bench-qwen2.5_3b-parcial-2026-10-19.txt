@@ -1,0 +1,15 @@
+Base: RAM disponible null MB, libre estricta 561 MB
+[frío ctx=4096] total 114.6 s, carga 10.6 s, RAM disp. mín 351 MB
+[frío ctx=4096] total 99.4 s, carga 10.1 s, RAM disp. mín 242 MB
+[frío ctx=4096] total 80 s, carga 7.2 s, RAM disp. mín 296 MB
+[ctx=4096] Saludo sin tool: total 2.1/2.2 s (mediana/p90), 7.8 tok/s, RAM disp. mín 425 MB, modelo 2.17 GB
+[ctx=4096] Una tool y respuesta: total 18.2/20.6 s (mediana/p90), 7.1 tok/s, RAM disp. mín 355 MB, modelo 2.17 GB
+[ctx=4096] Dos tools encadenadas: total 58.1/60 s (mediana/p90), 3.3 tok/s, RAM disp. mín 255 MB, modelo 2.17 GB
+[ctx=4096] Respuesta larga (5 vehículos): total 129.8/134.5 s (mediana/p90), 3.2 tok/s, RAM disp. mín 644 MB, modelo 2.17 GB
+[ctx=4096] Conversación de 10 turnos: total 68.6/68.8 s (mediana/p90), 3.2 tok/s, RAM disp. mín 824 MB, modelo 2.17 GB
+[frío ctx=2048] total 116.5 s, carga 11.3 s, RAM disp. mín 838 MB
+[frío ctx=2048] total 116.3 s, carga 10.1 s, RAM disp. mín 906 MB
+
+[killed]
+
+[Nota] El sistema detuvo el proceso por memoria crítica antes de terminar (faltó el arranque en frío 3 con num_ctx 2048 y los casos con num_ctx 2048). Por eso no hay JSON de bench; solo esta salida de consola.
