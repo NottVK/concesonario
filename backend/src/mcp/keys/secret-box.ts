@@ -25,12 +25,15 @@ export class SecretBox {
       throw new Error('No se pudo descifrar la clave guardada');
     };
     if (!stored.startsWith(PREFIX)) return fail();
-    const [iv, tag, data] = stored.slice(PREFIX.length).split(':');
-    if (!iv || !tag || !data) return fail();
+    const parts = stored.slice(PREFIX.length).split(':');
+    const [iv, tag, data] = parts.map((part) => Buffer.from(part, 'base64url'));
+    // Formato exacto: tres segmentos base64url canónicos, IV de 12 bytes, etiqueta de 16 y texto cifrado no vacío.
+    const canonical = parts.length === 3 && parts.every((part, i) => [iv, tag, data][i]!.toString('base64url') === part);
+    if (!canonical || iv!.length !== 12 || tag!.length !== 16 || data!.length === 0) return fail();
     try {
-      const decipher = createDecipheriv('aes-256-gcm', this.key, Buffer.from(iv, 'base64url'));
-      decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-      return Buffer.concat([decipher.update(Buffer.from(data, 'base64url')), decipher.final()]).toString('utf8');
+      const decipher = createDecipheriv('aes-256-gcm', this.key, iv!);
+      decipher.setAuthTag(tag!);
+      return Buffer.concat([decipher.update(data!), decipher.final()]).toString('utf8');
     } catch {
       return fail();
     }

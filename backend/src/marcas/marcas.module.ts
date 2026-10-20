@@ -9,6 +9,6 @@ import { MarcasService } from './marcas.service.js';
   imports: [TypeOrmModule.forFeature([Brand, Vehicle])],
   controllers: [MarcasController],
   providers: [MarcasService],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, MarcasService],
 })
 export class MarcasModule {}

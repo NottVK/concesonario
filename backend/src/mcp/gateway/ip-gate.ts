@@ -1,5 +1,5 @@
 import { MCP_DEFAULTS } from '../mcp.config.js';
-import { RateWindow } from './rate-window.js';
+import { MAX_TRACKED_KEYS, RateWindow } from './rate-window.js';
 
 export type GateRefusal = 'locked' | 'ip-rate' | 'ip-concurrent' | 'global-rate';
 
@@ -27,6 +27,7 @@ export class IpGate {
   private readonly failures: RateWindow;
   private readonly inFlight = new Map<string, number>();
   private readonly lockedUntil = new Map<string, number>();
+  private lastLockSweep = 0;
 
   constructor(
     private readonly config: GateConfig = MCP_DEFAULTS,
@@ -38,6 +39,7 @@ export class IpGate {
   }
 
   enter(ip: string): GateResult {
+    this.sweepLocks();
     const until = this.lockedUntil.get(ip);
     if (until !== undefined) {
       if (until > this.now()) return { ok: false, reason: 'locked', retryAfterSeconds: Math.ceil((until - this.now()) / 1000) };
@@ -66,6 +68,7 @@ export class IpGate {
     if (this.failures.count(ip) >= this.config.lockoutFailures) {
       this.lockedUntil.set(ip, this.now() + this.config.lockoutDurationMs);
       this.failures.clear(ip);
+      this.capLocks();
     }
   }
 
@@ -75,5 +78,22 @@ export class IpGate {
 
   isLocked(ip: string): boolean {
     return (this.lockedUntil.get(ip) ?? 0) > this.now();
+  }
+
+  /** Quita los bloqueos vencidos (una IP que no vuelve no puede dejar su entrada para siempre). */
+  private sweepLocks(): void {
+    const now = this.now();
+    if (now - this.lastLockSweep < 60_000) return;
+    this.lastLockSweep = now;
+    for (const [ip, until] of this.lockedUntil) if (until <= now) this.lockedUntil.delete(ip);
+  }
+
+  /** Tope de bloqueos recordados: si se llena, se olvida el más antiguo (la memoria no crece sin límite). */
+  private capLocks(): void {
+    while (this.lockedUntil.size > MAX_TRACKED_KEYS) {
+      const oldest = this.lockedUntil.keys().next().value;
+      if (oldest === undefined) break;
+      this.lockedUntil.delete(oldest);
+    }
   }
 }

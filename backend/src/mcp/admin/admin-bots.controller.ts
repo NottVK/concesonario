@@ -27,6 +27,7 @@ export class AdminBotsController {
   constructor(private readonly keys: BotKeysService) {}
 
   @Get()
+  @Header('Cache-Control', NO_STORE)
   @ApiOperation({ summary: 'Lista de bots externos, sin ningún secreto (admin)' })
   @ApiOkResponse({ type: [BotViewDto] })
   list(): Promise<BotView[]> {
@@ -63,6 +64,7 @@ export class AdminBotsController {
   }
 
   @Patch(':id')
+  @Header('Cache-Control', NO_STORE)
   @ApiOperation({ summary: 'Activar o desactivar un bot y cambiar sus límites o su key saliente (admin)' })
   @ApiOkResponse({ type: BotViewDto })
   @ApiNotFoundResponse()

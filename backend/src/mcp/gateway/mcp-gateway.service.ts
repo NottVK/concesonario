@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
 import { BotKeysService } from '../keys/bot-keys.service.js';
-import { MCP_DEFAULTS } from '../mcp.config.js';
+import { gateConfig, MCP_DEFAULTS } from '../mcp.config.js';
 import { IpGate } from './ip-gate.js';
 import type { GateResult } from './ip-gate.js';
 import { RateWindow } from './rate-window.js';
@@ -13,7 +13,8 @@ export interface AuthenticatedBot {
   limitPerDay: number;
 }
 
-export type Quota = { ok: true } | { ok: false; scope: 'minute' | 'day'; retryAfterSeconds: number };
+/** Cupo concedido: `release` libera la reserva del tope diario cuando la llamada ya quedó auditada. */
+export type Quota = { ok: true; release: () => void } | { ok: false; scope: 'minute' | 'day'; retryAfterSeconds: number };
 
 const BEARER = /^Bearer[ \t]+(\S{1,200})$/i;
 
@@ -25,8 +26,10 @@ const BEARER = /^Bearer[ \t]+(\S{1,200})$/i;
 @Injectable()
 export class McpGatewayService {
   private readonly logger = new Logger(McpGatewayService.name);
-  private readonly ipGate = new IpGate();
+  private readonly ipGate = new IpGate(gateConfig());
   private readonly botMinute = new RateWindow(60_000);
+  private readonly reservedToday = new Map<number, number>();
+  private readonly queues = new Map<number, Promise<void>>();
 
   constructor(
     private readonly keys: BotKeysService,
@@ -55,17 +58,52 @@ export class McpGatewayService {
     return result.bot;
   }
 
-  /** Cuota propia del bot: por minuto (en memoria) y por día (contando auditoría). */
+  /**
+   * Cuota propia del bot: por minuto (en memoria) y por día. El tope diario cuenta las llamadas YA auditadas más las
+   * que están en curso (reservadas), y la comprobación + reserva de un mismo bot va por una cola: dos peticiones
+   * simultáneas no pueden leer el mismo conteo y pasar las dos. Una llamada rechazada sigue contando en el minuto
+   * (no se devuelve ese cupo). Los contadores viven en el proceso: con varias réplicas harían falta contadores compartidos.
+   */
   async checkQuota(bot: AuthenticatedBot): Promise<Quota> {
     const key = String(bot.id);
     if (!this.botMinute.tryHit(key, bot.limitPerMinute)) {
       return { ok: false, scope: 'minute', retryAfterSeconds: this.botMinute.retryAfterSeconds(key) };
     }
-    if ((await this.audit.callsInLastDay(bot.id)) >= bot.limitPerDay) {
-      this.logger.warn(`Bot ${bot.id} alcanzó su tope diario de ${bot.limitPerDay} llamadas`);
-      return { ok: false, scope: 'day', retryAfterSeconds: 3600 };
+    return this.serialized(bot.id, async () => {
+      const reserved = this.reservedToday.get(bot.id) ?? 0;
+      if ((await this.audit.callsInLastDay(bot.id)) + reserved >= bot.limitPerDay) {
+        this.logger.warn(`Bot ${bot.id} alcanzó su tope diario de ${bot.limitPerDay} llamadas`);
+        return { ok: false, scope: 'day', retryAfterSeconds: 3600 } as const;
+      }
+      this.reservedToday.set(bot.id, reserved + 1);
+      let released = false;
+      return {
+        ok: true,
+        release: () => {
+          if (released) return;
+          released = true;
+          const left = (this.reservedToday.get(bot.id) ?? 1) - 1;
+          if (left <= 0) this.reservedToday.delete(bot.id);
+          else this.reservedToday.set(bot.id, left);
+        },
+      } as const;
+    });
+  }
+
+  /** Cola por bot: una función a la vez para el mismo bot. */
+  private async serialized<T>(botId: number, task: () => Promise<T>): Promise<T> {
+    const previous = this.queues.get(botId) ?? Promise.resolve();
+    let finish!: () => void;
+    const turn = new Promise<void>((resolve) => (finish = resolve));
+    const tail = previous.then(() => turn);
+    this.queues.set(botId, tail);
+    await previous;
+    try {
+      return await task();
+    } finally {
+      finish();
+      if (this.queues.get(botId) === tail) this.queues.delete(botId);
     }
-    return { ok: true };
   }
 
   static readonly limits = MCP_DEFAULTS;

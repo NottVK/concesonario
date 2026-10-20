@@ -72,7 +72,7 @@ describe('Bots externos: keys para el MCP (admin, e2e)', () => {
       // Ni la key ni su parte secreta están en ninguna columna de ninguna tabla de bots.
       const everything = JSON.stringify(await ctx.dataSource.query('SELECT * FROM bots_externos'));
       expect(everything).not.toContain(apiKey);
-      expect(everything).not.toContain(apiKey.split('_')[2]);
+      expect(everything).not.toContain(apiKey.slice(13));
     });
 
     it('la key no vuelve a aparecer: ni en el listado ni en ningún GET', async () => {
@@ -81,7 +81,7 @@ describe('Bots externos: keys para el MCP (admin, e2e)', () => {
       const list = await request(ctx.server).get('/api/admin/bots').set(auth(adminToken)).expect(200);
       const text = JSON.stringify(list.body);
       expect(text).not.toContain(apiKey);
-      expect(text).not.toContain(apiKey.split('_')[2]);
+      expect(text).not.toContain(apiKey.slice(13));
       expect(text).not.toContain('clave-saliente-de-prueba-123');
       expect(text).not.toMatch(/keyHash|clave_hash|apiKey|outboundApiKey"/);
       expect(list.body[0]).toMatchObject({ hasKey: true, hasOutboundKey: true });

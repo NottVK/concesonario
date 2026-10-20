@@ -106,20 +106,26 @@ export class BotKeysService {
     for (let attempt = 0; attempt < PREFIX_RETRIES; attempt++) {
       const { key, prefix } = BotKeysService.generate();
       try {
-        const saved = await this.bots.save(
-          this.bots.create({
-            name: input.name,
-            url: input.url ?? null,
-            outboundApiKey: input.outboundApiKey ? this.box.encrypt(input.outboundApiKey) : null,
-            keyPrefix: prefix,
-            keyHash: this.hash(key),
-            pepperVersion: this.secrets.pepperVersion,
-            keyRotatedAt: new Date(),
-            ...(input.limitPerMinute ? { limitPerMinute: input.limitPerMinute } : {}),
-            ...(input.limitPerDay ? { limitPerDay: input.limitPerDay } : {}),
-          }),
-        );
-        return { bot: await this.view(saved.id), apiKey: key };
+        // Guardar y leer la vista van en UNA transacción: si algo falla después de guardar, no queda un bot con una key
+        // que nadie vio (se deshace todo y el error llega al admin, que puede reintentar).
+        const bot = await this.bots.manager.transaction(async (manager) => {
+          const repo = manager.getRepository(ExternalBot);
+          const saved = await repo.save(
+            repo.create({
+              name: input.name,
+              url: input.url ?? null,
+              outboundApiKey: input.outboundApiKey ? this.box.encrypt(input.outboundApiKey) : null,
+              keyPrefix: prefix,
+              keyHash: this.hash(key),
+              pepperVersion: this.secrets.pepperVersion,
+              keyRotatedAt: new Date(),
+              ...(input.limitPerMinute ? { limitPerMinute: input.limitPerMinute } : {}),
+              ...(input.limitPerDay ? { limitPerDay: input.limitPerDay } : {}),
+            }),
+          );
+          return this.view(saved.id, repo);
+        });
+        return { bot, apiKey: key };
       } catch (error) {
         if (isUniqueViolation(error, 'UQ_bots_clave_prefijo')) continue;
         if (isUniqueViolation(error)) throw new ConflictException('Ya existe un bot con ese nombre');
@@ -129,17 +135,21 @@ export class BotKeysService {
     throw new ConflictException('No se pudo generar una key única; intenta de nuevo');
   }
 
-  /** Rotar invalida la key anterior al instante: la nueva reemplaza prefijo y hash en la misma sentencia. */
+  /** Rotar invalida la key anterior al instante: la nueva reemplaza prefijo y hash en la misma sentencia (y la lectura, en la misma transacción). */
   async rotate(id: number): Promise<{ bot: BotView; apiKey: string }> {
     await this.view(id);
     for (let attempt = 0; attempt < PREFIX_RETRIES; attempt++) {
       const { key, prefix } = BotKeysService.generate();
       try {
-        await this.bots.update(
-          { id },
-          { keyPrefix: prefix, keyHash: this.hash(key), pepperVersion: this.secrets.pepperVersion, keyRotatedAt: () => 'now()' },
-        );
-        return { bot: await this.view(id), apiKey: key };
+        const bot = await this.bots.manager.transaction(async (manager) => {
+          const repo = manager.getRepository(ExternalBot);
+          await repo.update(
+            { id },
+            { keyPrefix: prefix, keyHash: this.hash(key), pepperVersion: this.secrets.pepperVersion, keyRotatedAt: () => 'now()' },
+          );
+          return this.view(id, repo);
+        });
+        return { bot, apiKey: key };
       } catch (error) {
         if (!isUniqueViolation(error, 'UQ_bots_clave_prefijo')) throw error;
       }
@@ -199,8 +209,8 @@ export class BotKeysService {
     }
   }
 
-  private async view(id: number): Promise<BotView> {
-    const row = await this.bots.findOne({ where: { id }, select: VIEW_COLUMNS });
+  private async view(id: number, repo: Repository<ExternalBot> = this.bots): Promise<BotView> {
+    const row = await repo.findOne({ where: { id }, select: VIEW_COLUMNS });
     if (!row) throw new NotFoundException(`No existe el bot ${id}`);
     return this.toView(row);
   }

@@ -7,7 +7,7 @@ import { McpGatewayService } from './mcp-gateway.service.js';
 import type { AuthenticatedBot } from './mcp-gateway.service.js';
 
 /** Petición con el bot ya autenticado (lo pone `McpAuthGuard`). */
-export type McpRequest = Request & { mcpBot?: AuthenticatedBot };
+export type McpRequest = Request & { mcpBot?: AuthenticatedBot; releaseQuota?: () => void };
 
 /** Respuesta de error con cuerpo FIJO: nada de lo que mandó el cliente vuelve en ella. */
 function refuse(res: Response, status: number, message: string, headers: Record<string, string> = {}): never {
@@ -72,6 +72,9 @@ export class McpAuthGuard implements CanActivate {
     const quota = await this.gateway.checkQuota(bot);
     if (!quota.ok) refuse(res, 429, 'Límite de uso alcanzado', { 'Retry-After': String(quota.retryAfterSeconds) });
     req.mcpBot = bot;
+    // La reserva del tope diario se libera al terminar la llamada (el controlador, ya auditada) o, si se corta, al cerrarse la conexión.
+    req.releaseQuota = quota.release;
+    res.once('close', quota.release);
     return true;
   }
 }

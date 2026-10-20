@@ -11,6 +11,6 @@ import { VehiculosService } from './vehiculos.service.js';
   imports: [TypeOrmModule.forFeature([Vehicle, Brand]), EmbeddingsModule],
   controllers: [VehiculosController, AdminVehiculosController],
   providers: [VehiculosService],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, VehiculosService],
 })
 export class VehiculosModule {}

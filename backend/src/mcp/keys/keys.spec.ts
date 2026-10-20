@@ -82,7 +82,17 @@ describe('SecretBox (AES-256-GCM)', () => {
     const parts = stored.split(':');
     const tampered = [...parts.slice(0, -1), `${parts.at(-1)!.slice(0, -2)}AA`].join(':');
     const other = new SecretBox(Buffer.alloc(32, 2));
-    for (const bad of [tampered, 'en-claro', 'enc:v1:', 'enc:v1:a:b', other.encrypt('secreto')]) {
+    const [iv, tag, data] = stored.slice('enc:v1:'.length).split(':');
+    const malformed = [
+      `enc:v1:${iv}:${tag}`, // faltan segmentos
+      `enc:v1:${iv}:${tag}:${data}:extra`, // sobran
+      `enc:v1:${iv}=:${tag}:${data}`, // base64url no canónico
+      `enc:v1:${Buffer.alloc(8).toString('base64url')}:${tag}:${data}`, // IV de 8 bytes
+      `enc:v1:${iv}:${Buffer.alloc(8).toString('base64url')}:${data}`, // etiqueta de 8 bytes
+      `enc:v1:${iv}:${tag}:`, // texto cifrado vacío
+      `enc:v1:${iv}:${tag}:!!!`,
+    ];
+    for (const bad of [tampered, 'en-claro', 'enc:v1:', 'enc:v1:a:b', other.encrypt('secreto'), ...malformed]) {
       expect(() => box.decrypt(bad)).toThrow('No se pudo descifrar la clave guardada');
     }
     expect(() => new SecretBox(Buffer.alloc(16))).toThrow(/32 bytes/);

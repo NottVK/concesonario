@@ -36,6 +36,26 @@ export const MCP_DEFAULTS = {
   auditRetentionDays: 90,
 } as const;
 
+/**
+ * Límites antes de autenticar. Los valores de producción son fijos; con NODE_ENV=test se pueden cambiar (variables
+ * `MCP_IP_PER_MINUTE`, `MCP_IP_CONCURRENT`, `MCP_GLOBAL_PER_MINUTE`, `MCP_LOCKOUT_FAILURES`) para poder hacer fuzzing
+ * de volumen desde una sola IP. Fuera de pruebas esas variables se ignoran.
+ */
+export function gateConfig(env: Record<string, string | undefined> = process.env) {
+  if (env.NODE_ENV !== 'test') return MCP_DEFAULTS;
+  const pick = (name: string, fallback: number): number => {
+    const value = Number(env[name]);
+    return Number.isInteger(value) && value > 0 ? value : fallback;
+  };
+  return {
+    ...MCP_DEFAULTS,
+    ipPerMinute: pick('MCP_IP_PER_MINUTE', MCP_DEFAULTS.ipPerMinute),
+    ipConcurrent: pick('MCP_IP_CONCURRENT', MCP_DEFAULTS.ipConcurrent),
+    globalPerMinute: pick('MCP_GLOBAL_PER_MINUTE', MCP_DEFAULTS.globalPerMinute),
+    lockoutFailures: pick('MCP_LOCKOUT_FAILURES', MCP_DEFAULTS.lockoutFailures),
+  };
+}
+
 export interface McpSecrets {
   /** Pepper vigente (HMAC de las keys de los bots). */
   pepper: string;

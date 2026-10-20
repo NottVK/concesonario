@@ -20,6 +20,32 @@ describe('RateWindow', () => {
   });
 });
 
+describe('memoria acotada (contra quien rota IPs)', () => {
+  it('RateWindow nunca recuerda más claves que su tope: olvida primero las vencidas y luego las más antiguas', () => {
+    let now = 0;
+    const window = new RateWindow(60_000, () => now, 5);
+    for (let i = 0; i < 20; i++) window.tryHit(`ip-${i}`, 10);
+    expect(window.size).toBeLessThanOrEqual(5);
+    expect(window.count('ip-19')).toBe(1); // lo más reciente se conserva
+    expect(window.count('ip-0')).toBe(0); // lo más antiguo se olvidó
+    now = 120_000;
+    for (let i = 0; i < 3; i++) window.tryHit(`otra-${i}`, 10);
+    expect(window.size).toBeLessThanOrEqual(5);
+  });
+
+  it('IpGate: los bloqueos vencidos se barren aunque la IP no vuelva, y el total de bloqueos tiene tope', () => {
+    let now = 0;
+    const gate = new IpGate({ ...MCP_DEFAULTS, lockoutFailures: 1, ipPerMinute: 1000 }, () => now);
+    for (let i = 0; i < 12_000; i++) gate.recordFailure(`10.${i >> 8}.${i & 255}.1`);
+    const locked = Array.from({ length: 12_000 }, (_, i) => gate.isLocked(`10.${i >> 8}.${i & 255}.1`)).filter(Boolean).length;
+    expect(locked).toBeLessThanOrEqual(10_000);
+    now = MCP_DEFAULTS.lockoutDurationMs + 120_000;
+    gate.enter('9.9.9.9'); // dispara el barrido
+    const stillLocked = Array.from({ length: 12_000 }, (_, i) => gate.isLocked(`10.${i >> 8}.${i & 255}.1`)).filter(Boolean).length;
+    expect(stillLocked).toBe(0);
+  });
+});
+
 describe('IpGate (límites antes de autenticar)', () => {
   const config = { ...MCP_DEFAULTS, ipPerMinute: 5, ipConcurrent: 2, lockoutFailures: 3, globalPerMinute: 8 };
 
