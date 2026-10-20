@@ -8,3 +8,5 @@ process.env.DB_NAME = TEST_DB_NAME;
 process.env.THROTTLE_LIMIT = '10000';
 process.env.THROTTLE_PUBLIC_LIMIT = '10000';
 process.env.JWT_SECRET ??= 'secreto-solo-para-pruebas-e2e';
+// Las pruebas nunca llaman a un modelo real: el proveedor es el simulado.
+process.env.CHAT_PROVIDER = 'mock';
