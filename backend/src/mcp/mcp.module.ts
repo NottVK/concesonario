@@ -1,0 +1,19 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { BotExchange } from '../a2a/entities/bot-exchange.entity.js';
+import { ExternalBot } from '../a2a/entities/external-bot.entity.js';
+import { AdminBotsController } from './admin/admin-bots.controller.js';
+import { BotKeysService } from './keys/bot-keys.service.js';
+import { loadMcpSecrets, MCP_SECRETS } from './mcp.config.js';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([ExternalBot, BotExchange])],
+  controllers: [AdminBotsController],
+  providers: [
+    // Si falta MCP_KEY_PEPPER o BOT_KEY_ENCRYPTION_KEY (o son inválidos) la API NO arranca.
+    { provide: MCP_SECRETS, useFactory: () => loadMcpSecrets() },
+    BotKeysService,
+  ],
+  exports: [BotKeysService, MCP_SECRETS],
+})
+export class McpModule {}

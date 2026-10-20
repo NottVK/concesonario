@@ -15,6 +15,7 @@ import { ClientesModule } from './clientes/clientes.module.js';
 import { buildDataSourceOptions } from './database/db.config.js';
 import { FinanciacionModule } from './financiacion/financiacion.module.js';
 import { MarcasModule } from './marcas/marcas.module.js';
+import { McpModule } from './mcp/mcp.module.js';
 import { MetricasModule } from './metricas/metricas.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
 import { VehiculosModule } from './vehiculos/vehiculos.module.js';
@@ -40,6 +41,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     VentasModule,
     MetricasModule,
     ChatModule,
+    McpModule,
     A2aModule,
   ],
   // El orden importa: primero el límite de peticiones, luego autenticación, luego roles.

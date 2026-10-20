@@ -49,7 +49,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 35 operaciones de la API', () => {
+  it('documenta exactamente las 39 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
@@ -57,6 +57,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'DELETE /api/chat/sesion',
       'DELETE /api/marcas/{id}',
       'DELETE /api/vehiculos/{id}',
+      'GET /api/admin/bots',
       'GET /api/admin/metricas/resumen',
       'GET /api/admin/metricas/stock-por-marca',
       'GET /api/admin/metricas/ventas-por-mes',
@@ -76,7 +77,10 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/vehiculos/{id}/disponibilidad',
       'GET /api/ventas',
       'GET /api/ventas/{id}',
+      'PATCH /api/admin/bots/{id}',
       'PATCH /api/citas/{id}/estado',
+      'POST /api/admin/bots',
+      'POST /api/admin/bots/{id}/rotar-clave',
       'POST /api/auth/login',
       'POST /api/chat',
       'POST /api/chat/citas/confirmar',
@@ -118,7 +122,8 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       ['patch', '/api/citas/{id}/estado'], ['post', '/api/ventas'], ['get', '/api/ventas'],
       ['get', '/api/ventas/{id}'], ['get', '/api/admin/metricas/resumen'],
       ['get', '/api/admin/metricas/ventas-por-mes'], ['get', '/api/admin/metricas/stock-por-marca'],
-      ['get', '/api/admin/vehiculos'],
+      ['get', '/api/admin/vehiculos'], ['get', '/api/admin/bots'], ['post', '/api/admin/bots'],
+      ['post', '/api/admin/bots/{id}/rotar-clave'], ['patch', '/api/admin/bots/{id}'],
     ];
     for (const [method, path] of publicRoutes) expect(operation(method, path).security, `${method} ${path}`).toBeUndefined();
     for (const [method, path] of privateRoutes) expect(operation(method, path).security, `${method} ${path}`).toBeDefined();

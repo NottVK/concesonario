@@ -14,8 +14,10 @@
 
 **Fase 3 (frontend):** catálogo, detalle con simulador y test-drive, home, comparador y panel completo (login/sesión, citas, clientes, registrar venta, y solo admin: métricas, inventario con control de ediciones simultáneas e historial de ventas). Dos revisiones cruzadas con Codex aplicadas; smoke de Playwright con tres flujos. Detalle y cierre en `docs/DECISIONES.md`.
 
+**Fase 4 (chatbot) — ABIERTA:** está construido todo lo que rodea al modelo y probado con el proveedor simulado (proveedor `ollama`/`groq`/`mock`, sesiones, límites, validador de montos, tools, agendar con confirmación, búsqueda semántica con `nomic-embed-text`, widget flotante, arnés de evaluación en `chatbot/eval/`, guía `docs/GUIA-IA-COMPANEROS.md`). **La Fase 4 queda ABIERTA hasta que las 20 preguntas pasen R1 a R4 con 20 de 20 usando un modelo real** (Groq o el de los compañeros). Con el simulado solo se prueba la lógica. Pendientes: correr esa evaluación, iterar el prompt, medir `qwen2.5:7b` con la puerta del paso 1 y la revisión cruzada con Codex. Detalle en `docs/PLAN-FASE-4.md` y decisiones 79 a 94.
+
 ## Qué sigue
-La Fase 3 está cerrada. Sigue la Fase 4: el chatbot local con Ollama y sus tools, que llamarán a la API (nunca a la base directamente). Los e2e formales de navegador, las imágenes reales y el pulido visual quedan para la Fase 7.
+La Fase 3 está cerrada y la Fase 4 sigue abierta (ver arriba). Se empieza a planear la Fase 5 (servidor MCP) **solo como plan, sin código hasta que se apruebe**; no cierra la Fase 4. Los e2e formales de navegador, las imágenes reales y el pulido visual quedan para la Fase 7.
 
 ## Ramas
 `main` (integración) y una rama por integrante: `devKevin`, `devVioleta`, `devEmerson`, `devCarlos`.

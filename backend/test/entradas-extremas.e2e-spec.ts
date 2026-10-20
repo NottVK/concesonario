@@ -241,6 +241,18 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       expectNoFailures();
     }, 180_000);
 
+    it('POST y PATCH /admin/bots (admin): las keys nunca aparecen en un error', async () => {
+      const created = (await request(ctx.server).post('/api/admin/bots').set(auth(adminToken)).send({ name: 'Bot Fuzz Base' })).body as { bot: { id: number } };
+      const tasks = [
+        ...bodyTasks('POST /admin/bots', { name: 'Bot Fuzz' }, ['name', 'url', 'limitPerMinute', 'limitPerDay', 'outboundApiKey'],
+          (body) => request(ctx.server).post('/api/admin/bots').set(auth(adminToken)).send(body as object)),
+        ...bodyTasks('PATCH /admin/bots/:id', { active: true }, ['active', 'url', 'limitPerMinute', 'limitPerDay', 'outboundApiKey'],
+          (body) => request(ctx.server).patch(`/api/admin/bots/${created.bot.id}`).set(auth(adminToken)).send(body as object)),
+      ];
+      await runAll(tasks);
+      expectNoFailures();
+    }, 180_000);
+
     it('POST /vehiculos y POST /marcas (admin)', async () => {
       const tasks = [
         ...bodyTasks('POST /vehiculos', validVehicle(), ['brandId', 'model', 'year', 'version', 'price', 'mileage', 'fuel', 'transmission', 'color', 'status', 'description', 'images'],
@@ -295,7 +307,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
       const covered = new Set([
         'POST /api/citas', 'POST /api/financiacion/simular', 'POST /api/clientes', 'POST /api/vehiculos', 'POST /api/marcas',
         'POST /api/ventas', 'POST /api/auth/login', 'PUT /api/vehiculos/{id}', 'PUT /api/marcas/{id}', 'PUT /api/clientes/{id}',
-        'PATCH /api/citas/{id}/estado', 'POST /api/chat', 'POST /api/chat/citas/confirmar',
+        'PATCH /api/citas/{id}/estado', 'POST /api/chat', 'POST /api/chat/citas/confirmar', 'POST /api/admin/bots', 'PATCH /api/admin/bots/{id}',
       ]);
       const withBody = operations().filter(({ op }) => op.requestBody).map(({ method, path }) => `${method} ${path}`);
       const missing = withBody.filter((key) => !covered.has(key));
