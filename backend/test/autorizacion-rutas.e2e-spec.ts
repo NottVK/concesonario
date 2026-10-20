@@ -166,7 +166,8 @@ describe('Autorización de todas las rutas (e2e)', () => {
 
   describe('rutas públicas', () => {
     it('no piden token (excepto el login, que responde 401 por credenciales)', async () => {
-      for (const route of routes.filter((r) => r.isPublic && r.label !== 'POST /api/auth/login')) {
+      // El login y el MCP tienen su propia autenticación (credenciales / key de bot) y responden 401 sin ella.
+      for (const route of routes.filter((r) => r.isPublic && r.label !== 'POST /api/auth/login' && r.label !== 'POST /api/mcp')) {
         const status = (await call(route)).status;
         expect([401, 403], `${route.label} -> ${status}`).not.toContain(status);
       }
@@ -176,7 +177,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
         'GET /api/marcas', 'GET /api/marcas/:id', 'GET /api/vehiculos', 'GET /api/vehiculos/:id',
         'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'GET /api/vehiculos/buscar', 'POST /api/auth/login',
         'POST /api/citas', 'POST /api/clientes', 'POST /api/financiacion/simular',
-        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado',
+        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'POST /api/mcp',
       ].sort());
     });
   });

@@ -4,6 +4,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { BodyShapePipe } from './common/body-shape.pipe.js';
 import { DbExceptionFilter } from './common/db-exception.filter.js';
+import { applyMcpHttpRules } from './mcp/mcp-http.js';
 
 /** Ruta de la documentación interactiva; el JSON queda en `${DOCS_PATH}-json`. */
 export const DOCS_PATH = 'api/docs';
@@ -26,6 +27,8 @@ function setupSwagger(app: INestApplication): void {
 /** Configuración compartida entre main.ts y las pruebas e2e. */
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix('api');
+  // Antes que cualquier parser: el cuerpo del MCP lo lee su propio servidor, con tope, después de autenticar.
+  applyMcpHttpRules(app);
   app.useGlobalPipes(
     new BodyShapePipe(),
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
