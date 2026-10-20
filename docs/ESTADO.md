@@ -12,8 +12,10 @@
 - Contrato de la API unificado en inglés y documentado con Swagger en `/api/docs`.
 - Pruebas: unitarias y e2e (Supertest) contra BD real, incluida una que fija el contrato OpenAPI; detalle en `backend/README.md`.
 
+**Fase 3 (frontend):** catálogo, detalle con simulador y test-drive, home, comparador y panel completo (login/sesión, citas, clientes, registrar venta, y solo admin: métricas, inventario con control de ediciones simultáneas e historial de ventas). Dos revisiones cruzadas con Codex aplicadas; smoke de Playwright con tres flujos. Detalle y cierre en `docs/DECISIONES.md`.
+
 ## Qué sigue
-La revisión cruzada con Codex de la Fase 2 ya se aplicó (detalle en `docs/DECISIONES.md`). Sigue la Fase 3 (frontend), que consumirá el contrato de `/api/docs`.
+La Fase 3 está cerrada. Sigue la Fase 4: el chatbot local con Ollama y sus tools, que llamarán a la API (nunca a la base directamente). Los e2e formales de navegador, las imágenes reales y el pulido visual quedan para la Fase 7.
 
 ## Ramas
 `main` (integración) y una rama por integrante: `devKevin`, `devVioleta`, `devEmerson`, `devCarlos`.

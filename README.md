@@ -7,7 +7,7 @@ Plataforma de concesionario con API, base de datos y un chatbot local (Ollama). 
 
 - Fase 2 lista: API REST con JWT, pruebas e2e y Swagger en `/api/docs`.
 - Backend del panel listo: disponibilidad de test-drive, métricas y listado admin (ver Swagger en `/api/docs`).
-- Fase 3 en curso: frontend (listos: base, tema, cliente API tipado y Catálogo con filtros y Detalle con simulador de crédito y agendar test-drive con horas ocupadas, Home, Comparador y panel: login, sesión, citas, clientes, registrar venta, y solo admin: métricas, inventario con control de ediciones simultáneas e historial de ventas).
+- Fase 3 lista: frontend completo. Catálogo con filtros, detalle con simulador de crédito y agendar test-drive (horas ocupadas, hora de Bogotá), home y comparador. Panel con login y sesión: citas, clientes, registrar venta y, solo admin, métricas, inventario (control de ediciones simultáneas) e historial de ventas. Pruebas: 560 de frontend, 171 unitarias y 238 e2e de backend, y un smoke de Playwright. Detalle en `docs/DECISIONES.md`.
 
 ## Arranque rápido
 ```bash
@@ -19,6 +19,20 @@ npm run migration:run           # crea las tablas
 npm run seed                    # carga marcas, vehículos y usuarios demo
 npm run start:dev               # API en http://localhost:8000/api
 ```
+
+## Smoke de navegador (Playwright)
+Tres flujos: catálogo → detalle → agendar cita; login admin → confirmar la cita; login vendedor → registrar una venta. Corre contra una API y un Vite ya encendidos sobre una **base temporal** (no la de desarrollo) y no lee `.env`: la contraseña demo se pasa en el comando.
+```bash
+# 1) base temporal y API (sintaxis bash; DB_NAME y la contraseña van en el comando)
+DB_NAME=tmp_smoke SEED_DEMO_PASSWORD=<clave-temporal> npm --prefix backend run migration:run
+DB_NAME=tmp_smoke SEED_DEMO_PASSWORD=<clave-temporal> npm --prefix backend run seed
+DB_NAME=tmp_smoke PORT=8010 FRONTEND_URL=http://localhost:5174 node backend/dist/main.js
+# 2) Vite apuntando a esa API, y el smoke
+cd frontend && VITE_API_TARGET=http://localhost:8010 npx vite --port 5174 --strictPort
+E2E_PASSWORD=<clave-temporal> E2E_BASE_URL=http://localhost:5174 npm run e2e:smoke
+# 3) al terminar, borra la base temporal (DROP DATABASE tmp_smoke)
+```
+Los e2e formales completos llegan en la Fase 7.
 
 ## Recrear la base de desarrollo (cuando cambia el seed)
 El seed es idempotente: en una base que ya tiene vehículos **actualiza** datos de catálogo pero **no renumera los ids**. Por eso un cambio en el orden de inserción (por ejemplo el intercalado de marcas, que reparte entre marcas los "más recientes" que muestra la Home) solo se ve en una base nueva:

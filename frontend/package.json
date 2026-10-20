@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e:smoke": "playwright test",
     "api:types": "openapi-typescript http://localhost:8000/api/docs-json -o src/api/schema.d.ts",
     "clean": "rimraf dist node_modules/.tmp"
   },

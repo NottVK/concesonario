@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       globals: true,
       css: false,
+      // El smoke de Playwright (e2e/) lo ejecuta `npm run e2e:smoke`, no Vitest.
+      exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
       // Con 23 archivos en paralelo el formulario de citas (jsdom + <dialog>) pasaba de 5 s en equipos lentos.
       testTimeout: 15_000,
       // Los archivos de pruebas son pesados (jsdom): con todos los núcleos el equipo se satura y salen fallos por tiempo.
