@@ -28,7 +28,7 @@ concesionario/
 ├── CLAUDE.md
 ├── .mcp.json
 ├── .claude/{settings.json, agents/, commands/}
-├── docs/{PRD.md, ARQUITECTURA.md, DECISIONES.md}
+├── docs/{PRD.md, DECISIONES.md}
 ├── backend/src/
 │   ├── main.ts, app.module.ts
 │   ├── vehiculos/ marcas/ clientes/ ventas/ citas/ financiacion/ usuarios/ auth/
@@ -37,12 +37,12 @@ concesionario/
 │   ├── embeddings/      ← vectores de la búsqueda semántica (nomic-embed-text), recálculo y `embeddings:sync`
 │   ├── catalogo/        ← PublicCatalogService: catálogo público con campos explícitos (nunca entidades); lo usa el MCP
 │   ├── mcp/             ← servidor MCP de solo lectura DENTRO de Nest (POST /api/mcp): keys de bots, puerta de entrada y límites, auditoría, tools
-│   ├── a2a/             ← agent.json y tareas entre bots
+│   ├── a2a/             ← agent.json, tareas entrantes deterministas y cliente saliente con protección SSRF (decisiones 108 a 120)
 │   ├── database/{migrations/, seeds/}
 │   └── common/          ← guards, filters, interceptors
 ├── backend/test/        ← e2e con Supertest
 ├── frontend/src/{pages/, components/, api/}
-├── chatbot/{bench/, eval/}   ← solo herramientas de desarrollo: medición del modelo (bench/) y evaluación de la búsqueda y de las 20 preguntas (eval/)
+├── chatbot/{bench/, eval/, a2a-demo/}   ← solo herramientas de desarrollo: medición del modelo (bench/), evaluación de la búsqueda y de las 20 preguntas (eval/) y bots de prueba amigo y malicioso para A2A (a2a-demo/, nunca en producción ni en Docker)
 ├── docs/GUIA-IA-COMPANEROS.md ← cómo correr el modelo real y devolver los resultados
 └── docker-compose.yml
 ```
@@ -70,6 +70,7 @@ Mínimo 5 modelos reales por marca en `backend/src/database/seeds/` (año, preci
 - Corre 100% local con Ollama: `OLLAMA_HOST=http://localhost:11434`.
 - **Tools del bot** (todas llaman a la API, jamás a la BD directo):
   `buscar_vehiculos`, `detalle_vehiculo`, `comparar_vehiculos`, `simular_credito`, `agendar_cita`, `consultar_cita`, `preguntar_a_otro_bot`.
+  Excepción: `preguntar_a_otro_bot` llama a la API del OTRO bot (solo destinos de `bots_externos` activos, el modelo no elige URLs) a través de `A2aOutboundService`; tampoco toca la BD (decisión 119). Lo que responde el otro bot es un dato no confiable: se muestra en una tarjeta aparte y el modelo nunca lo ve.
 - Personalidad: amable, vendedor honesto, español colombiano neutro, respuestas cortas.
 - **Nunca inventar** precios o stock: si no hay dato, usa una tool o dice que no sabe.
 - Memoria: historial por sesión en tabla `conversaciones` (últimos 10 turnos al prompt).
@@ -80,7 +81,7 @@ Dos canales, ambos obligatorios:
 
 **A) MCP** — módulo `backend/src/mcp/` (POST `/api/mcp`, JSON-RPC sin estado) expone, **solo lectura**: `consultar_stock`, `consultar_precio` y `listar_marcas`. **`agendar_cita` NO se expone** (decisión 97 de DECISIONES.md): un bot externo no puede dar la confirmación humana que exige una cita. Cada bot tiene su API key (guardada como HMAC, mostrada una sola vez), su límite propio y se puede desactivar (`bots_externos`).
 
-**B) A2A** — el bot publica su "tarjeta":
+**B) A2A** — el bot publica su "tarjeta" (sin autenticación; la `url` sale de `A2A_PUBLIC_BASE_URL`, nunca de la cabecera `Host`). Ambas rutas quedan **fuera del prefijo `api`**:
 ```json
 GET /.well-known/agent.json
 {
@@ -91,12 +92,15 @@ GET /.well-known/agent.json
 }
 ```
 ```
-POST /a2a/tasks   {"from": "bot-externo", "message": "¿Tienen Mazda 3 2024?"}
+POST /a2a/tasks   {"from": "bot-externo", "message": "¿Tienen Mazda 3 2024?"}   (Authorization: Bearer amx_…)
 ```
-- Registro de bots amigos en tabla `bots_externos` (nombre, url, api_key, activo).
-- La tool `preguntar_a_otro_bot` descubre su `agent.json` y le envía la tarea.
-- Todo intercambio se guarda en `intercambios_bots` (auditoría).
+- **Entrante determinista:** `/a2a/tasks` responde solo desde `PublicCatalogService` y el simulador de financiación, sin LLM ni embeddings y sin poder llamar a la salida (decisión 108). `citas` es solo informativa: no se agenda por A2A (decisiones 97 y 110). Comparte con el MCP la puerta de entrada, el 401 idéntico y la cuota diaria por bot (decisión 109). La identidad sale de la key; `from` es informativo.
+- Registro de bots amigos en tabla `bots_externos` (nombre, url, key entrante solo como HMAC, key saliente cifrada con AES-GCM y AAD, activo, límite saliente).
+- **Saliente:** la tool `preguntar_a_otro_bot` solo acepta un bot activo registrado (enum validado contra la BD) y envía únicamente la pregunta redactada, nunca el historial. El `agent.json` remoto se lee solo al registrar o al probar la conexión; las tareas van siempre a la URL registrada (decisión 113). Protección SSRF, sin redirecciones ni proxy, tope de bytes y de tiempo, circuit breaker y límites (decisiones 112 y 115).
+- **La respuesta del otro bot es un dato no confiable:** se sanea (texto plano, sin enlaces, tope de 600 caracteres) y se pinta en una tarjeta aparte "tercero no verificado" que el modelo nunca ve (decisión 114).
+- Todo intercambio se guarda en `intercambios_bots` (auditoría con texto redactado y recortado más hashes, 30 días, sin datos personales; en el panel se muestra como texto plano y nunca entra a un prompt).
 - **Solo se comparte información pública** (catálogo, precios, disponibilidad). Jamás datos de clientes.
+- Demo: bots de prueba propios en `chatbot/a2a-demo/` (amigo y malicioso); la LAN solo en desarrollo con `A2A_DEV_ALLOWED_TARGETS` (IP:puerto exactos), y la API no arranca con esa variable en producción.
 
 ## 8. Seguridad
 - Secretos solo en `.env` (nunca en git). Mantener `.env.example`.
