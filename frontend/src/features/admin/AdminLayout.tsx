@@ -20,6 +20,7 @@ export const ADMIN_NAV: NavItem[] = [
   { to: '/admin/inventario', label: 'Inventario', roles: ['admin'] },
   { to: '/admin/citas', label: 'Citas', roles: ['admin', 'vendedor'] },
   { to: '/admin/clientes', label: 'Clientes', roles: ['admin', 'vendedor'] },
+  { to: '/admin/bots', label: 'Bots', roles: ['admin'] },
   { to: '/admin/ventas', label: 'Ventas', roles: ['admin'], end: true },
   { to: '/admin/ventas/nueva', label: 'Registrar venta', roles: ['admin', 'vendedor'] },
 ]

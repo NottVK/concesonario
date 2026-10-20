@@ -250,7 +250,9 @@ describe('Chat → preguntar_a_otro_bot → bots de prueba (e2e)', () => {
     });
 
     it('un destino prohibido registrado (metadata de la nube) se bloquea sin conectar y sin decir por qué', async () => {
-      await register('Bot Metadata', 'https://169.254.169.254/a2a', 'key-de-automax');
+      // El registro ya rechaza esta URL (6.7); se escribe directo para probar la defensa al llamar (una fila vieja o manipulada).
+      const id = await register('Bot Metadata', 'https://relleno.example.com/a2a');
+      await ctx.dataSource.getRepository(ExternalBot).update({ id }, { url: 'https://169.254.169.254/a2a' });
       const res = await chat({ message: 'Pregúntale a Bot Metadata sobre mi seguro' }).expect(200);
       expect(res.body.reply).toBe('Ese destino no está permitido.');
       expect(res.body.thirdParty).toBeNull();
@@ -258,8 +260,8 @@ describe('Chat → preguntar_a_otro_bot → bots de prueba (e2e)', () => {
     });
 
     it('sin la lista de desarrollo, ni siquiera los bots de prueba (127.0.0.1) son alcanzables', async () => {
-      delete process.env.A2A_DEV_ALLOWED_TARGETS;
       await register('SegurosYa Bot', bots.friend.url, bots.friend.key);
+      delete process.env.A2A_DEV_ALLOWED_TARGETS; // el bot ya estaba registrado; ahora la lista de desarrollo desaparece
       const res = await chat({ message: 'Pregúntale a SegurosYa Bot cuánto cuesta el SOAT' }).expect(200);
       expect(res.body.reply).toBe('Ese destino no está permitido.');
       expect(bots.friend.received).toHaveLength(0);

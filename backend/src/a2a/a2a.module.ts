@@ -6,6 +6,7 @@ import { RateWindow } from '../mcp/gateway/rate-window.js';
 import { OTHER_BOT_GATEWAY } from '../chat/tools/other-bot.js';
 import { McpModule } from '../mcp/mcp.module.js';
 import { A2A_CONFIG, loadA2aConfig } from './a2a.config.js';
+import { AdminA2aController } from './admin/admin-a2a.controller.js';
 import { A2aTasksController, AgentCardController } from './a2a.controller.js';
 import { ChatOtherBotGateway } from './chat-bridge/other-bot.gateway.js';
 import { BotExchange } from './entities/bot-exchange.entity.js';
@@ -27,7 +28,7 @@ import type { SettingsSource } from './outbound/target-policy.js';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([ExternalBot, BotExchange]), McpModule, CatalogoModule, FinanciacionModule],
-  controllers: [AgentCardController, A2aTasksController],
+  controllers: [AgentCardController, A2aTasksController, AdminA2aController],
   providers: [
     // Si A2A_PUBLIC_BASE_URL es inválida (o falta en producción) la API NO arranca.
     { provide: A2A_CONFIG, useFactory: () => loadA2aConfig() },

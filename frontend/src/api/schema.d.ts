@@ -497,6 +497,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/bots/{id}/probar-conexion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Probar la conexión con un bot (admin)
+         * @description Lee la tarjeta `/.well-known/agent.json` del origen registrado por el mismo cliente seguro de las consultas (política SSRF, sin redirecciones, tope de 4 KB y 8 s). Máximo 5 por minuto en total. Responde 200 aunque la prueba falle: `ok: false` con la categoría y un mensaje fijo, sin direcciones ni códigos de red. El nombre y la descripción que dice el bot son texto de un tercero, saneado.
+         */
+        post: operations["AdminA2aController_testConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/intercambios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Intercambios con otros bots (admin)
+         * @description Auditoría de lo que entra y sale por MCP y A2A, más recientes primero. Las preguntas y respuestas ya vienen redactadas y recortadas (canal a2a: 30 días; mcp: 90). Todo es TEXTO PLANO: la interfaz debe pintarlo como texto y nunca llega a un prompt.
+         */
+        get: operations["AdminA2aController_listExchanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/bots": {
         parameters: {
             query?: never;
@@ -1204,6 +1244,59 @@ export interface components {
             appointmentId: number;
             message: string;
         };
+        ConnectionTestDto: {
+            ok: boolean;
+            /**
+             * @description Categoría del fallo (solo si ok es false)
+             * @enum {string}
+             */
+            status?: "ok" | "error_validacion" | "error_interno" | "rechazado" | "timeout" | "error_remoto" | "bloqueado_ssrf" | "respuesta_invalida" | "circuito_abierto" | "limite";
+            /** @description Mensaje fijo del fallo (solo si ok es false) */
+            message?: string;
+            /** @description Nombre que dice tener el bot (texto de un tercero, saneado) */
+            name?: string;
+            /** @description Descripción que da el bot (texto de un tercero, saneado) */
+            description?: string;
+            skills?: string[];
+            /** @description true si la `url` de su tarjeta es de otro origen que la registrada (las tareas siguen yendo a la registrada) */
+            originMismatch?: boolean;
+            flags?: string[];
+        };
+        ExchangeViewDto: {
+            id: number;
+            botId: number;
+            botName: string;
+            /** @enum {string} */
+            direction: "saliente" | "entrante";
+            /** @enum {string} */
+            channel: "a2a" | "mcp";
+            /** @enum {string|null} */
+            status: "ok" | "error_validacion" | "error_interno" | "rechazado" | "timeout" | "error_remoto" | "bloqueado_ssrf" | "respuesta_invalida" | "circuito_abierto" | "limite" | null;
+            /** @description Pregunta redactada (canal a2a); texto plano */
+            question: string | null;
+            /** @description Respuesta saneada (canal a2a); texto plano de un TERCERO no verificado */
+            answer: string | null;
+            /** @description Herramienta (canal mcp) */
+            tool: string | null;
+            argsSummary: string | null;
+            /** Format: uuid */
+            requestId: string | null;
+            durationMs: number | null;
+            bytesIn: number | null;
+            bytesOut: number | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ExchangesMetaDto: {
+            page: number;
+            limit: number;
+            total: number;
+            pages: number;
+        };
+        ExchangesPageDto: {
+            data: components["schemas"]["ExchangeViewDto"][];
+            meta: components["schemas"]["ExchangesMetaDto"];
+        };
         BotViewDto: {
             id: number;
             name: string;
@@ -1221,6 +1314,13 @@ export interface components {
             keyRotatedAt: string | null;
             limitPerMinute: number;
             limitPerDay: number;
+            /**
+             * @description Cómo se autentica la llamada saliente de AutoMax a ese bot
+             * @enum {string}
+             */
+            outboundAuth: "bearer" | "x_api_key";
+            /** @description Máximo de consultas por minuto de AutoMax a ese bot */
+            outboundLimitPerMinute: number;
             /** Format: date-time */
             createdAt: string;
         };
@@ -1228,7 +1328,7 @@ export interface components {
             /** @example Concesionario Amigo */
             name: string;
             /**
-             * @description Solo si AutoMax también va a llamarlo (Fase 6)
+             * @description URL base A2A del bot (solo si AutoMax también va a llamarlo). Se valida contra la política SSRF: https, nombre público, sin credenciales ni parámetros
              * @example https://bot-amigo.example/a2a
              */
             url?: string;
@@ -1238,6 +1338,13 @@ export interface components {
             limitPerDay?: number;
             /** @description Key que AutoMax enviará a ese bot. Se guarda CIFRADA y nunca vuelve a mostrarse */
             outboundApiKey?: string;
+            /**
+             * @description Cómo envía AutoMax su key a ese bot: `Authorization: Bearer` o la cabecera `X-API-Key` (por defecto bearer)
+             * @enum {string}
+             */
+            outboundAuth?: "bearer" | "x_api_key";
+            /** @description Máximo de consultas por minuto de AutoMax a ese bot (por defecto 10) */
+            outboundLimitPerMinute?: number;
         };
         BotWithKeyDto: {
             bot: components["schemas"]["BotViewDto"];
@@ -1255,6 +1362,13 @@ export interface components {
             limitPerDay?: number;
             /** @description Cambia la key saliente (cifrada) o la quita con null */
             outboundApiKey?: string | null;
+            /**
+             * @description Cómo envía AutoMax su key a ese bot: `Authorization: Bearer` o la cabecera `X-API-Key` (por defecto bearer)
+             * @enum {string}
+             */
+            outboundAuth?: "bearer" | "x_api_key";
+            /** @description Máximo de consultas por minuto de AutoMax a ese bot (por defecto 10) */
+            outboundLimitPerMinute?: number;
         };
     };
     responses: never;
@@ -2397,6 +2511,67 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminA2aController_testConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Más de 5 pruebas en un minuto (también como `ok: false`, `status: limite`) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminA2aController_listExchanges: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+                /** @description Solo los intercambios de ese bot */
+                botId?: number;
+                channel?: "a2a" | "mcp";
+                direction?: "saliente" | "entrante";
+                status?: "ok" | "error_validacion" | "error_interno" | "rechazado" | "timeout" | "error_remoto" | "bloqueado_ssrf" | "respuesta_invalida" | "circuito_abierto" | "limite";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangesPageDto"];
+                };
             };
         };
     };

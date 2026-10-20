@@ -53,6 +53,8 @@ const failure = (requestId: string, status: ExchangeStatus): OutboundResult => (
 @Injectable()
 export class A2aOutboundService {
   private readonly logger = new Logger(A2aOutboundService.name);
+  /** Última URL vista de cada bot: si el administrador la cambia, el historial de fallos del destino anterior no cuenta. */
+  private readonly urlsSeen = new Map<number, string>();
 
   constructor(
     @InjectRepository(ExternalBot) private readonly bots: Repository<ExternalBot>,
@@ -66,6 +68,7 @@ export class A2aOutboundService {
     const started = performance.now();
     const bot = await this.loadBot(input.botId);
     if (!bot) return failure(requestId, ExchangeStatus.REJECTED);
+    this.forgetIfMoved(bot);
     const done = (status: ExchangeStatus, question: string, answer: string | null, bytesIn = 0, bytesOut = 0): Promise<void> =>
       this.record(bot, requestId, question, answer, status, performance.now() - started, bytesIn, bytesOut);
 
@@ -167,6 +170,13 @@ export class A2aOutboundService {
       const fault = this.toFailure(error, botId);
       return { ok: false, status: fault.status, message: PUBLIC_MESSAGES[fault.status]! };
     }
+  }
+
+  private forgetIfMoved(bot: ExternalBot): void {
+    if (!bot.url) return;
+    const before = this.urlsSeen.get(bot.id);
+    if (before !== undefined && before !== bot.url) this.runtime.breaker.reset(bot.id);
+    this.urlsSeen.set(bot.id, bot.url);
   }
 
   /** Olvida el estado en memoria de un bot (el panel lo llama si cambia su URL: el historial del destino anterior no cuenta). */

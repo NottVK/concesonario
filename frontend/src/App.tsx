@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/auth/AuthContext'
 import { RequireRole } from '@/auth/guards'
 import { Layout } from '@/components/Layout'
 import { AdminLayout } from '@/features/admin/AdminLayout'
+import { BotsPage } from '@/features/admin/bots/BotsPage'
 import { CitasPage } from '@/features/admin/citas/CitasPage'
 import { ClientesPage } from '@/features/admin/clientes/ClientesPage'
 import { InventarioPage } from '@/features/admin/inventario/InventarioPage'
@@ -66,6 +67,14 @@ export default function App() {
                   element={
                     <RequireRole roles={['admin']}>
                       <InventarioPage />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="bots"
+                  element={
+                    <RequireRole roles={['admin']}>
+                      <BotsPage />
                     </RequireRole>
                   }
                 />

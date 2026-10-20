@@ -211,7 +211,8 @@ describe('Fase 6.2: auditoría a2a y key saliente enc:v2 (e2e)', () => {
       const moved = await patch(id, { url: 'https://bot-b.example.com/a2a' }).expect(200);
       expect(moved.body.hasOutboundKey).toBe(false);
       expect(await storedKey(id)).toBeNull();
-      for (const other of ['http://bot-b.example.com/a2a', 'https://bot-b.example.com:8443/a2a']) {
+      // (El cambio de esquema http/https ya no se puede hacer por la API —el registro exige https—; está cubierto en la prueba unitaria del AAD.)
+      for (const other of ['https://sub.bot-b.example.com/a2a', 'https://bot-b.example.com:8443/a2a']) {
         await patch(id, { outboundApiKey: 'clave-saliente-007' }).expect(200);
         const res = await patch(id, { url: other }).expect(200);
         expect(res.body.hasOutboundKey, other).toBe(false);

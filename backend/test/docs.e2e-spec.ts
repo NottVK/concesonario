@@ -49,7 +49,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 42 operaciones de la API', () => {
+  it('documenta exactamente las 44 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
@@ -59,6 +59,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'DELETE /api/vehiculos/{id}',
       'GET /.well-known/agent.json',
       'GET /api/admin/bots',
+      'GET /api/admin/intercambios',
       'GET /api/admin/metricas/resumen',
       'GET /api/admin/metricas/stock-por-marca',
       'GET /api/admin/metricas/ventas-por-mes',
@@ -82,6 +83,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'PATCH /api/citas/{id}/estado',
       'POST /a2a/tasks',
       'POST /api/admin/bots',
+      'POST /api/admin/bots/{id}/probar-conexion',
       'POST /api/admin/bots/{id}/rotar-clave',
       'POST /api/auth/login',
       'POST /api/chat',

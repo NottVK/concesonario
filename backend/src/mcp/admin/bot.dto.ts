@@ -1,11 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { MCP_DEFAULTS } from '../mcp.config.js';
 
 const [MIN_PER_MINUTE, MAX_PER_MINUTE] = MCP_DEFAULTS.botPerMinuteRange;
 const [MIN_PER_DAY, MAX_PER_DAY] = MCP_DEFAULTS.botPerDayRange;
 const URL_OPTIONS = { protocols: ['https', 'http'], require_protocol: true, require_tld: false };
+
+const OUTBOUND_AUTH = ['bearer', 'x_api_key'] as const;
+const MAX_OUTBOUND_PER_MINUTE = 60;
 
 /** Una key saliente son caracteres ASCII imprimibles sin espacios (se envía en una cabecera). */
 const OUTBOUND_KEY = /^[\x21-\x7E]{8,200}$/;
@@ -16,7 +19,7 @@ export class CreateBotDto {
   @Matches(/^[\p{L}\p{N}][\p{L}\p{N} ._-]{1,79}$/u, { message: 'name: de 2 a 80 caracteres (letras, números, espacio, punto, guion)' })
   name: string;
 
-  @ApiPropertyOptional({ example: 'https://bot-amigo.example/a2a', description: 'Solo si AutoMax también va a llamarlo (Fase 6)' })
+  @ApiPropertyOptional({ example: 'https://bot-amigo.example/a2a', description: 'URL base A2A del bot (solo si AutoMax también va a llamarlo). Se valida contra la política SSRF: https, nombre público, sin credenciales ni parámetros' })
   @ValidateIf((_, value) => value !== undefined)
   @IsUrl(URL_OPTIONS, { message: 'url debe ser una dirección http(s) completa' })
   @MaxLength(255)
@@ -42,6 +45,19 @@ export class CreateBotDto {
   @ValidateIf((_, value) => value !== undefined)
   @Matches(OUTBOUND_KEY, { message: 'outboundApiKey: de 8 a 200 caracteres ASCII imprimibles, sin espacios' })
   outboundApiKey?: string;
+
+  @ApiPropertyOptional({ enum: OUTBOUND_AUTH, description: 'Cómo envía AutoMax su key a ese bot: `Authorization: Bearer` o la cabecera `X-API-Key` (por defecto bearer)' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsIn(OUTBOUND_AUTH, { message: 'outboundAuth debe ser bearer o x_api_key' })
+  outboundAuth?: 'bearer' | 'x_api_key';
+
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_OUTBOUND_PER_MINUTE, description: 'Máximo de consultas por minuto de AutoMax a ese bot (por defecto 10)' })
+  @ValidateIf((_, value) => value !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(MAX_OUTBOUND_PER_MINUTE)
+  outboundLimitPerMinute?: number;
 }
 
 export class UpdateBotDto {
@@ -78,6 +94,19 @@ export class UpdateBotDto {
   @ValidateIf((_, value) => value !== null)
   @Matches(OUTBOUND_KEY, { message: 'outboundApiKey: de 8 a 200 caracteres ASCII imprimibles, sin espacios' })
   outboundApiKey?: string | null;
+
+  @ApiPropertyOptional({ enum: OUTBOUND_AUTH, description: 'Cómo envía AutoMax su key a ese bot: `Authorization: Bearer` o la cabecera `X-API-Key` (por defecto bearer)' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsIn(OUTBOUND_AUTH, { message: 'outboundAuth debe ser bearer o x_api_key' })
+  outboundAuth?: 'bearer' | 'x_api_key';
+
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_OUTBOUND_PER_MINUTE, description: 'Máximo de consultas por minuto de AutoMax a ese bot (por defecto 10)' })
+  @ValidateIf((_, value) => value !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(MAX_OUTBOUND_PER_MINUTE)
+  outboundLimitPerMinute?: number;
 }
 
 /** Lo que se ve de un bot: nunca el hash, el pepper ni la key saliente. */
@@ -93,6 +122,8 @@ export class BotViewDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) keyRotatedAt: Date | null;
   @ApiProperty() limitPerMinute: number;
   @ApiProperty() limitPerDay: number;
+  @ApiProperty({ enum: OUTBOUND_AUTH, description: 'Cómo se autentica la llamada saliente de AutoMax a ese bot' }) outboundAuth: string;
+  @ApiProperty({ description: 'Máximo de consultas por minuto de AutoMax a ese bot' }) outboundLimitPerMinute: number;
   @ApiProperty({ type: String, format: 'date-time' }) createdAt: Date;
 }
 

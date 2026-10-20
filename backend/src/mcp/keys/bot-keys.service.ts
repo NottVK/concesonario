@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Like, QueryFailedError, Repository } from 'typeorm';
 import { ExternalBot } from '../../a2a/entities/external-bot.entity.js';
+import { registeredUrlProblem } from '../../a2a/outbound/registered-url.js';
 import { MCP_SECRETS } from '../mcp.config.js';
 import type { McpSecrets } from '../mcp.config.js';
 import { originOf, SecretBox } from './secret-box.js';
@@ -30,6 +31,10 @@ export interface BotView {
   keyRotatedAt: Date | null;
   limitPerMinute: number;
   limitPerDay: number;
+  /** Cómo se autentica NUESTRA llamada saliente. */
+  outboundAuth: 'bearer' | 'x_api_key';
+  /** Máximo de llamadas salientes por minuto a este bot. */
+  outboundLimitPerMinute: number;
   createdAt: Date;
 }
 
@@ -39,6 +44,8 @@ export interface CreateBotInput {
   limitPerMinute?: number;
   limitPerDay?: number;
   outboundApiKey?: string;
+  outboundAuth?: 'bearer' | 'x_api_key';
+  outboundLimitPerMinute?: number;
 }
 
 export interface UpdateBotInput {
@@ -47,6 +54,8 @@ export interface UpdateBotInput {
   limitPerMinute?: number;
   limitPerDay?: number;
   outboundApiKey?: string | null;
+  outboundAuth?: 'bearer' | 'x_api_key';
+  outboundLimitPerMinute?: number;
 }
 
 export type VerifyResult =
@@ -55,7 +64,7 @@ export type VerifyResult =
 
 const VIEW_COLUMNS = {
   id: true, name: true, url: true, active: true, keyPrefix: true, keyHash: true, outboundApiKey: true,
-  lastUsedAt: true, keyRotatedAt: true, limitPerMinute: true, limitPerDay: true, createdAt: true,
+  lastUsedAt: true, keyRotatedAt: true, limitPerMinute: true, limitPerDay: true, outboundAuth: true, outboundLimitPerMinute: true, createdAt: true,
 } as const;
 
 function isUniqueViolation(error: unknown, constraint?: string): boolean {
@@ -133,6 +142,7 @@ export class BotKeysService implements OnModuleInit {
 
   async create(input: CreateBotInput): Promise<{ bot: BotView; apiKey: string }> {
     if (input.outboundApiKey && !input.url) throw new BadRequestException('La key saliente exige la url del bot (queda atada a su origen)');
+    this.assertUrlAllowed(input.url);
     for (let attempt = 0; attempt < PREFIX_RETRIES; attempt++) {
       const { key, prefix } = BotKeysService.generate();
       try {
@@ -150,6 +160,8 @@ export class BotKeysService implements OnModuleInit {
               keyRotatedAt: new Date(),
               ...(input.limitPerMinute ? { limitPerMinute: input.limitPerMinute } : {}),
               ...(input.limitPerDay ? { limitPerDay: input.limitPerDay } : {}),
+              ...(input.outboundAuth ? { outboundAuth: input.outboundAuth } : {}),
+              ...(input.outboundLimitPerMinute ? { outboundLimitPerMinute: input.outboundLimitPerMinute } : {}),
             }),
           );
           // El AAD lleva el id de la fila, que solo existe después de guardar: la key saliente se cifra en este segundo paso.
@@ -192,15 +204,25 @@ export class BotKeysService implements OnModuleInit {
 
   async update(id: number, input: UpdateBotInput): Promise<BotView> {
     await this.view(id);
+    this.assertUrlAllowed(input.url);
     const patch: Partial<ExternalBot> = {
       ...(input.active === undefined ? {} : { active: input.active }),
       ...(input.url === undefined ? {} : { url: input.url }),
       ...(input.limitPerMinute === undefined ? {} : { limitPerMinute: input.limitPerMinute }),
       ...(input.limitPerDay === undefined ? {} : { limitPerDay: input.limitPerDay }),
+      ...(input.outboundAuth === undefined ? {} : { outboundAuth: input.outboundAuth }),
+      ...(input.outboundLimitPerMinute === undefined ? {} : { outboundLimitPerMinute: input.outboundLimitPerMinute }),
       ...(await this.outboundKeyPatch(id, input)),
     };
     if (Object.keys(patch).length > 0) await this.bots.update({ id }, patch);
     return this.view(id);
+  }
+
+  /** La URL de un bot se valida contra la política SSRF al registrarla o cambiarla (sin DNS: eso se hace en cada llamada). */
+  private assertUrlAllowed(url: string | null | undefined): void {
+    if (typeof url !== 'string') return;
+    const problem = registeredUrlProblem(url);
+    if (problem) throw new BadRequestException(`url no permitida: ${problem}`);
   }
 
   /**
@@ -281,6 +303,8 @@ export class BotKeysService implements OnModuleInit {
       keyRotatedAt: row.keyRotatedAt,
       limitPerMinute: row.limitPerMinute,
       limitPerDay: row.limitPerDay,
+      outboundAuth: row.outboundAuth,
+      outboundLimitPerMinute: row.outboundLimitPerMinute,
       createdAt: row.createdAt,
     };
   }

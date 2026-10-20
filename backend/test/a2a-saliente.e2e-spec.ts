@@ -45,7 +45,16 @@ describe('A2A saliente contra el bot amigo y el malicioso (e2e)', () => {
 
   const createBot = async (url: string | null, extra: { key?: string; auth?: 'bearer' | 'x_api_key'; perMinute?: number; active?: boolean } = {}): Promise<number> => {
     const name = `Bot de prueba ${++counter}`;
-    const created = await keys.create({ name, ...(url ? { url } : {}), ...(extra.key ? { outboundApiKey: extra.key } : {}) });
+    // El registro rechaza las URL que la política SSRF prohíbe (6.7). Para seguir probando la defensa AL LLAMAR (una fila vieja o manipulada
+    // en la base), esos casos se crean con una URL válida de relleno y se sobrescriben directo en la tabla (sin key: la key va atada al origen).
+    const created = await keys
+      .create({ name, ...(url ? { url } : {}), ...(extra.key ? { outboundApiKey: extra.key } : {}) })
+      .catch(async (error: unknown) => {
+        if (!url || (error as { status?: number }).status !== 400) throw error;
+        const placeholder = await keys.create({ name, url: 'https://relleno.example.com/a2a' });
+        await botsRepo.update({ id: placeholder.bot.id }, { url });
+        return placeholder;
+      });
     const patch: Partial<ExternalBot> = {
       ...(extra.auth ? { outboundAuth: extra.auth } : {}),
       ...(extra.perMinute ? { outboundLimitPerMinute: extra.perMinute } : {}),
@@ -202,10 +211,10 @@ describe('A2A saliente contra el bot amigo y el malicioso (e2e)', () => {
     });
 
     it('sin A2A_DEV_ALLOWED_TARGETS los bots de la LAN o de esta máquina están bloqueados (aunque sean los de prueba)', async () => {
-      delete process.env.A2A_DEV_ALLOWED_TARGETS;
       const injectionBefore = bots.malicious.hits.modes.injection ?? 0;
       const friend = await createBot(bots.friend.url, { key: bots.friend.key });
       const evil = await createBot(bots.malicious.urlFor('injection'));
+      delete process.env.A2A_DEV_ALLOWED_TARGETS; // los bots ya estaban registrados; ahora la lista de desarrollo desaparece
       for (const id of [friend, evil]) failed(await makeService().service.ask({ botId: id, question: '¿Hay SOAT?' }), ExchangeStatus.SSRF_BLOCKED);
       expect(bots.friend.received).toHaveLength(0);
       expect(bots.malicious.hits.modes.injection ?? 0).toBe(injectionBefore);
