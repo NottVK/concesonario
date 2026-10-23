@@ -14,7 +14,7 @@ describe('Límites reales del chat (e2e)', () => {
   const chat = (token?: string) => {
     const req = request(ctx.server).post('/api/chat');
     if (token) req.set('X-Chat-Session', token);
-    return req.send({ message: 'hola' });
+    return req.send({ message: 'cuéntame más' });
   };
 
   // Una app nueva por prueba: así cada una parte con los contadores por IP en cero.

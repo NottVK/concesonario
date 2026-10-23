@@ -52,7 +52,7 @@ describe('Marcas y vehículos (e2e)', () => {
       make(toyota.id, 'Corolla', 2022, '80000000', {}),
       make(toyota.id, 'Hilux', 2024, '210000000', { fuel: FuelType.DIESEL }),
       make(toyota.id, 'Yaris', 2020, '60000000', { status: VehicleStatus.USED, transmission: Transmission.MANUAL }),
-      make(kia.id, 'Sportage', 2023, '150000000', { fuel: FuelType.HYBRID }),
+      make(kia.id, 'Sportage', 2023, '150000000', { fuel: FuelType.HYBRID, color: 'Rojo' }),
       make(kia.id, 'Picanto', 2021, '50000000', { status: VehicleStatus.SOLD }),
     ]);
   });
@@ -122,6 +122,15 @@ describe('Marcas y vehículos (e2e)', () => {
       expect(models(await list('fuel=diesel'))).toEqual(['Hilux']);
       expect(models(await list('transmission=manual'))).toEqual(['Yaris']);
       expect(models(await list('status=usado'))).toEqual(['Yaris']);
+    });
+
+    it('filtra por color (texto contenido, sin distinguir mayúsculas) y valida el largo', async () => {
+      expect(models(await list('color=rojo'))).toEqual(['Sportage']);
+      expect(models(await list('color=ROJ'))).toEqual(['Sportage']);
+      expect(models(await list('color=gris'))).toEqual(['Corolla', 'Hilux', 'Yaris']);
+      expect(models(await list('color=morado'))).toEqual([]);
+      expect(models(await list('color=%25'))).toEqual([]);
+      await request(ctx.server).get(`/api/vehiculos?color=${'a'.repeat(31)}`).expect(400);
     });
 
     it('filtra por brand (nombre exacto, sin distinguir mayúsculas)', async () => {

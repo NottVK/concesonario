@@ -20,13 +20,26 @@ const SEARCH_SPEC: Record<string, Spec> = {
   yearMax: { kind: 'int', min: 1990, max: 2100 },
   priceMin: { kind: 'money' },
   priceMax: { kind: 'money' },
+  color: { kind: 'str', max: 30 },
   fuel: { kind: 'enum', values: FUELS },
   transmission: { kind: 'enum', values: TRANSMISSIONS },
   status: { kind: 'enum', values: ['nuevo', 'usado'] },
   sort: { kind: 'enum', values: SORTS },
 };
 
-const HARD_FILTERS = ['brand', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax', 'fuel', 'transmission', 'status'] as const;
+const HARD_FILTERS = ['brand', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax', 'color', 'fuel', 'transmission', 'status'] as const;
+
+/** Colores como los guarda el catálogo: «roja» → «rojo», «plateado» → «plata». El filtro es por texto contenido. */
+const COLOR_ALIASES: Record<string, string> = {
+  roja: 'rojo', blanca: 'blanco', negra: 'negro', amarilla: 'amarillo', morada: 'morado',
+  plateado: 'plata', plateada: 'plata', gris: 'gris', grises: 'gris', rojos: 'rojo', rojas: 'rojo',
+  blancos: 'blanco', blancas: 'blanco', negros: 'negro', negras: 'negro', azules: 'azul', verdes: 'verde',
+};
+
+export function normalizeColor(raw: string): string {
+  const value = raw.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return COLOR_ALIASES[value] ?? value;
+}
 
 interface VehiclePage {
   data: ApiVehicle[];
@@ -61,7 +74,7 @@ export const buscarVehiculos: ChatTool = {
   definition: {
     name: 'buscar_vehiculos',
     description:
-      'Busca vehículos DISPONIBLES del catálogo por marca, modelo, año, precio, combustible o transmisión. ' +
+      'Busca vehículos DISPONIBLES del catálogo por marca, modelo, año, precio, color, combustible o transmisión. ' +
       'Úsala siempre antes de dar precios, stock o ids. Si el cliente describe lo que quiere con palabras libres, usa query.',
     parameters: {
       type: 'object',
@@ -73,6 +86,7 @@ export const buscarVehiculos: ChatTool = {
         yearMax: { type: 'integer' },
         priceMin: { type: 'string', description: 'Precio mínimo en pesos colombianos, solo números' },
         priceMax: { type: 'string', description: 'Precio máximo en pesos colombianos, solo números' },
+        color: { type: 'string', description: 'Color en español, p. ej. rojo, azul, blanco, negro, gris, plata o verde. Úsalo siempre que el cliente pida un color' },
         fuel: { type: 'string', enum: [...FUELS] },
         transmission: { type: 'string', enum: [...TRANSMISSIONS] },
         status: { type: 'string', enum: ['nuevo', 'usado'] },
@@ -85,6 +99,7 @@ export const buscarVehiculos: ChatTool = {
     if (!parsed.ok) return toolError(parsed.error);
     const args = parsed.value as Record<string, string | number | undefined>;
     const query = typeof args.query === 'string' && args.query ? args.query : null;
+    if (typeof args.color === 'string') args.color = normalizeColor(args.color) || undefined;
 
     const params: Record<string, string | number | undefined> = { limit: query ? 50 : RESULT_LIMIT, page: 1, sort: args.sort ?? 'newest' };
     const hasHardFilters = HARD_FILTERS.some((key) => args[key] !== undefined);

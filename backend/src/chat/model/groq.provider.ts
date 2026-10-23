@@ -5,7 +5,7 @@ import { ProviderAbortedError, ProviderUnavailableError } from './model-provider
 import type { ChatMessage, ChatRequest, ChatResponse, ModelProvider, ToolCall } from './model-provider.js';
 
 const MAX_RATE_LIMIT_RETRIES = 3;
-/** Esperas más largas que esto no se aguardan: el turno tiene un tope de 90 s. */
+/** Esperas más largas que esto no se aguardan: el turno tiene un tope (CHAT_TURN_TIMEOUT_MS). */
 const MAX_RETRY_WAIT_MS = 20_000;
 
 /** Milisegundos a esperar si el error es un 429 con `Retry-After` razonable; null si no hay que reintentar. */

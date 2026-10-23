@@ -9,6 +9,11 @@ type Env = Record<string, string | undefined>;
 const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}$/;
 const KEEP_ALIVE = /^(-1|0|\d{1,4}[smh])$/;
 const CALL_TIMEOUT_MS = 60_000;
+/** Ollama: plazo por llamada. gpt-oss:20b razona antes de contestar y en frío tarda ~45 s en cargar. */
+const OLLAMA_DEFAULT_TIMEOUT_MS = 180_000;
+export const OLLAMA_DEFAULT_MODEL = 'gpt-oss:20b';
+const THINK_LEVELS = ['low', 'medium', 'high'] as const;
+export type ThinkLevel = (typeof THINK_LEVELS)[number];
 
 function parseProviderName(raw: string | undefined): ProviderName {
   const value = (raw ?? 'ollama').trim().toLowerCase();
@@ -39,7 +44,7 @@ function parseHost(raw: string | undefined): string {
 }
 
 function parseNumCtx(raw: string | undefined): number {
-  if (raw === undefined || raw.trim() === '') return 4096;
+  if (raw === undefined || raw.trim() === '') return 8192;
   const value = /^\d{3,5}$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
   if (!Number.isInteger(value) || value < 512 || value > 32_768) {
     throw new Error('OLLAMA_NUM_CTX debe ser un entero entre 512 y 32768');
@@ -50,6 +55,25 @@ function parseNumCtx(raw: string | undefined): number {
 function parseKeepAlive(raw: string | undefined): string {
   const value = raw?.trim() || '5m';
   if (!KEEP_ALIVE.test(value)) throw new Error('OLLAMA_KEEP_ALIVE debe ser como 5m, 30s, 1h, 0 o -1');
+  return value;
+}
+
+/** Nivel de razonamiento de los modelos que piensan (gpt-oss). Vacío = no se envía (lo decide Ollama). */
+function parseThink(raw: string | undefined): ThinkLevel | undefined {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (value === '') return undefined;
+  if (!(THINK_LEVELS as readonly string[]).includes(value)) {
+    throw new Error(`OLLAMA_THINK debe ser vacío o uno de: ${THINK_LEVELS.join(', ')}`);
+  }
+  return value as ThinkLevel;
+}
+
+function parseOllamaTimeout(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return OLLAMA_DEFAULT_TIMEOUT_MS;
+  const value = /^\d{4,6}$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+  if (!Number.isInteger(value) || value < 10_000 || value > 300_000) {
+    throw new Error('OLLAMA_TIMEOUT_MS debe ser un entero entre 10000 y 300000 (milisegundos)');
+  }
   return value;
 }
 
@@ -73,9 +97,10 @@ export function createModelProvider(env: Env = process.env): ModelProvider {
   }
   return new OllamaProvider({
     host: parseHost(env.OLLAMA_HOST),
-    model: parseModel(env.OLLAMA_MODEL, 'qwen2.5:7b', 'OLLAMA_MODEL'),
+    model: parseModel(env.OLLAMA_MODEL, OLLAMA_DEFAULT_MODEL, 'OLLAMA_MODEL'),
     numCtx: parseNumCtx(env.OLLAMA_NUM_CTX),
     keepAlive: parseKeepAlive(env.OLLAMA_KEEP_ALIVE),
-    timeoutMs: CALL_TIMEOUT_MS,
+    timeoutMs: parseOllamaTimeout(env.OLLAMA_TIMEOUT_MS),
+    think: parseThink(env.OLLAMA_THINK),
   });
 }

@@ -48,3 +48,15 @@ describe('límites del chat', () => {
     expect(chatMaxTurns()).toBe(60);
   });
 });
+
+describe('chatTurnTimeoutMs', () => {
+  it('240 s por defecto y valida el rango de 30 a 300 s', async () => {
+    const { chatTurnTimeoutMs, DEFAULT_CHAT_TURN_TIMEOUT_MS } = await import('./chat.config.js');
+    expect(chatTurnTimeoutMs(undefined)).toBe(DEFAULT_CHAT_TURN_TIMEOUT_MS);
+    expect(chatTurnTimeoutMs('')).toBe(240_000);
+    expect(chatTurnTimeoutMs('240000')).toBe(240_000);
+    for (const bad of ['10000', '400000', '2m', '-1', '1e5']) {
+      expect(() => chatTurnTimeoutMs(bad)).toThrow(/CHAT_TURN_TIMEOUT_MS/);
+    }
+  });
+});

@@ -12,8 +12,11 @@ export type ConfirmedAppointment = components['schemas']['ConfirmedAppointmentDt
 export type ConfirmInput = components['schemas']['ConfirmAppointmentDto']
 
 export const MAX_MESSAGE = 500
-/** El modelo local puede tardar; el servidor corta a los 90 s, aquí se espera un poco más. */
-const CHAT_TIMEOUT_MS = 100_000
+/**
+ * El modelo local (gpt-oss:20b) razona antes de contestar: el servidor corta el turno según CHAT_TURN_TIMEOUT_MS
+ * (240 s por defecto, 300 s como máximo). Aquí se espera un poco más que ese máximo para que el corte lo dé el servidor.
+ */
+const CHAT_TIMEOUT_MS = 310_000
 
 export type ChatFailureKind = 'unavailable' | 'slow' | 'rate-limit' | 'invalid' | 'network' | 'unknown'
 

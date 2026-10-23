@@ -1601,6 +1601,8 @@ export interface operations {
                 priceMax?: string;
                 fuel?: "gasolina" | "diesel" | "hibrido" | "electrico";
                 transmission?: "manual" | "automatica";
+                /** @description Texto contenido en el color, sin distinguir mayúsculas (rojo encuentra Rojo; verde encuentra Verde lima) */
+                color?: string;
                 sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "year_asc";
                 /** @description El catálogo nunca lista vendidos, por eso solo se aceptan nuevo y usado */
                 status?: "nuevo" | "usado";
@@ -1828,6 +1830,8 @@ export interface operations {
                 priceMax?: string;
                 fuel?: "gasolina" | "diesel" | "hibrido" | "electrico";
                 transmission?: "manual" | "automatica";
+                /** @description Texto contenido en el color, sin distinguir mayúsculas (rojo encuentra Rojo; verde encuentra Verde lima) */
+                color?: string;
                 sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "year_asc";
                 status?: "nuevo" | "usado" | "vendido";
             };

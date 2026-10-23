@@ -203,6 +203,7 @@ export class VehiculosService {
     if (q.yearMax) qb.andWhere('v.year <= :yearMax', { yearMax: q.yearMax });
     if (q.priceMin) qb.andWhere('v.price >= :priceMin', { priceMin: q.priceMin });
     if (q.priceMax) qb.andWhere('v.price <= :priceMax', { priceMax: q.priceMax });
+    if (q.color) qb.andWhere("v.color ILIKE :color ESCAPE '\\'", { color: `%${escapeLike(q.color)}%` });
     if (q.fuel) qb.andWhere('v.fuel = :fuel', { fuel: q.fuel });
     if (q.transmission) qb.andWhere('v.transmission = :transmission', { transmission: q.transmission });
     if (q.status) qb.andWhere('v.status = :status', { status: q.status });

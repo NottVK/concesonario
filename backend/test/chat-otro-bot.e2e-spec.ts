@@ -108,14 +108,14 @@ describe('Chat → preguntar_a_otro_bot → bots de prueba (e2e)', () => {
       expect(await savedHistory()).not.toContain('El SOAT es obligatorio');
       expect(await savedHistory()).toContain(FIXED_REPLY('SegurosYa Bot'));
       modelSaw = [];
-      const second = await chat({ message: 'hola' }, first.body.sessionToken as string).expect(200);
+      const second = await chat({ message: 'cuéntame más' }, first.body.sessionToken as string).expect(200);
       expect(second.body.thirdParty).toBeNull();
       expect(modelSaw.join(' ')).not.toContain('El SOAT es obligatorio');
       expect(modelSaw.join(' ')).toContain(FIXED_REPLY('SegurosYa Bot')); // sí ve que ya se consultó, no qué contestó
     });
 
     it('un turno normal lleva thirdParty en null (el contrato siempre trae el campo)', async () => {
-      const res = await chat({ message: 'hola' }).expect(200);
+      const res = await chat({ message: 'cuéntame más' }).expect(200);
       expect(res.body).toHaveProperty('thirdParty', null);
     });
 
@@ -132,12 +132,12 @@ describe('Chat → preguntar_a_otro_bot → bots de prueba (e2e)', () => {
     });
 
     it('la tool no se ofrece al modelo si no hay bots activos; con bots, sí, con el enum de sus nombres', async () => {
-      await chat({ message: 'hola' }).expect(200);
+      await chat({ message: 'cuéntame más' }).expect(200);
       expect(toolNamesOffered.at(-1)).not.toContain('preguntar_a_otro_bot');
       const id = await register('SegurosYa Bot', bots.friend.url, bots.friend.key);
       await register('Taller Express', bots.friend.url);
       toolNamesOffered = [];
-      await chat({ message: 'hola' }).expect(200);
+      await chat({ message: 'cuéntame más' }).expect(200);
       expect(toolNamesOffered.at(-1)).toContain('preguntar_a_otro_bot');
       // Un bot desactivado desaparece de la lista en el turno siguiente.
       await ctx.dataSource.getRepository(ExternalBot).update({ id }, { active: false });
@@ -147,7 +147,7 @@ describe('Chat → preguntar_a_otro_bot → bots de prueba (e2e)', () => {
         enumValues = (definition?.parameters as { properties: { bot: { enum: string[] } } }).properties.bot.enum;
         return { content: 'ok', toolCalls: [] };
       });
-      await chat({ message: 'hola' }).expect(200);
+      await chat({ message: 'cuéntame más' }).expect(200);
       expect(enumValues).toEqual(['Taller Express']);
     });
 
@@ -218,7 +218,7 @@ describe('Chat → preguntar_a_otro_bot → bots de prueba (e2e)', () => {
         const history = await savedHistory();
         expect(HOSTILE_PHRASES.filter((phrase) => history.includes(phrase)), 'el historial guardó texto del tercero').toEqual([]);
         modelSaw = [];
-        await chat({ message: 'hola' }, first.body.sessionToken as string).expect(200);
+        await chat({ message: 'cuéntame más' }, first.body.sessionToken as string).expect(200);
         expect(HOSTILE_PHRASES.filter((phrase) => modelSaw.join(' ').includes(phrase)), 'el turno siguiente vio texto del tercero').toEqual([]);
         expect(bots.malicious.hits.internal).toBe(0);
       });

@@ -71,6 +71,14 @@ export abstract class VehicleFiltersDto extends PaginationDto {
   })
   transmission?: Transmission;
 
+  @ApiPropertyOptional({ description: 'Texto contenido en el color, sin distinguir mayúsculas (rojo encuentra Rojo; verde encuentra Verde lima)', example: 'rojo' })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(30)
+  color?: string;
+
   @ApiPropertyOptional({ enum: VEHICLE_SORTS, default: 'newest' })
   @IsOptional()
   @IsIn(VEHICLE_SORTS, { message: `sort debe ser: ${VEHICLE_SORTS.join(', ')}` })

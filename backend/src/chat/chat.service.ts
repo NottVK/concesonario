@@ -2,8 +2,9 @@ import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common
 import type { OnModuleInit } from '@nestjs/common';
 import { AgentService } from './agent/agent.service.js';
 import { PROMPT_VERSION } from './agent/prompt.js';
+import { quickReply } from './agent/quick-replies.js';
 import { PublicApiClient } from './api/public-api.client.js';
-import { chatDebugEnabled, chatEvalMode, chatPerHourLimit, CHAT_MESSAGE_MAX_CHARS, CHAT_QUEUE_LENGTH, CHAT_TURN_TIMEOUT_MS } from './chat.config.js';
+import { chatDebugEnabled, chatEvalMode, chatPerHourLimit, CHAT_MESSAGE_MAX_CHARS, CHAT_QUEUE_LENGTH, chatTurnTimeoutMs } from './chat.config.js';
 import { ChatRetryException, MODEL_SLOW_MESSAGE, MODEL_UNAVAILABLE_MESSAGE } from './chat.errors.js';
 import type { ChatReplyDto, ChatStatusDto } from './dto/chat.dto.js';
 import { ConversationRole } from './entities/conversation.entity.js';
@@ -37,6 +38,8 @@ export class ChatService implements OnModuleInit {
   private readonly logger = new Logger(ChatService.name);
   private readonly queue = new InferenceQueue(1, CHAT_QUEUE_LENGTH);
   private readonly hourly = new HourlyLimiter(chatPerHourLimit);
+  /** Se valida al construir el servicio: un CHAT_TURN_TIMEOUT_MS inválido impide arrancar. */
+  private readonly turnTimeoutMs = chatTurnTimeoutMs();
   private statusCache: { at: number; value: ChatStatusDto } | null = null;
 
   constructor(
@@ -121,7 +124,12 @@ export class ChatService implements OnModuleInit {
     history: Awaited<ReturnType<ConversationService['context']>>,
     seenVehicleIds: number[],
   ): ReturnType<AgentService['run']> {
-    const turnSignal = AbortSignal.any([request.signal, AbortSignal.timeout(CHAT_TURN_TIMEOUT_MS)]);
+    // Saludo, gracias o despedida: respuesta fija al instante, sin cola, sin modelo y sin tools (decisión 125).
+    const quick = quickReply(message);
+    if (quick) {
+      return { reply: quick, cards: [], proposal: null, thirdParty: null, seenVehicleIds, toolsCalled: [], toolResults: [], fallback: 'quick' };
+    }
+    const turnSignal = AbortSignal.any([request.signal, AbortSignal.timeout(this.turnTimeoutMs)]);
     // Fuera de la cola de inferencia (de una plaza): la consulta a la base no debe alargar el turno de nadie.
     const otherBots = await loadOtherBots(this.otherBots, (message) => this.logger.warn(message));
     try {
@@ -152,7 +160,7 @@ export class ChatService implements OnModuleInit {
       this.logger.warn(`Modelo no disponible: ${error.message}`);
       return new ServiceUnavailableException(MODEL_UNAVAILABLE_MESSAGE);
     }
-    // Sin cierre del cliente, una cancelación solo puede venir del tope de 90 s del turno.
+    // Sin cierre del cliente, una cancelación solo puede venir del tope del turno (CHAT_TURN_TIMEOUT_MS).
     if (error instanceof ProviderTimeoutError || error instanceof ProviderAbortedError || (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError'))) {
       return new GatewayTimeoutException(MODEL_SLOW_MESSAGE);
     }

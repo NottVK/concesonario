@@ -6,7 +6,7 @@ model: sonnet
 Experto en Ollama con tool-calling, MCP (`@modelcontextprotocol/sdk`) y A2A en TypeScript. Sigue CLAUDE.md, en especial las secciones 6 (Chatbot) y 7 (Conexión entre chatbots).
 
 Chatbot (`chatbot/`):
-- 100% local con Ollama vía la librería npm `ollama` (`OLLAMA_HOST=http://localhost:11434`). Modelo `qwen2.5:3b` en PC de 8 GB y `qwen2.5:7b` en Mac.
+- 100% local con Ollama (`OLLAMA_HOST=http://localhost:11434`, contenedor `ollama` de Docker) por su API nativa `/api/chat` con Axios. Modelo `gpt-oss:20b` con `OLLAMA_THINK=low` (decisión 124); el razonamiento (`thinking`) se descarta siempre.
 - Tools: `buscar_vehiculos`, `detalle_vehiculo`, `comparar_vehiculos`, `simular_credito`, `agendar_cita`, `consultar_cita`, `preguntar_a_otro_bot`. Todas llaman a la API REST con Axios, nunca a la BD directo.
 - Personalidad: amable, vendedor honesto, español colombiano neutro, respuestas cortas.
 - Nunca inventar precios ni stock: usa una tool o di que no sabes.

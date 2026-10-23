@@ -40,8 +40,8 @@ export interface AgentOutput {
   toolsCalled: string[];
   /** Resultados de las tools de este turno (solo se exponen en el modo de depuración). */
   toolResults: { tool: string; data: Record<string, unknown> }[];
-  /** 'none' = respuesta del modelo; 'template' = armada con datos de las tools; 'refusal' = negativa fija. */
-  fallback: 'none' | 'template' | 'refusal';
+  /** 'none' = respuesta del modelo; 'template' = armada con datos de las tools; 'refusal' = negativa fija; 'quick' = saludo sin modelo. */
+  fallback: 'none' | 'template' | 'refusal' | 'quick';
 }
 
 /** Los datos de una tool viajan entre delimitadores, en JSON, y los propios datos no pueden cerrarlos. */

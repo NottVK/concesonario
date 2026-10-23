@@ -52,8 +52,8 @@ beforeEach(() => {
   handler = (_s, respond) => respond(200, {});
 });
 
-const ollama = (timeoutMs = 2000): OllamaProvider =>
-  new OllamaProvider({ host: base, model: 'qwen2.5:7b', numCtx: 4096, keepAlive: '5m', timeoutMs });
+const ollama = (timeoutMs = 2000, think?: 'low' | 'medium' | 'high'): OllamaProvider =>
+  new OllamaProvider({ host: base, model: 'gpt-oss:20b', numCtx: 8192, keepAlive: '5m', timeoutMs, ...(think ? { think } : {}) });
 const groq = (timeoutMs = 2000): GroqProvider =>
   new GroqProvider({ apiKey: FAKE_KEY, model: 'llama-3.3-70b-versatile', timeoutMs, baseUrl: base });
 
@@ -65,8 +65,23 @@ describe('OllamaProvider', () => {
     expect(response.toolCalls).toEqual([{ id: 'ollama-0', name: 'buscar_vehiculos', arguments: { query: 'mazda' } }]);
     const sent = seen[0]!;
     expect(sent.url).toBe('/api/chat');
-    expect(sent.body).toMatchObject({ model: 'qwen2.5:7b', stream: false, keep_alive: '5m', options: { num_ctx: 4096, temperature: 0 } });
+    expect(sent.body).toMatchObject({ model: 'gpt-oss:20b', stream: false, keep_alive: '5m', options: { num_ctx: 8192, temperature: 0 } });
+    expect(sent.body).not.toHaveProperty('think');
     expect(sent.headers.authorization).toBeUndefined();
+  });
+
+  it('envía think solo si está configurado', async () => {
+    handler = (_s, respond) => respond(200, { message: { role: 'assistant', content: 'ok' } });
+    await ollama(2000, 'low').chat(REQUEST);
+    expect(seen[0]!.body).toMatchObject({ think: 'low' });
+  });
+
+  it('descarta el razonamiento (thinking) de gpt-oss: solo devuelve el contenido', async () => {
+    handler = (_s, respond) =>
+      respond(200, { message: { role: 'assistant', thinking: 'RAZONAMIENTO-INTERNO', content: 'Tenemos el Mazda 3.' } });
+    const response = await ollama().chat(REQUEST);
+    expect(response).toEqual({ content: 'Tenemos el Mazda 3.', toolCalls: [] });
+    expect(JSON.stringify(response)).not.toContain('RAZONAMIENTO-INTERNO');
   });
 
   it('devuelve el texto cuando no hay tools', async () => {
@@ -228,7 +243,7 @@ describe('createModelProvider', () => {
   it('por defecto es ollama y usa OLLAMA_HOST', () => {
     const provider = createModelProvider({ OLLAMA_HOST: 'http://192.168.1.50:11434/' });
     expect(provider.name).toBe('ollama');
-    expect(provider.model).toBe('qwen2.5:7b');
+    expect(provider.model).toBe('gpt-oss:20b');
     expect(provider.external).toBe(false);
   });
 
@@ -257,5 +272,15 @@ describe('createModelProvider', () => {
     expect(() => createModelProvider({ OLLAMA_NUM_CTX: 'abc' })).toThrow(/OLLAMA_NUM_CTX/);
     expect(() => createModelProvider({ OLLAMA_NUM_CTX: '100' })).toThrow(/OLLAMA_NUM_CTX/);
     expect(() => createModelProvider({ OLLAMA_KEEP_ALIVE: 'siempre' })).toThrow(/OLLAMA_KEEP_ALIVE/);
+  });
+
+  it('valida OLLAMA_THINK y OLLAMA_TIMEOUT_MS', () => {
+    expect(() => createModelProvider({ OLLAMA_THINK: 'max' })).toThrow(/OLLAMA_THINK/);
+    expect(() => createModelProvider({ OLLAMA_THINK: '' })).not.toThrow();
+    expect(() => createModelProvider({ OLLAMA_THINK: 'High' })).not.toThrow();
+    expect(() => createModelProvider({ OLLAMA_TIMEOUT_MS: '5000' })).toThrow(/OLLAMA_TIMEOUT_MS/);
+    expect(() => createModelProvider({ OLLAMA_TIMEOUT_MS: '900000' })).toThrow(/OLLAMA_TIMEOUT_MS/);
+    expect(() => createModelProvider({ OLLAMA_TIMEOUT_MS: 'rapido' })).toThrow(/OLLAMA_TIMEOUT_MS/);
+    expect(() => createModelProvider({ OLLAMA_TIMEOUT_MS: '120000' })).not.toThrow();
   });
 });

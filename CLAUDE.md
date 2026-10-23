@@ -14,7 +14,7 @@ Plataforma de concesionario con interfaces web, APIs, base de datos y un **chatb
 | Backend | NestJS + TypeScript (strict) + TypeORM |
 | BD | PostgreSQL 16 (+ pgvector para búsqueda semántica) |
 | Frontend | React + Vite + TypeScript + Tailwind + shadcn/ui |
-| Chatbot | Ollama local (`qwen2.5:3b` en PC de 8 GB, `qwen2.5:7b` en Mac; con tool-calling) vía librería `ollama` de npm |
+| Chatbot | Ollama local con **`gpt-oss:20b`** (OpenAI, Apache 2.0, modelo de razonamiento con tool-calling) en el contenedor `ollama` de Docker, vía la API nativa `/api/chat` con Axios (`think` configurable; decisión 124) |
 | MCP | Servidor MCP propio, módulo `backend/src/mcp/` de Nest, con `@modelcontextprotocol/sdk` y `zod` (TypeScript) |
 | A2A | Endpoints `/.well-known/agent.json` + `/a2a/tasks` |
 | Validación | `class-validator` + `class-transformer` (DTOs) |
@@ -120,7 +120,7 @@ cd backend && npm run migration:run               # aplicar migraciones
 cd backend && npm run seed                        # cargar marcas y vehículos
 cd frontend && npm run dev
 # el servidor MCP corre con la API (POST /api/mcp); requiere MCP_KEY_PEPPER y BOT_KEY_ENCRYPTION_KEY en .env
-ollama pull qwen2.5:3b                            # modelo del chatbot (7b si hay 16 GB)
+docker exec ollama ollama pull gpt-oss:20b        # modelo del chatbot (~13 GB; necesita ~16 GB entre GPU y RAM)
 ```
 
 ## 10. Flujo de trabajo (OBLIGATORIO)

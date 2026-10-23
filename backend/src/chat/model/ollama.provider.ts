@@ -9,11 +9,15 @@ export interface OllamaConfig {
   numCtx: number;
   keepAlive: string;
   timeoutMs: number;
+  /** Nivel de razonamiento (gpt-oss). Sin valor no se envía: los modelos que no piensan (qwen) lo rechazarían. */
+  think?: 'low' | 'medium' | 'high';
 }
 
 interface OllamaWireMessage {
   role?: string;
   content?: string;
+  /** Razonamiento de gpt-oss: se descarta SIEMPRE (no llega al usuario, ni al historial, ni a otro prompt). */
+  thinking?: string;
   tool_calls?: { function?: { name?: string; arguments?: unknown } }[];
 }
 
@@ -62,6 +66,7 @@ export class OllamaProvider implements ModelProvider {
           ...(request.tools?.length ? { tools: request.tools.map((t) => ({ type: 'function', function: t })) } : {}),
           stream: false,
           keep_alive: this.config.keepAlive,
+          ...(this.config.think ? { think: this.config.think } : {}),
           options: { num_ctx: this.config.numCtx, temperature: 0, seed: 42 },
         },
         { signal: request.signal },

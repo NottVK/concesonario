@@ -3,6 +3,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { GREETING_REPLY } from '../src/chat/agent/quick-replies.js';
 import { MockProvider } from '../src/chat/model/mock.provider.js';
 import { MODEL_PROVIDER, ProviderTimeoutError, ProviderUnavailableError } from '../src/chat/model/model-provider.js';
 import type { ChatResponse } from '../src/chat/model/model-provider.js';
@@ -62,8 +63,21 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
   });
 
   describe('sesiones e historial', () => {
+    it('un saludo se contesta al instante sin llamar al modelo, y queda en el historial', async () => {
+      const before = provider.calls;
+      const res = await chat({ message: '¡Hola! ¿cómo estás?' }).expect(200);
+      expect(res.body.reply).toBe(GREETING_REPLY);
+      expect(res.body.cards).toEqual([]);
+      expect(provider.calls).toBe(before);
+      const saved = await ctx.dataSource.query('SELECT mensaje FROM conversaciones ORDER BY id') as { mensaje: string }[];
+      expect(saved.map((row) => row.mensaje)).toEqual(['¡Hola! ¿cómo estás?', GREETING_REPLY]);
+      // Una pregunta real que empieza con saludo sí va al modelo.
+      await chat({ message: 'hola, ¿qué Mazda tienen?' }, res.body.sessionToken as string).expect(200);
+      expect(provider.calls).toBeGreaterThan(before);
+    });
+
     it('la primera respuesta trae el token; en la base solo queda su hash', async () => {
-      const res = await chat({ message: 'hola' }).expect(200);
+      const res = await chat({ message: 'cuéntame más' }).expect(200);
       const token = res.body.sessionToken as string;
       expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
       const rows = await ctx.dataSource.query('SELECT token_hash FROM chat_sesiones') as { token_hash: string }[];
@@ -78,16 +92,16 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
 
     it('un token inventado o mal formado crea una sesión nueva (el cliente no propone ids)', async () => {
       for (const forged of ['a'.repeat(43), 'inventado', '../../etc', "1' OR '1'='1", '']) {
-        const res = await chat({ message: 'hola' }, forged || undefined).expect(200);
+        const res = await chat({ message: 'cuéntame más' }, forged || undefined).expect(200);
         expect(res.body.sessionToken).toBeDefined();
         expect(res.body.sessionToken).not.toBe(forged);
       }
     });
 
     it('una sesión inactiva más de 2 horas ya no sirve', async () => {
-      const first = await chat({ message: 'hola' }).expect(200);
+      const first = await chat({ message: 'cuéntame más' }).expect(200);
       await ctx.dataSource.query("UPDATE chat_sesiones SET ultima_actividad = now() - interval '3 hours'");
-      const again = await chat({ message: 'hola' }, first.body.sessionToken as string).expect(200);
+      const again = await chat({ message: 'cuéntame más' }, first.body.sessionToken as string).expect(200);
       expect(again.body.sessionToken).toBeDefined();
       expect(await count('chat_sesiones')).toBe(2);
     });
@@ -115,7 +129,7 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
     });
 
     it('el historial (máx. 10 turnos) llega al modelo en el siguiente turno', async () => {
-      const first = await chat({ message: 'hola' }).expect(200);
+      const first = await chat({ message: 'cuéntame más' }).expect(200);
       await chat({ message: 'cuéntame más' }, first.body.sessionToken as string).expect(200);
       const roles = provider.lastRequest!.messages.map((m) => m.role);
       expect(roles).toEqual(['system', 'user', 'assistant', 'user']);
@@ -134,15 +148,15 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
     });
 
     it('la purga borra lo vencido (7 días / 24 h) y deja lo reciente', async () => {
-      const old = await chat({ message: 'hola' }).expect(200);
-      const fresh = await chat({ message: 'hola' }).expect(200);
+      const old = await chat({ message: 'cuéntame más' }).expect(200);
+      const fresh = await chat({ message: 'cuéntame más' }).expect(200);
       await ctx.dataSource.query("UPDATE chat_sesiones SET ultima_actividad = now() - interval '8 days' WHERE token_hash = $1", [
         createHash('sha256').update(old.body.sessionToken as string).digest('hex'),
       ]);
       const result = await ctx.app.get(PurgeService).purge();
       expect(result.sessions).toBe(1);
       expect(await count('chat_sesiones')).toBe(1);
-      await chat({ message: 'hola' }, fresh.body.sessionToken as string).expect(200);
+      await chat({ message: 'cuéntame más' }, fresh.body.sessionToken as string).expect(200);
     });
   });
 
@@ -151,7 +165,7 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
       const bodies: object[] = [
         {}, { message: '' }, { message: '   ' }, { message: '​​' }, { message: 'a'.repeat(501) },
         { message: 'a'.repeat(50_000) }, { message: 123 }, { message: ['x'] }, { message: { $ne: 1 } },
-        { message: 'hola', extra: true }, { message: 'hola', vehicleId: 'abc' }, { message: 'hola', vehicleId: 0 },
+        { message: 'cuéntame más', extra: true }, { message: 'cuéntame más', vehicleId: 'abc' }, { message: 'cuéntame más', vehicleId: 0 },
       ];
       for (const body of bodies) {
         const res = await chat(body);
@@ -305,7 +319,7 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
 
     it('una propuesta usada, vencida, de otra sesión o inexistente da 410', async () => {
       const { token, proposal } = await propose();
-      const other = (await chat({ message: 'hola' }).expect(200)).body.sessionToken as string;
+      const other = (await chat({ message: 'cuéntame más' }).expect(200)).body.sessionToken as string;
       await confirm({ proposalId: proposal.id, customer: ana }, other).expect(410);
       await confirm({ proposalId: proposal.id, customer: ana }).expect(410);
       await confirm({ proposalId: '00000000-0000-4000-8000-000000000000', customer: ana }, token).expect(410);
@@ -349,10 +363,10 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
   describe('fallos del modelo, cola y cancelación', () => {
     it('modelo caído: 503 con el mensaje en español; modelo lento: 504', async () => {
       provider.setScript(() => { throw new ProviderUnavailableError('ollama: sin conexión'); });
-      const down = await chat({ message: 'hola' }).expect(503);
+      const down = await chat({ message: 'cuéntame más' }).expect(503);
       expect(down.body.message).toMatch(/El asistente no está disponible ahora/);
       provider.setScript(() => { throw new ProviderTimeoutError(); });
-      const slow = await chat({ message: 'hola' }).expect(504);
+      const slow = await chat({ message: 'cuéntame más' }).expect(504);
       expect(slow.body.message).toMatch(/tardó demasiado/);
     });
 
@@ -365,7 +379,7 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
       let release!: () => void;
       const gate = new Promise<void>((resolve) => (release = resolve));
       provider.setScript(async () => { await gate; return say('ok'); });
-      const sent = Array.from({ length: 5 }, () => chat({ message: 'hola' }).then((res) => res));
+      const sent = Array.from({ length: 5 }, () => chat({ message: 'cuéntame más' }).then((res) => res));
       await sleep(1500);
       expect(provider.calls).toBe(1); // solo una llega al modelo
       release();
@@ -384,7 +398,7 @@ describe('Chat (e2e, con el proveedor simulado)', () => {
       const port = (ctx.server.address() as AddressInfo).port;
       const client = http.request({ host: '127.0.0.1', port, method: 'POST', path: '/api/chat', headers: { 'content-type': 'application/json' } });
       client.on('error', () => undefined);
-      client.end(JSON.stringify({ message: 'hola' }));
+      client.end(JSON.stringify({ message: 'cuéntame más' }));
       for (let i = 0; i < 50 && provider.calls === 0; i++) await sleep(100);
       expect(provider.calls).toBe(1);
       client.destroy();

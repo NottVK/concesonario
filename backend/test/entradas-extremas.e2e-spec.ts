@@ -225,7 +225,7 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
     }, 120_000);
 
     it('POST /chat y POST /chat/citas/confirmar (públicos, con el proveedor simulado)', async () => {
-      const chatBase = { message: 'hola', vehicleId };
+      const chatBase = { message: 'cuéntame más', vehicleId };
       const confirmBase = { proposalId: '00000000-0000-4000-8000-000000000000', customer: { name: 'Ana', email: 'ana@correo.co', phone: '3001234567' } };
       const tasks = [
         ...bodyTasks('POST /chat', chatBase, ['message', 'vehicleId'], (body) => request(ctx.server).post('/api/chat').send(body as object)),

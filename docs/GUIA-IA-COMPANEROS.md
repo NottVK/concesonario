@@ -4,7 +4,7 @@ Esta guía es para quien **no vio la conversación** donde se construyó el chat
 
 ## 1. De qué se trata
 
-AutoMax es un concesionario con un asistente de chat. El asistente usa un **modelo de lenguaje que corre local con Ollama** (nada de nubes). Todo lo que rodea al modelo (límites, seguridad, validadores, búsqueda, el widget del chat) ya está construido y probado con un modelo **simulado**. Lo que falta es lo único que la laptop de Kevin no puede hacer: **correr un modelo real** (`qwen2.5:7b`, unos 4,7 GB en memoria) y comprobar que contesta bien.
+AutoMax es un concesionario con un asistente de chat. El asistente usa un **modelo de lenguaje que corre local con Ollama** (nada de nubes). Todo lo que rodea al modelo (límites, seguridad, validadores, búsqueda, el widget del chat) ya está construido y probado con un modelo **simulado**. Lo que falta es lo único que la laptop de Kevin no puede hacer: **correr un modelo real** (`gpt-oss:20b`, unos 13 GB en disco y ~16 GB entre GPU y RAM) y comprobar que contesta bien.
 
 Tu equipo se usa para tres cosas:
 
@@ -18,7 +18,7 @@ La Fase 4 **no se cierra** hasta que las 20 preguntas pasen con un modelo real. 
 
 ## 2. Qué necesitas
 
-- **RAM:** 16 GB recomendados (8 GB no alcanzan para `qwen2.5:7b`). Mac con Apple Silicon o PC con 16 GB o más.
+- **Memoria:** `gpt-oss:20b` necesita unos 16 GB entre GPU y RAM (por ejemplo RTX con 4 GB + 32 GB de RAM, o Mac con 24 GB o más).
 - **Disco:** unos 10 GB libres (modelos, Docker, dependencias).
 - **Software:** [Node.js](https://nodejs.org) 20 o superior (`node --version`), Git, [Docker Desktop](https://www.docker.com/products/docker-desktop/) (para PostgreSQL con pgvector) y [Ollama](https://ollama.com/download).
 - Condiciones de medición: equipo **conectado a la corriente**, sin modo de bajo consumo, con lo que normalmente tendrías abierto (navegador, editor). No abras juegos ni otro modelo.
@@ -28,7 +28,7 @@ La Fase 4 **no se cierra** hasta que las 20 preguntas pasen con un modelo real. 
 Con Ollama encendido (la app de la barra de menú o, en otra terminal, `ollama serve`):
 
 ```bash
-ollama pull qwen2.5:7b          # el modelo del chat (~4,7 GB)
+ollama pull gpt-oss:20b         # el modelo del chat (~13 GB)
 ollama pull nomic-embed-text    # el de la búsqueda inteligente (~270 MB)
 ollama list                     # deben aparecer los dos
 ```
@@ -51,8 +51,10 @@ Abre **tu** `.env` y cambia, como mínimo, estas claves (son tuyas y locales: in
 | `SEED_DEMO_PASSWORD` | la contraseña de los usuarios demo (admin y vendedor) |
 | `CHAT_PROVIDER` | `ollama` |
 | `OLLAMA_HOST` | ver la sección 5 |
-| `OLLAMA_MODEL` | `qwen2.5:7b` |
-| `OLLAMA_NUM_CTX` | `4096` (lo medido). Un turno con dos herramientas y 10 turnos de historial se acerca a ese tope: si tu RAM lo permite, `8192` evita que Ollama recorte el contexto en conversaciones largas |
+| `OLLAMA_MODEL` | `gpt-oss:20b` |
+| `OLLAMA_THINK` | `low` (vacío si usas un modelo que no razona) |
+| `OLLAMA_TIMEOUT_MS` / `CHAT_TURN_TIMEOUT_MS` | `180000` / `240000` |
+| `OLLAMA_NUM_CTX` | `8192` (con gpt-oss, 4096 se queda corto: prompt, tools, historial y razonamiento) |
 
 > ⚠️ **Nunca subas el `.env` a Git** (ya está en `.gitignore`; revisa con `git status` antes de cada commit) **ni lo pegues en un chat, issue o captura**. Contiene contraseñas.
 
@@ -124,10 +126,10 @@ Estas dos pruebas viven en `chatbot/bench/` y solo necesitan `axios` (nada de ba
 ```bash
 cd chatbot/bench
 npm install
-export OLLAMA_MODEL=qwen2.5:7b
+export OLLAMA_MODEL=gpt-oss:20b
 export OLLAMA_HOST=http://localhost:11434          # o la dirección del caso B
 export BENCH_HOST_LABEL=laptop-<tu-nombre>         # así no queda el nombre real de tu equipo en los archivos
-# PowerShell: $env:OLLAMA_MODEL='qwen2.5:7b'; $env:OLLAMA_HOST='http://localhost:11434'; $env:BENCH_HOST_LABEL='laptop-<tu-nombre>'
+# PowerShell: $env:OLLAMA_MODEL='gpt-oss:20b'; $env:OLLAMA_HOST='http://localhost:11434'; $env:BENCH_HOST_LABEL='laptop-<tu-nombre>'
 
 NUM_CTX=4096 REPS=1 node toolcall.mjs              # mini-prueba: 20 mensajes; imprime «Acierto: N/20»
 RUNS=5 CTXS=4096,2048 COLD_RUNS=3 node bench.mjs   # tiempos y RAM (15 a 40 min); se guarda tras cada medición
@@ -168,19 +170,19 @@ DB_NAME=tmp_eval npm run migration:run
 DB_NAME=tmp_eval SEED_DEMO_PASSWORD=ClaveTemporal123 npm run seed
 
 # 2) API en modo de evaluación sobre esa base (déjala corriendo en esta terminal)
-DB_NAME=tmp_eval PORT=8000 CHAT_PROVIDER=ollama OLLAMA_HOST=http://localhost:11434 OLLAMA_MODEL=qwen2.5:7b \
+DB_NAME=tmp_eval PORT=8000 CHAT_PROVIDER=ollama OLLAMA_HOST=http://localhost:11434 OLLAMA_MODEL=gpt-oss:20b \
   CHAT_EVAL_MODE=true CHAT_LIMIT_PER_MINUTE=1000 CHAT_LIMIT_PER_HOUR=100000 node dist/main.js
 ```
 ```powershell
 # PowerShell: las variables van antes, una por línea
 $env:DB_NAME='tmp_eval'; $env:PORT='8000'; $env:CHAT_PROVIDER='ollama'; $env:OLLAMA_HOST='http://localhost:11434'
-$env:OLLAMA_MODEL='qwen2.5:7b'; $env:CHAT_EVAL_MODE='true'; $env:CHAT_LIMIT_PER_MINUTE='1000'; $env:CHAT_LIMIT_PER_HOUR='100000'
+$env:OLLAMA_MODEL='gpt-oss:20b'; $env:CHAT_EVAL_MODE='true'; $env:CHAT_LIMIT_PER_MINUTE='1000'; $env:CHAT_LIMIT_PER_HOUR='100000'
 node dist/main.js
 ```
 ```bash
 # 3) En OTRA terminal, desde la raíz del repo: crea los 3 vehículos de la evaluación y corre las 20 preguntas
 ADMIN_PASSWORD=ClaveTemporal123 node chatbot/eval/preparar.mjs --soy-una-base-temporal
-LABEL=laptop-<tu-nombre>-qwen7b node chatbot/eval/preguntas.mjs
+LABEL=laptop-<tu-nombre>-gptoss20b node chatbot/eval/preguntas.mjs
 
 # 4) Al terminar: detén la API (Ctrl+C) y borra la base temporal
 docker exec automax-db sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE tmp_eval"'
@@ -238,7 +240,7 @@ Si no hay un equipo con 16 GB, se puede hacer una **primera evaluación con un m
 | Síntoma | Qué hacer |
 |---|---|
 | `ECONNREFUSED` o "no responde" | Ollama no está corriendo (abre la app o `ollama serve`) o `OLLAMA_HOST` apunta mal. Prueba `curl <OLLAMA_HOST>/api/version`. |
-| `model "qwen2.5:7b" not found` | Falta `ollama pull qwen2.5:7b`. |
+| `model "gpt-oss:20b" not found` | Falta `ollama pull gpt-oss:20b`. |
 | El chat responde 503 "El asistente no está disponible" | La API no alcanza a Ollama. Revisa `OLLAMA_HOST` en el comando/`.env` de la API y reinícala. |
 | `preguntas.mjs`: "la API no devolvió `debug`" | La API no se encendió con `CHAT_EVAL_MODE=true`. |
 | `Falta backend/dist` | Corre `cd backend && npm run build`. |

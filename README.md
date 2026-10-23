@@ -7,7 +7,7 @@ Plataforma de concesionario con catálogo, panel de administración, API REST, u
 | Backend | NestJS 12 + TypeScript estricto + TypeORM |
 | Base de datos | PostgreSQL 16 con pgvector (búsqueda por significado) |
 | Frontend | React + Vite + TypeScript + Tailwind |
-| Chatbot | Ollama (local), Groq (externo, solo para evaluar) o un simulado para pruebas |
+| Chatbot | Ollama (local, `gpt-oss:20b`), Groq (externo, solo para evaluar) o un simulado para pruebas |
 | Conexión entre bots | Servidor MCP (solo lectura) y A2A (tarjeta + tareas, entrante y saliente) |
 | Pruebas | Vitest, Supertest y Playwright (smoke) |
 
@@ -67,11 +67,11 @@ npm run seed                         # 10 marcas, 60 vehículos y los usuarios d
 
 ### 5. Modelo de IA (opcional)
 ```bash
-ollama pull qwen2.5:3b               # chat en un PC de 8 GB (usa qwen2.5:7b con 16 GB y pon OLLAMA_MODEL en .env)
+ollama pull gpt-oss:20b              # modelo del chat (~13 GB; ~16 GB entre GPU y RAM). Con Ollama en Docker: docker exec ollama ollama pull gpt-oss:20b
 ollama pull nomic-embed-text         # búsqueda por significado (~270 MB)
 cd backend && npm run embeddings:sync
 ```
-Sin Ollama todo funciona menos la búsqueda por significado; el catálogo con filtros no se afecta. Si no tienes un equipo potente, otra máquina puede servir el modelo (`OLLAMA_HOST`): ver [`docs/GUIA-IA-COMPANEROS.md`](docs/GUIA-IA-COMPANEROS.md).
+En `.env`: `CHAT_PROVIDER=ollama`, `OLLAMA_MODEL=gpt-oss:20b`, `OLLAMA_NUM_CTX=8192`, `OLLAMA_THINK=low`, `OLLAMA_TIMEOUT_MS=180000` y `CHAT_TURN_TIMEOUT_MS=240000` (gpt-oss razona antes de contestar: la primera respuesta en frío tarda ~45 s mientras carga el modelo). Con un modelo que no razona (por ejemplo `qwen2.5`) deja `OLLAMA_THINK` vacío. Sin Ollama todo funciona menos la búsqueda por significado; el catálogo con filtros no se afecta. Si no tienes un equipo potente, otra máquina puede servir el modelo (`OLLAMA_HOST`): ver [`docs/GUIA-IA-COMPANEROS.md`](docs/GUIA-IA-COMPANEROS.md).
 
 ### 6. Encender
 ```bash
@@ -158,6 +158,7 @@ concesionario/
 ## El chat y la conexión entre bots
 
 - **Proveedor del modelo**: `CHAT_PROVIDER` = `ollama`, `groq` o `mock`. Con `groq` el texto de la persona sale de la máquina y el widget lo avisa. El simulado solo prueba la lógica del chat, no la calidad.
+- **Saludos al instante**: «hola», «gracias» o «chao» (solos) se contestan con un texto fijo sin llamar al modelo; cualquier pregunta real va al modelo (decisión 125).
 - **Seguridad del chat**: el prompt es fijo y versionado (hoy `v2`); lo que escribe el usuario y lo que devuelven las herramientas se tratan como datos, nunca como instrucciones; los montos en pesos se validan contra lo que devolvieron las herramientas; las citas solo se crean con la confirmación de la persona en una tarjeta; los datos de contacto nunca llegan al modelo.
 - **MCP** (`POST /api/mcp`, JSON-RPC sin estado, `Authorization: Bearer <key>`): herramientas de **solo lectura** `consultar_stock`, `consultar_precio` y `listar_marcas`. `agendar_cita` no se expone.
 - **A2A**: `GET /.well-known/agent.json` (tarjeta pública) y `POST /a2a/tasks` (habilidades `stock`, `precios`, `citas` —solo informativa— y `financiacion`), deterministas y sin modelo de lenguaje. Mismo 401 idéntico y misma cuota diaria que MCP.
@@ -190,7 +191,7 @@ cd backend && npm run migration:run && npm run seed && npm run embeddings:sync
 | El chat dice que no está disponible | El modelo no responde: revisa `CHAT_PROVIDER` y que Ollama esté encendido, o usa `mock` |
 | La búsqueda inteligente no devuelve nada | Falta `ollama pull nomic-embed-text` y `npm run embeddings:sync` |
 | El frontend no encuentra la API | Define `VITE_API_TARGET` si la API no está en el puerto 8000 |
-| Los autos salen sin foto | Aún no hay fotos reales: se muestra `placeholder.svg` |
+| Un auto sale sin foto | Falta su `.webp` en `frontend/public/autos/` (nombre `<marca>-<modelo>.webp`); mientras tanto se muestra `placeholder.svg`. Créditos de las fotos en `frontend/public/autos/CREDITOS.md` |
 | "Ese destino no está permitido" al probar un bot | Es la protección SSRF: para bots de esta máquina agrega su IP:puerto a `A2A_DEV_ALLOWED_TARGETS` y reinicia la API |
 
 ## Ramas
