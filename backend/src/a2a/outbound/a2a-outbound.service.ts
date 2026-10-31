@@ -93,6 +93,84 @@ export class A2aOutboundService {
     }
   }
 
+  /** ¿Hay un servicio activo con URL registrado con este nombre? (p. ej. «Taller»). El nombre lo fija el código, no el modelo. */
+  async hasService(name: string): Promise<boolean> {
+    const bot = await this.bots.findOne({ where: { name }, select: { id: true, url: true, active: true } });
+    return Boolean(bot?.active && bot.url);
+  }
+
+  /**
+   * Llamada ESTRUCTURADA (JSON) a un servicio registrado por nombre, por el mismo cliente seguro (SSRF, tope de bytes y
+   * de tiempo, key cifrada, límites y circuit breaker). La ruta la arma el código con ids numéricos o uuid, nunca el
+   * modelo, y `label` es lo único que se audita (sin ids ni datos personales). La respuesta es un dato NO confiable:
+   * aquí solo se parsea el JSON; quien llama debe validar su forma.
+   */
+  async callService(input: {
+    name: string;
+    method: 'GET' | 'POST';
+    path: string;
+    label: string;
+    body?: Record<string, unknown>;
+    idempotencyKey?: string;
+  }): Promise<{ ok: true; json: unknown } | { ok: false; status: ExchangeStatus }> {
+    const requestId = randomUUID();
+    const started = performance.now();
+    const bot = await this.bots.findOne({ where: { name: input.name }, select: { id: true, name: true, url: true, active: true, outboundAuth: true, outboundLimitPerMinute: true } });
+    const reject = { ok: false as const, status: ExchangeStatus.REJECTED };
+    if (!bot || !bot.active || !bot.url || !/^\/[A-Za-z0-9/_-]{0,120}$/.test(input.path) || input.path.includes('//')) return reject;
+    this.forgetIfMoved(bot);
+    const done = (status: ExchangeStatus, answer: string | null, bytesIn = 0, bytesOut = 0): Promise<void> =>
+      this.record(bot, requestId, input.label, answer, status, performance.now() - started, bytesIn, bytesOut);
+    const slot = this.runtime.limiter.tryAcquire(bot.id, bot.outboundLimitPerMinute);
+    if (!slot.ok) {
+      await done(ExchangeStatus.LIMITED, null);
+      return { ok: false, status: ExchangeStatus.LIMITED };
+    }
+    try {
+      if (!this.runtime.breaker.allow(bot.id)) {
+        await done(ExchangeStatus.CIRCUIT_OPEN, null);
+        return { ok: false, status: ExchangeStatus.CIRCUIT_OPEN };
+      }
+      return await this.requestJson(bot, input, done);
+    } finally {
+      slot.release();
+    }
+  }
+
+  private async requestJson(
+    bot: ExternalBot,
+    input: { method: 'GET' | 'POST'; path: string; body?: Record<string, unknown>; idempotencyKey?: string },
+    done: (status: ExchangeStatus, answer: string | null, bytesIn?: number, bytesOut?: number) => Promise<void>,
+  ): Promise<{ ok: true; json: unknown } | { ok: false; status: ExchangeStatus }> {
+    const body = input.body === undefined ? undefined : JSON.stringify(input.body);
+    try {
+      const headers = { ...(await this.authHeaders(bot)), ...(input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : {}) };
+      const response = await this.runtime.http.request({
+        method: input.method,
+        url: `${bot.url!.replace(/\/+$/, '')}${input.path}`,
+        headers,
+        ...(body === undefined ? {} : { body }),
+        maxBytes: OUTBOUND_DEFAULTS.maxResponseBytes,
+        ...this.deadline(),
+      });
+      let json: unknown;
+      try {
+        json = JSON.parse(response.text);
+      } catch {
+        throw new OutboundFailure(ExchangeStatus.INVALID_RESPONSE, 'json');
+      }
+      this.runtime.breaker.success(bot.id);
+      await done(ExchangeStatus.OK, null, response.bytes, body === undefined ? 0 : Buffer.byteLength(body));
+      return { ok: true, json };
+    } catch (error) {
+      const fault = this.toFailure(error, bot.id);
+      if (BOT_FAULTS.has(fault.status)) this.runtime.breaker.failure(bot.id);
+      else this.runtime.breaker.release(bot.id);
+      await done(fault.status, null, 0, body === undefined ? 0 : Buffer.byteLength(body));
+      return { ok: false, status: fault.status };
+    }
+  }
+
   private async callAndRecord(
     bot: ExternalBot,
     requestId: string,
