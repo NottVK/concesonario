@@ -19,7 +19,7 @@ export function WarrantyForm({ onIdentified, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const identify = useMutation({
-    mutationFn: () => identifyForWarranty({ documento: documento.trim(), vin: vin.trim() }),
+    mutationFn: () => identifyForWarranty({ document: documento.trim(), vin: vin.trim() }),
     onSuccess: (message) => {
       setDocumento('')
       onIdentified(message)

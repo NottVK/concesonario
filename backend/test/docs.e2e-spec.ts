@@ -49,7 +49,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 45 operaciones de la API', () => {
+  it('documenta exactamente las 48 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
@@ -71,6 +71,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/clientes',
       'GET /api/clientes/{id}',
       'GET /api/fichas-vin/{vin}',
+      'GET /api/garantias',
       'GET /api/marcas',
       'GET /api/marcas/{id}',
       'GET /api/vehiculos',
@@ -89,9 +90,11 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'POST /api/auth/login',
       'POST /api/chat',
       'POST /api/chat/citas/confirmar',
+      'POST /api/chat/garantias/identificar',
       'POST /api/citas',
       'POST /api/clientes',
       'POST /api/financiacion/simular',
+      'POST /api/garantias/{id}/decision',
       'POST /api/marcas',
       'POST /api/mcp',
       'POST /api/vehiculos',

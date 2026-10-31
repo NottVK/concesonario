@@ -100,7 +100,7 @@ export function classifyConfirmError(error: unknown): string {
 }
 
 /** Formulario de garantía: documento y VIN van directo al servidor, nunca por la conversación. Sin sesión, la crea con un saludo (sin modelo). */
-export async function identifyForWarranty(input: { documento: string; vin: string }): Promise<string> {
+export async function identifyForWarranty(input: { document: string; vin: string }): Promise<string> {
   if (!getChatToken()) await sendChatMessage('hola', null)
   const { data } = await api.post<{ ok: true; message: string }>('/chat/garantias/identificar', input, { headers: sessionHeaders(), skipReauth: true })
   return data.message

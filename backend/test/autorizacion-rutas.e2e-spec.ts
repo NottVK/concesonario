@@ -32,6 +32,9 @@ const STAFF_ROUTES = [
   'POST /api/ventas',
 ];
 
+/** Rutas del flujo de garantías: solo mecánico y admin (el vendedor NO entra). */
+const MECHANIC_ROUTES = ['GET /api/garantias', 'POST /api/garantias/:id/decision'];
+
 const clean = (value: string | undefined): string => (value ?? '').replace(/^\/+|\/+$/g, '');
 
 function discoverRoutes(ctx: TestContext): RouteInfo[] {
@@ -71,6 +74,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
   let adminToken: string;
   let sellerToken: string;
   let customerToken: string;
+  let mechanicToken: string;
 
   const call = (route: RouteInfo, token?: string) => {
     const url = route.path.replace(/:\w+/g, '1');
@@ -83,6 +87,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
   const adminOnly = () => routes.filter((r) => !r.isPublic && r.roles?.length === 1 && r.roles[0] === UserRole.ADMIN);
   const staff = () =>
     routes.filter((r) => !r.isPublic && r.roles?.length === 2 && r.roles.includes(UserRole.ADMIN) && r.roles.includes(UserRole.SELLER));
+  const mechanic = () => routes.filter((r) => !r.isPublic && r.roles?.length === 2 && r.roles.includes(UserRole.ADMIN) && r.roles.includes(UserRole.MECHANIC));
   const authenticatedOnly = () => routes.filter((r) => !r.isPublic && (!r.roles || r.roles.length === 0));
 
   beforeAll(async () => {
@@ -91,6 +96,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
     adminToken = await ctx.tokenFor(await createUser(ctx.dataSource, UserRole.ADMIN));
     sellerToken = await ctx.tokenFor(await createUser(ctx.dataSource, UserRole.SELLER));
     customerToken = await ctx.tokenFor(await createUser(ctx.dataSource, UserRole.CUSTOMER));
+    mechanicToken = await ctx.tokenFor(await createUser(ctx.dataSource, UserRole.MECHANIC));
     routes = discoverRoutes(ctx);
   });
 
@@ -128,7 +134,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
     }
     // Cada ruta privada es una y solo una de: personal, solo admin o GET /auth/me.
     const privateRoutes = routes.filter((r) => !r.isPublic).map((r) => r.label).sort();
-    expect([...adminOnly(), ...staff(), ...authenticatedOnly()].map((r) => r.label).sort()).toEqual(privateRoutes);
+    expect([...adminOnly(), ...staff(), ...mechanic(), ...authenticatedOnly()].map((r) => r.label).sort()).toEqual(privateRoutes);
   });
 
   describe('rutas solo de admin', () => {
@@ -145,6 +151,20 @@ describe('Autorización de todas las rutas (e2e)', () => {
       for (const route of adminOnly()) {
         const status = (await call(route, adminToken)).status;
         expect([401, 403], `${route.label} -> ${status}`).not.toContain(status);
+      }
+    });
+  });
+
+  describe('rutas del flujo de garantías (mecánico y admin)', () => {
+    it('son exactamente las esperadas', () => {
+      expect(mechanic().map((r) => r.label)).toEqual([...MECHANIC_ROUTES].sort());
+    });
+    it('sin token: 401; vendedor y cliente: 403; mecánico y admin pasan la autorización', async () => {
+      for (const route of mechanic()) {
+        expect((await call(route)).status, `${route.label} sin token`).toBe(401);
+        expect((await call(route, sellerToken)).status, `${route.label} vendedor`).toBe(403);
+        expect((await call(route, customerToken)).status, `${route.label} cliente`).toBe(403);
+        for (const token of [mechanicToken, adminToken]) expect([401, 403], route.label).not.toContain((await call(route, token)).status);
       }
     });
   });
@@ -179,7 +199,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
         'GET /api/marcas', 'GET /api/marcas/:id', 'GET /api/vehiculos', 'GET /api/vehiculos/:id',
         'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'GET /api/vehiculos/buscar', 'POST /api/auth/login',
         'POST /api/citas', 'POST /api/clientes', 'POST /api/financiacion/simular',
-        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'GET /api/fichas-vin/:vin', 'POST /api/mcp',
+        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'GET /api/fichas-vin/:vin', 'POST /api/chat/garantias/identificar', 'POST /api/mcp',
         'GET /.well-known/agent.json', 'POST /a2a/tasks',
       ].sort());
     });

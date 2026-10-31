@@ -308,6 +308,8 @@ describe('Entradas extremas: nunca un 5xx (e2e)', () => {
         'POST /api/citas', 'POST /api/financiacion/simular', 'POST /api/clientes', 'POST /api/vehiculos', 'POST /api/marcas',
         'POST /api/ventas', 'POST /api/auth/login', 'PUT /api/vehiculos/{id}', 'PUT /api/marcas/{id}', 'PUT /api/clientes/{id}',
         'PATCH /api/citas/{id}/estado', 'POST /api/chat', 'POST /api/chat/citas/confirmar', 'POST /api/admin/bots', 'PATCH /api/admin/bots/{id}',
+        // Garantías: sin batería de fuzzing; cuerpos hostiles puntuales en garantias.e2e-spec.ts (casos 2 y 6).
+        'POST /api/chat/garantias/identificar', 'POST /api/garantias/{id}/decision',
       ]);
       const withBody = operations().filter(({ op }) => op.requestBody).map(({ method, path }) => `${method} ${path}`);
       const missing = withBody.filter((key) => !covered.has(key));

@@ -4,10 +4,10 @@ import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsOptional, IsString, MaxLen
 /** Los mensajes de validación no repiten el valor recibido: así el documento no aparece en errores ni en logs. */
 export class IdentifyDto {
   @ApiProperty({ example: '1000000001', description: 'Documento del propietario. Va por este formulario, nunca por la conversación libre' })
-  @IsString({ message: 'documento debe ser texto' })
-  @MinLength(6, { message: 'documento no es válido' })
-  @MaxLength(20, { message: 'documento no es válido' })
-  documento: string;
+  @IsString({ message: 'document debe ser texto' })
+  @MinLength(6, { message: 'document no es válido' })
+  @MaxLength(20, { message: 'document no es válido' })
+  document: string;
 
   @ApiProperty({ example: 'AMXVEH00000000001' })
   @IsString({ message: 'vin debe ser texto' })
@@ -18,35 +18,35 @@ export class IdentifyDto {
 
 export class DecisionDto {
   @ApiProperty({ enum: ['aceptar', 'rechazar'] })
-  @IsIn(['aceptar', 'rechazar'], { message: 'accion debe ser aceptar o rechazar' })
-  accion: 'aceptar' | 'rechazar';
+  @IsIn(['aceptar', 'rechazar'], { message: 'action debe ser aceptar o rechazar' })
+  action: 'aceptar' | 'rechazar';
 
   @ApiPropertyOptional({ description: 'Obligatorio al rechazar: el cliente lo recibe en el chat' })
-  @ValidateIf((dto: DecisionDto) => dto.accion === 'rechazar')
-  @IsString({ message: 'motivo es obligatorio al rechazar' })
-  @MinLength(5, { message: 'motivo es obligatorio al rechazar (mínimo 5 caracteres)' })
-  @MaxLength(500, { message: 'motivo no puede superar 500 caracteres' })
-  motivo?: string;
+  @ValidateIf((dto: DecisionDto) => dto.action === 'rechazar')
+  @IsString({ message: 'reason es obligatorio al rechazar' })
+  @MinLength(5, { message: 'reason es obligatorio al rechazar (mínimo 5 caracteres)' })
+  @MaxLength(500, { message: 'reason no puede superar 500 caracteres' })
+  reason?: string;
 
   @ApiPropertyOptional({ type: [String], description: 'Obligatorio al aceptar: lista de repuestos que el cliente recibe en el chat' })
-  @ValidateIf((dto: DecisionDto) => dto.accion === 'aceptar')
-  @IsArray({ message: 'repuestos es obligatorio al aceptar' })
-  @ArrayMinSize(1, { message: 'repuestos es obligatorio al aceptar' })
-  @ArrayMaxSize(20, { message: 'repuestos admite hasta 20 elementos' })
-  @IsString({ each: true, message: 'cada repuesto debe ser texto' })
-  @MaxLength(80, { each: true, message: 'cada repuesto admite hasta 80 caracteres' })
-  repuestos?: string[];
+  @ValidateIf((dto: DecisionDto) => dto.action === 'aceptar')
+  @IsArray({ message: 'parts es obligatorio al aceptar' })
+  @ArrayMinSize(1, { message: 'parts es obligatorio al aceptar' })
+  @ArrayMaxSize(20, { message: 'parts admite hasta 20 elementos' })
+  @IsString({ each: true, message: 'cada elemento de parts debe ser texto' })
+  @MaxLength(80, { each: true, message: 'cada elemento de parts admite hasta 80 caracteres' })
+  parts?: string[];
 }
 
 export class CaseSummaryDto {
   @ApiProperty() id: string;
-  @ApiProperty() estado: string;
+  @ApiProperty() status: string;
   @ApiProperty() vin: string;
-  @ApiProperty({ nullable: true, type: String }) falla: string | null;
-  @ApiProperty() cambiosAjenos: boolean;
-  @ApiProperty() noVerificado: boolean;
-  @ApiProperty({ nullable: true, type: String }) citaInicio: string | null;
-  @ApiProperty({ nullable: true, type: String }) motivo: string | null;
-  @ApiProperty({ type: [String] }) repuestos: string[];
-  @ApiProperty() creadoEn: string;
+  @ApiProperty({ nullable: true, type: String }) fault: string | null;
+  @ApiProperty() foreignChanges: boolean;
+  @ApiProperty() unverified: boolean;
+  @ApiProperty({ nullable: true, type: String }) appointmentStart: string | null;
+  @ApiProperty({ nullable: true, type: String }) reason: string | null;
+  @ApiProperty({ type: [String] }) parts: string[];
+  @ApiProperty() createdAt: string;
 }

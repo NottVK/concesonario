@@ -29,7 +29,7 @@ export class GarantiasController {
   @ApiNotFoundResponse({ description: 'No se pudo verificar (mensaje genérico idéntico para cualquier causa)' })
   @ApiTooManyRequestsResponse({ description: 'Demasiados intentos desde esta IP' })
   async identify(@Body() dto: IdentifyDto, @Headers('x-chat-session') token: string | undefined, @Ip() ip: string): Promise<{ ok: true; message: string }> {
-    const id = await this.garantias.identify({ sessionToken: token, document: dto.documento, vin: dto.vin, ip });
+    const id = await this.garantias.identify({ sessionToken: token, document: dto.document, vin: dto.vin, ip });
     if (id === null) throw new NotFoundException(IDENTIFY_FAILED_MESSAGE);
     return { ok: true, message: 'Listo, te identificamos. Cuéntame en el chat qué falla presenta tu vehículo.' };
   }
@@ -38,22 +38,22 @@ export class GarantiasController {
   @ApiBearerAuth()
   @Get('garantias')
   @ApiOperation({ summary: 'Casos de garantía por estado (rol mecánico o admin); por defecto los pendientes de decisión' })
-  @ApiQuery({ name: 'estado', required: false, enum: Object.values(WarrantyStatus) })
+  @ApiQuery({ name: 'status', required: false, enum: Object.values(WarrantyStatus) })
   @ApiOkResponse({ type: [CaseSummaryDto] })
-  async list(@Query('estado') estado?: string): Promise<CaseSummaryDto[]> {
-    const status = Object.values(WarrantyStatus).find((value) => value === estado) ?? WarrantyStatus.PENDING_MECHANIC;
-    const rows = await this.garantias.list(status);
+  async list(@Query('status') status?: string): Promise<CaseSummaryDto[]> {
+    const wanted = Object.values(WarrantyStatus).find((value) => value === status) ?? WarrantyStatus.PENDING_MECHANIC;
+    const rows = await this.garantias.list(wanted);
     return rows.map((row) => ({
       id: row.id,
-      estado: row.status,
+      status: row.status,
       vin: row.vin,
-      falla: row.fault,
-      cambiosAjenos: row.foreignChanges,
-      noVerificado: row.unverified,
-      citaInicio: row.appointmentAt?.toISOString() ?? null,
-      motivo: row.reason,
-      repuestos: row.parts,
-      creadoEn: row.createdAt.toISOString(),
+      fault: row.fault,
+      foreignChanges: row.foreignChanges,
+      unverified: row.unverified,
+      appointmentStart: row.appointmentAt?.toISOString() ?? null,
+      reason: row.reason,
+      parts: row.parts,
+      createdAt: row.createdAt.toISOString(),
     }));
   }
 
@@ -72,6 +72,6 @@ export class GarantiasController {
   @ApiConflictResponse({ description: 'El caso no está pendiente de decisión' })
   @ApiBadGatewayResponse({ description: 'Pagos no respondió; el caso sigue pendiente' })
   decide(@Param('id', ParseUUIDPipe) id: string, @Body() dto: DecisionDto, @CurrentUser() user: AuthUser): ReturnType<GarantiasService['decide']> {
-    return this.garantias.decide(id, user.id, dto.accion, dto.motivo, dto.repuestos);
+    return this.garantias.decide(id, user.id, dto.action, dto.reason, dto.parts);
   }
 }
