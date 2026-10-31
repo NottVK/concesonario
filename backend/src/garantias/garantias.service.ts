@@ -99,7 +99,7 @@ export class GarantiasService {
   private async bookProvisionalAppointment(kase: CasoGarantia, taller: Awaited<ReturnType<ServiceDirectory['taller']>>): Promise<void> {
     const slots = await taller.consultarDisponibilidad();
     const slot = slots.ok ? slots.value[0] : undefined;
-    const booked = slot ? await taller.agendarCita(kase.ownerId, slot, `cita-${kase.id}`) : null;
+    const booked = slot ? await taller.agendarCita(kase.ownerId, kase.id, slot) : null;
     if (booked?.ok) {
       kase.appointmentId = booked.value.appointmentId;
       kase.appointmentAt = new Date(booked.value.start);
@@ -123,7 +123,7 @@ export class GarantiasService {
     if (kase.status === wanted) return this.viewOf(kase);
     if (kase.status !== WarrantyStatus.PENDING_MECHANIC) throw new ConflictException('El caso no está pendiente de decisión del mecánico');
     if (action === 'rechazar') return this.finish(kase, mechanicId, { status: wanted, reason: reason ?? '' });
-    const charge = await (await this.services.pagos()).registrarCobroGarantia({ ownerId: kase.ownerId, caseId: kase.id, idempotencyKey: `garantia-${kase.id}` });
+    const charge = await (await this.services.pagos()).registrarCobroGarantia({ ownerId: kase.ownerId, caseId: kase.id });
     if (!charge.ok) throw new BadGatewayException('Pagos no respondió; el caso sigue pendiente. Intenta aceptar de nuevo (no se duplicará el cobro).');
     return this.finish(kase, mechanicId, { status: wanted, chargeRef: charge.value.chargeRef, parts: parts ?? [] });
   }

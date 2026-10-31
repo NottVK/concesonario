@@ -65,13 +65,13 @@ export class SimulatedServices implements TallerService, TiendaService, PagosSer
     return ok([base.toISOString(), new Date(base.getTime() + 3_600_000).toISOString()]);
   }
 
-  async agendarCita(_ownerId: number, slot: string, idempotencyKey: string): Promise<ServiceResult<BookedAppointment>> {
+  async agendarCita(_ownerId: number, caseId: string, slot: string): Promise<ServiceResult<BookedAppointment>> {
     this.bookingCalls++;
     if (this.failing.has('taller')) return FAIL;
-    const existing = this.bookings.get(idempotencyKey);
+    const existing = this.bookings.get(caseId);
     if (existing) return ok(existing);
     const booking = { appointmentId: `sim-cita-${this.bookings.size + 1}`, start: slot };
-    this.bookings.set(idempotencyKey, booking);
+    this.bookings.set(caseId, booking);
     return ok(booking);
   }
 
@@ -82,13 +82,13 @@ export class SimulatedServices implements TallerService, TiendaService, PagosSer
     return ok(ownerId === 3 ? [{ date: today(), item: 'Rines deportivos', installedBy: 'third_party' }] : []);
   }
 
-  async registrarCobroGarantia(input: { ownerId: number; caseId: string; idempotencyKey: string }): Promise<ServiceResult<ChargeReceipt>> {
+  async registrarCobroGarantia(input: { ownerId: number; caseId: string }): Promise<ServiceResult<ChargeReceipt>> {
     this.chargeCalls++;
     if (this.failing.has('pagos')) return FAIL;
-    const existing = this.charges.get(input.idempotencyKey);
+    const existing = this.charges.get(input.caseId);
     if (existing) return ok(existing);
     const receipt = { chargeRef: `sim-cobro-${this.charges.size + 1}` };
-    this.charges.set(input.idempotencyKey, receipt);
+    this.charges.set(input.caseId, receipt);
     return ok(receipt);
   }
 }

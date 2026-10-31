@@ -33,8 +33,8 @@ export interface TallerService {
   consultarRegistros(ownerId: number): Promise<ServiceResult<TallerRecord[]>>;
   /** Horarios libres (ISO 8601), del más próximo al más lejano. */
   consultarDisponibilidad(): Promise<ServiceResult<string[]>>;
-  /** Con la misma clave de idempotencia devuelve la misma cita: reintentar nunca duplica. */
-  agendarCita(ownerId: number, slot: string, idempotencyKey: string): Promise<ServiceResult<BookedAppointment>>;
+  /** La clave de idempotencia sale del caso: reintentar nunca duplica la cita. */
+  agendarCita(ownerId: number, caseId: string, slot: string): Promise<ServiceResult<BookedAppointment>>;
 }
 
 export interface TiendaService {
@@ -42,8 +42,8 @@ export interface TiendaService {
 }
 
 export interface PagosService {
-  /** Con la misma clave de idempotencia registra UN solo cobro. */
-  registrarCobroGarantia(input: { ownerId: number; caseId: string; idempotencyKey: string }): Promise<ServiceResult<ChargeReceipt>>;
+  /** La clave de idempotencia sale del caso: registra UN solo cobro. */
+  registrarCobroGarantia(input: { ownerId: number; caseId: string }): Promise<ServiceResult<ChargeReceipt>>;
 }
 
 /** Nombres con los que se registran en `bots_externos`; los fija el código, nunca el modelo. */

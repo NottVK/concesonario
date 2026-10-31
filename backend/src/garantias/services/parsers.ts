@@ -2,9 +2,9 @@ import { z } from 'zod';
 import type { BookedAppointment, ChargeReceipt, StorePurchase, TallerRecord } from './types.js';
 
 /**
- * Traductores de la respuesta de cada equipo al formato interno. Hoy aceptan directamente el formato interno (los
- * contratos con los otros grupos no están definidos): cuando lo estén, solo se cambia el esquema de aquí. Todo lo que
- * llega es dato NO confiable: se valida forma, tamaño y fechas, y lo que no encaja se descarta como «no verificado».
+ * Traductores del `data` que devuelve cada equipo (contrato de integración v0.1, sección 6) al formato interno. Si un
+ * equipo cambia sus nombres, solo se cambia el esquema de aquí. Todo lo que llega es dato NO confiable: se valida
+ * forma, tamaño y fechas, y lo que no encaja se descarta como «no verificado».
  */
 const DAY = /^\d{4}-\d{2}-\d{2}/;
 const ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -20,33 +20,44 @@ const pastDate = z
   });
 const isoInstant = z.string().max(40).refine((value) => Number.isFinite(Date.parse(value)));
 
+const yesNo = z.enum(['sí', 'si', 'no']);
 const records = z.object({
-  records: z.array(z.object({ date: pastDate, km: z.number().int().min(0).max(3_000_000).nullable(), kind: z.enum(['service', 'repair', 'third_party_change']) })).max(MAX_ITEMS),
+  registros: z
+    .array(z.object({ fecha: pastDate, tipo: z.enum(['revision', 'reparacion']), km: z.number().int().min(0).max(3_000_000).nullable(), centro_autorizado: yesNo }))
+    .max(MAX_ITEMS),
 });
-const slots = z.object({ slots: z.array(isoInstant).max(MAX_ITEMS) });
-const booking = z.object({ appointmentId: z.string().regex(ID), start: isoInstant });
+const slots = z.object({ franjas: z.array(z.object({ inicio: isoInstant })).max(MAX_ITEMS) });
+const booking = z.object({ cita_id: z.string().regex(ID) });
 const purchases = z.object({
-  purchases: z.array(z.object({ date: pastDate, item: z.string().min(1).max(80), installedBy: z.enum(['official', 'third_party', 'unknown']) })).max(MAX_ITEMS),
+  compras: z.array(z.object({ fecha: pastDate, descripcion: z.string().min(1).max(80) })).max(MAX_ITEMS),
 });
-const charge = z.object({ chargeRef: z.string().regex(ID) });
+// Pagos usa su propio contrato: se acepta el identificador de la cuenta con cualquiera de estos nombres.
+const charge = z.object({ cuenta_id: z.string().regex(ID).optional(), id: z.string().regex(ID).optional(), external_ref: z.string().regex(ID).optional() });
+
+/** Una reparación en un centro NO autorizado es un cambio ajeno; una revisión nunca lo es. */
+const kindOf = (tipo: 'revision' | 'reparacion', authorized: 'sí' | 'si' | 'no'): TallerRecord['kind'] =>
+  authorized === 'no' ? 'third_party_change' : tipo === 'revision' ? 'service' : 'repair';
 
 export const parseRecords = (json: unknown): TallerRecord[] | null => {
   const parsed = records.safeParse(json);
-  return parsed.success ? parsed.data.records : null;
+  return parsed.success ? parsed.data.registros.map((r) => ({ date: r.fecha, km: r.km, kind: kindOf(r.tipo, r.centro_autorizado) })) : null;
 };
 export const parseSlots = (json: unknown): string[] | null => {
   const parsed = slots.safeParse(json);
-  return parsed.success ? parsed.data.slots : null;
+  return parsed.success ? parsed.data.franjas.map((f) => f.inicio) : null;
 };
-export const parseBooking = (json: unknown): BookedAppointment | null => {
+/** La hora de la cita es la que pedimos nosotros; el equipo solo devuelve el identificador. */
+export const parseBooking = (json: unknown, start: string): BookedAppointment | null => {
   const parsed = booking.safeParse(json);
-  return parsed.success ? parsed.data : null;
+  return parsed.success ? { appointmentId: parsed.data.cita_id, start } : null;
 };
 export const parsePurchases = (json: unknown): StorePurchase[] | null => {
   const parsed = purchases.safeParse(json);
-  return parsed.success ? parsed.data.purchases : null;
+  // El contrato no dice quién instaló el repuesto: queda «unknown» y no cuenta como cambio ajeno.
+  return parsed.success ? parsed.data.compras.map((c) => ({ date: c.fecha, item: c.descripcion, installedBy: 'unknown' as const })) : null;
 };
 export const parseCharge = (json: unknown): ChargeReceipt | null => {
   const parsed = charge.safeParse(json);
-  return parsed.success ? parsed.data : null;
+  const ref = parsed.success ? (parsed.data.cuenta_id ?? parsed.data.id ?? parsed.data.external_ref) : undefined;
+  return ref ? { chargeRef: ref } : null;
 };
