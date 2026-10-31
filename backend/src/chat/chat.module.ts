@@ -35,6 +35,6 @@ import { SessionService } from './session/session.service.js';
     PurgeService,
   ],
   // InternalSecret lo usa el límite global de peticiones (AppModule) para reconocer las llamadas internas.
-  exports: [TypeOrmModule, MODEL_PROVIDER, InternalSecret],
+  exports: [TypeOrmModule, MODEL_PROVIDER, InternalSecret, ChatService],
 })
 export class ChatModule {}

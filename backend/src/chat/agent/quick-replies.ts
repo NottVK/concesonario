@@ -1,3 +1,5 @@
+import { isToolAllowed } from '../tools/allowed-tools.js';
+
 /**
  * Respuestas inmediatas para saludos, agradecimientos y despedidas (decisión 125). No llaman al modelo ni a
  * ninguna tool: con gpt-oss:20b un «hola» tardaba varios segundos y a veces terminaba buscando vehículos.
@@ -8,6 +10,10 @@ export const GREETING_REPLY =
   '¡Hola! Soy el asistente de AutoMax. ¿En qué te puedo colaborar? Puedo buscarte carros por marca o presupuesto, compararlos, simular un crédito o prepararte un test-drive.';
 export const THANKS_REPLY = '¡Con mucho gusto! ¿Te ayudo con algo más?';
 export const GOODBYE_REPLY = '¡Gracias por escribirnos! Cuando quieras, aquí estoy para ayudarte a encontrar tu próximo carro.';
+
+/** Variantes para el alcance «solo ficha por VIN» (cuando buscar_vehiculos no está habilitada). */
+export const VIN_GREETING_REPLY = '¡Hola! Soy el asistente de AutoMax. Puedo consultarte la ficha pública de un vehículo si me das su VIN (17 caracteres).';
+export const VIN_GOODBYE_REPLY = '¡Gracias por escribirnos! Cuando quieras consultar la ficha de otro vehículo, aquí estoy.';
 
 const MAX_QUICK_CHARS = 60;
 
@@ -31,8 +37,9 @@ export function quickReply(message: string): string | null {
   if (message.length > MAX_QUICK_CHARS) return null;
   const text = normalizeQuick(message);
   if (!text) return null;
-  if (GREETING.test(text)) return GREETING_REPLY;
-  if (THANKS.test(text)) return THANKS_REPLY;
-  if (GOODBYE.test(text)) return GOODBYE_REPLY;
+  const vinScope = !isToolAllowed('buscar_vehiculos');
+  if (GREETING.test(text)) return vinScope ? VIN_GREETING_REPLY : GREETING_REPLY;
+  if (THANKS.test(text)) return vinScope ? '¡Con mucho gusto! ¿Quieres consultar otro VIN?' : THANKS_REPLY;
+  if (GOODBYE.test(text)) return vinScope ? VIN_GOODBYE_REPLY : GOODBYE_REPLY;
   return null;
 }

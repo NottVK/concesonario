@@ -8,6 +8,7 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    setupFiles: ['./vitest.setup.ts'],
     // Evita saturar el equipo cuando se corre junto con el frontend o con la base de datos.
     maxWorkers: 3,
   },

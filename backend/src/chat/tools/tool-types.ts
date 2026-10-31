@@ -35,6 +35,8 @@ export interface NewProposal {
 export interface ToolContext {
   api: ReadOnlyApi;
   sessionId: string;
+  /** Quién consulta (la IP de la persona): clave de los límites de intentos por tool. */
+  clientKey?: string;
   /** Ids que ya salieron de una tool en esta sesión (o que mandó la ficha del vehículo). */
   seen: ReadonlySet<number>;
   now: Date;

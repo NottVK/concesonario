@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { buildDataSourceOptions, loadRootEnv } from '../db.config.js';
+import { seedFichasVin } from '../../fichas-vin/fichas-vin.seed.js';
 import { runSeed, seedEmbeddings } from './seed.service.js';
 
 loadRootEnv();
@@ -11,6 +12,7 @@ try {
   console.log(
     `Seed listo: ${result.brands} marcas, ${result.vehicles} vehículos, ${result.users} usuarios.`,
   );
+  console.log(`Fichas VIN: ${await seedFichasVin(dataSource)}.`);
   console.log(await seedEmbeddings(dataSource));
 } catch (error: unknown) {
   console.error('Falló el seed:', error);

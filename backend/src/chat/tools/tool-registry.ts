@@ -1,18 +1,21 @@
 import { Logger } from '@nestjs/common';
 import { ApiUnreachableError, RouteNotAllowedError } from '../api/public-api.client.js';
 import type { ToolCall, ToolDefinition } from '../model/model-provider.js';
+import { isToolAllowed } from './allowed-tools.js';
 import { agendarCita } from './appointment-tool.js';
 import { simularCredito } from './credit-tool.js';
 import { otherBotDefinition, preguntarAOtroBot } from './other-bot-tool.js';
 import { toolError } from './tool-types.js';
 import type { ChatTool, ToolContext, ToolResult } from './tool-types.js';
 import { buscarVehiculos, compararVehiculos, detalleVehiculo } from './vehicle-tools.js';
+import { consultarFichaVin } from './vin-tool.js';
 
 /**
  * Tools registradas. `consultar_cita` queda diferida (el bot solo confirma las citas de la sesión actual).
+ * Solo las de CHAT_ALLOWED_TOOLS se ofrecen y se ejecutan (por defecto, `consultar_ficha_vin`); el resto sigue aquí, apagado.
  * `preguntar_a_otro_bot` está registrada pero SOLO se ofrece al modelo en los turnos en que hay bots activos.
  */
-export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot];
+export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot, consultarFichaVin];
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
 const logger = new Logger('ChatTools');
@@ -20,7 +23,7 @@ const logger = new Logger('ChatTools');
 /** Definiciones que se le ofrecen al modelo en este turno: la de otros bots lleva como enum los bots activos, y falta si no hay ninguno. */
 export function toolDefinitions(context?: Pick<ToolContext, 'otherBots'>): ToolDefinition[] {
   const offered = context?.otherBots?.offered ?? [];
-  return TOOLS.flatMap((tool) => {
+  return TOOLS.filter((tool) => isToolAllowed(tool.name)).flatMap((tool) => {
     if (tool.name !== preguntarAOtroBot.name) return [tool.definition];
     return offered.length > 0 ? [otherBotDefinition(offered)] : [];
   });
@@ -33,7 +36,8 @@ export function toolDefinitions(context?: Pick<ToolContext, 'otherBots'>): ToolD
  */
 export async function executeTool(call: ToolCall, context: ToolContext): Promise<ToolResult> {
   const tool = BY_NAME.get(call.name);
-  if (!tool) return toolError(`La herramienta "${call.name.slice(0, 40)}" no existe. Disponibles: ${[...BY_NAME.keys()].join(', ')}`);
+  if (!tool) return toolError(`La herramienta "${call.name.slice(0, 40)}" no existe. Disponibles: ${[...BY_NAME.keys()].filter(isToolAllowed).join(', ')}`);
+  if (!isToolAllowed(tool.name)) return toolError(`La herramienta "${tool.name}" no está habilitada.`);
   if (call.invalidArguments) return toolError('Los argumentos no eran un objeto JSON válido. Vuelve a intentarlo.');
   try {
     return await tool.run(call.arguments, context);

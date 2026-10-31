@@ -49,7 +49,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 44 operaciones de la API', () => {
+  it('documenta exactamente las 45 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
@@ -70,6 +70,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/citas/{id}',
       'GET /api/clientes',
       'GET /api/clientes/{id}',
+      'GET /api/fichas-vin/{vin}',
       'GET /api/marcas',
       'GET /api/marcas/{id}',
       'GET /api/vehiculos',

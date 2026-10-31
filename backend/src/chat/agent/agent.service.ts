@@ -10,7 +10,7 @@ import type { NewProposal, ProposalView, ToolContext, VehicleCard } from '../too
 import type { ReadOnlyApi } from '../api/public-api.client.js';
 import { Collected } from './collected.js';
 import { buildSystemPrompt } from './prompt.js';
-import { checkReply, correctionNote, GENERIC_FALLBACK, PROMPT_REFUSAL } from './reply-checks.js';
+import { checkReply, correctionNote, genericFallback, promptRefusal } from './reply-checks.js';
 import type { Problem } from './reply-checks.js';
 
 export interface AgentInput {
@@ -20,6 +20,8 @@ export interface AgentInput {
   userMessage: string;
   api: ReadOnlyApi;
   sessionId: string;
+  /** IP de la persona, para los límites de intentos de las tools. */
+  clientKey?: string;
   /** Ids que la sesión ya vio; el agente suma los de este turno. */
   seenVehicleIds: number[];
   createProposal(input: NewProposal): Promise<ProposalView>;
@@ -67,6 +69,7 @@ export class AgentService {
     const context: ToolContext = {
       api: input.api,
       sessionId: input.sessionId,
+      ...(input.clientKey ? { clientKey: input.clientKey } : {}),
       seen,
       now,
       createProposal: (proposal) => input.createProposal(proposal),
@@ -89,13 +92,13 @@ export class AgentService {
       const reply = response.content.trim();
       const problems: Problem[] = reply ? checkReply(reply, collected, input.userMessage) : ['empty'];
       if (problems.length === 0) return this.finish(reply, collected, seen, toolsCalled, 'none');
-      if (problems.includes('prompt')) return this.finish(PROMPT_REFUSAL, collected, seen, toolsCalled, 'refusal');
+      if (problems.includes('prompt')) return this.finish(promptRefusal(), collected, seen, toolsCalled, 'refusal');
       this.logger.warn(`Respuesta del modelo rechazada (${problems.join(', ')})`);
       if (retried) break;
       retried = true;
       messages.push({ role: 'assistant', content: reply || '(sin respuesta)' }, { role: 'user', content: correctionNote(problems) });
     }
-    return this.finish(collected.template() ?? GENERIC_FALLBACK, collected, seen, toolsCalled, 'template');
+    return this.finish(collected.template() ?? genericFallback(), collected, seen, toolsCalled, 'template');
   }
 
   /** Bots a los que se puede preguntar en este turno: los nombres se sanean y, si no queda ninguno, la tool no se ofrece. */

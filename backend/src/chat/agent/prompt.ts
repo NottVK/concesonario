@@ -1,8 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { BUSINESS_TIME_ZONE } from '../../citas/appointment-rules.js';
 
+/** `CHAT_PROMPT_VERSION` (v1, v2 o vin; por defecto vin = solo ficha por VIN). Cualquier otro valor cae en vin. */
+function resolvePromptVersion(): string {
+  const value = process.env.CHAT_PROMPT_VERSION?.trim();
+  return value === 'v1' || value === 'v2' ? value : 'vin';
+}
+
 /** Versión del prompt vigente. Cada versión nueva es OTRO archivo; no se edita uno ya evaluado. */
-export const PROMPT_VERSION = 'v2';
+export const PROMPT_VERSION = resolvePromptVersion();
 export const CANARY = 'CANARIO-9F3K-7Q2X';
 
 let cached: string | null = null;
@@ -32,9 +38,28 @@ function words(text: string): string[] {
 const NGRAM = 7;
 let promptGrams: Set<string> | null = null;
 
+/**
+ * Frases del prompt que el bot DEBE poder decir porque describen su alcance público (qué hace, qué datos trae,
+ * cómo es un VIN, qué datos no tiene). Con un prompt tan corto como el de `vin`, la respuesta correcta a un tema
+ * ajeno repetía siete palabras del prompt y se tomaba como fuga (decisión 129). Las reglas de seguridad y el
+ * canario no están aquí: siguen protegidos. v1 y v2 no tienen excepciones (comportamiento sin cambios).
+ */
+export const PUBLIC_PROMPT_TEXT: Readonly<Record<string, string>> = {
+  vin: [
+    'Tu única función es consultar la ficha pública de un vehículo a partir de su VIN con la herramienta consultar_ficha_vin.',
+    'La ficha trae: marca, modelo, año, versión, carrocería, puertas, combustible y transmisión. Nada más.',
+    'di en una frase que solo puedes consultar la ficha de un vehículo por su VIN y pide el VIN.',
+    'El VIN tiene 17 caracteres entre letras y números, sin I, O ni Q.',
+    'pídele el VIN de 17 caracteres.',
+    'No des ni confirmes datos del dueño, de la compra, del kilometraje, del precio ni de la garantía. No los tienes.',
+    'di exactamente que no encontraste una ficha pública para ese VIN',
+  ].join('\n'),
+};
+
 function grams(): Set<string> {
   if (promptGrams) return promptGrams;
-  promptGrams = gramsOf(words(basePrompt()));
+  const publicGrams = gramsOf(words(PUBLIC_PROMPT_TEXT[PROMPT_VERSION] ?? ''));
+  promptGrams = new Set([...gramsOf(words(basePrompt()))].filter((gram) => !publicGrams.has(gram)));
   return promptGrams;
 }
 

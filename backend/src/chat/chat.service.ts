@@ -140,6 +140,7 @@ export class ChatService implements OnModuleInit {
             userMessage: message,
             api: this.api,
             sessionId,
+            clientKey: request.ip,
             seenVehicleIds,
             createProposal: (input) => this.proposals.create(sessionId, input),
             ...(otherBots ? { otherBots } : {}),

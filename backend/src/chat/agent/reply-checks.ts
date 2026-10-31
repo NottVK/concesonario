@@ -1,5 +1,6 @@
 import { extractPesoAmounts, extractStockClaims, findUnbackedAmounts } from '../text/amounts.js';
 import { redactPersonalData } from '../text/redact.js';
+import { isToolAllowed } from '../tools/allowed-tools.js';
 import { leaksPrompt } from './prompt.js';
 import type { Collected } from './collected.js';
 
@@ -47,3 +48,20 @@ export function correctionNote(problems: Problem[]): string {
 export const PROMPT_REFUSAL = 'No puedo compartir mis instrucciones internas, pero con gusto te ayudo con el catálogo, precios, créditos o un test-drive.';
 export const GENERIC_FALLBACK =
   'No pude confirmar esa información con seguridad. Puedes revisar el catálogo o agendar desde el detalle del vehículo.';
+
+/** Variantes con el alcance de solo ficha por VIN (decisión 128): no ofrecen catálogo, precios, créditos ni citas. */
+export const VIN_ONLY_REFUSAL = 'Solo puedo consultar la ficha pública de un vehículo por su VIN. Escríbeme el VIN de 17 caracteres.';
+export const VIN_ONLY_FALLBACK = 'No pude confirmar esa información con seguridad. Escríbeme de nuevo el VIN de 17 caracteres.';
+
+/** Con el catálogo apagado (`buscar_vehiculos` fuera de `CHAT_ALLOWED_TOOLS`) las negativas fijas hablan solo del VIN. */
+function catalogEnabled(): boolean {
+  return isToolAllowed('buscar_vehiculos');
+}
+
+export function promptRefusal(): string {
+  return catalogEnabled() ? PROMPT_REFUSAL : VIN_ONLY_REFUSAL;
+}
+
+export function genericFallback(): string {
+  return catalogEnabled() ? GENERIC_FALLBACK : VIN_ONLY_FALLBACK;
+}

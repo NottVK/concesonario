@@ -179,7 +179,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
         'GET /api/marcas', 'GET /api/marcas/:id', 'GET /api/vehiculos', 'GET /api/vehiculos/:id',
         'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'GET /api/vehiculos/buscar', 'POST /api/auth/login',
         'POST /api/citas', 'POST /api/clientes', 'POST /api/financiacion/simular',
-        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'POST /api/mcp',
+        'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'GET /api/fichas-vin/:vin', 'POST /api/mcp',
         'GET /.well-known/agent.json', 'POST /a2a/tasks',
       ].sort());
     });

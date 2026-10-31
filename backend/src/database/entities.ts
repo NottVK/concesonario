@@ -5,6 +5,7 @@ import { AppointmentProposal } from '../chat/entities/appointment-proposal.entit
 import { ChatSession } from '../chat/entities/chat-session.entity.js';
 import { Conversation } from '../chat/entities/conversation.entity.js';
 import { Customer } from '../clientes/entities/customer.entity.js';
+import { FichaVin } from '../fichas-vin/entities/ficha-vin.entity.js';
 import { Brand } from '../marcas/entities/brand.entity.js';
 import { User } from '../usuarios/entities/user.entity.js';
 import { Vehicle } from '../vehiculos/entities/vehicle.entity.js';
@@ -23,4 +24,5 @@ export const entities = [
   AppointmentProposal,
   ExternalBot,
   BotExchange,
+  FichaVin,
 ];

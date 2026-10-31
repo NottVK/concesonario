@@ -44,6 +44,7 @@ describe('higiene de imports de la A2A saliente', () => {
       'chat/model/http-errors.ts',
       'chat/model/ollama.provider.ts',
       'embeddings/ollama-embedding.provider.ts',
+      'telegram/telegram.client.ts', // Bot API de Telegram: host fijo (api.telegram.org), nunca una URL que dé otro bot
     ]);
   });
 

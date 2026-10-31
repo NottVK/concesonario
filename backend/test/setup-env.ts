@@ -10,6 +10,9 @@ process.env.THROTTLE_PUBLIC_LIMIT = '10000';
 process.env.JWT_SECRET ??= 'secreto-solo-para-pruebas-e2e';
 // Las pruebas nunca llaman a un modelo real: el proveedor es el simulado.
 process.env.CHAT_PROVIDER = 'mock';
+// Los e2e existentes cubren todas las tools y el prompt v2; el valor por defecto (solo ficha por VIN) se prueba en fichas-vin.e2e-spec.ts.
+process.env.CHAT_ALLOWED_TOOLS = 'buscar_vehiculos,detalle_vehiculo,comparar_vehiculos,simular_credito,agendar_cita,preguntar_a_otro_bot,consultar_ficha_vin';
+process.env.CHAT_PROMPT_VERSION = 'v2';
 // Embeddings simulados y umbral bajo (el mock solo compara palabras); sin pausa ni topes del chat salvo en sus pruebas de límites.
 process.env.EMBEDDING_PROVIDER = 'mock';
 process.env.SEARCH_MIN_SIMILARITY = '0.1';
