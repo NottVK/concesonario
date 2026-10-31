@@ -13,6 +13,7 @@ import { InternalAwareThrottlerGuard } from './chat/security/internal-throttler.
 import { CitasModule } from './citas/citas.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
 import { buildDataSourceOptions } from './database/db.config.js';
+import { GarantiasModule } from './garantias/garantias.module.js';
 import { FichasVinModule } from './fichas-vin/fichas-vin.module.js';
 import { FinanciacionModule } from './financiacion/financiacion.module.js';
 import { MarcasModule } from './marcas/marcas.module.js';
@@ -47,6 +48,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     A2aModule,
     TelegramModule,
     FichasVinModule,
+    GarantiasModule,
   ],
   // El orden importa: primero el límite de peticiones, luego autenticación, luego roles.
   providers: [
