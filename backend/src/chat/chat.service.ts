@@ -18,7 +18,11 @@ import { SessionService } from './session/session.service.js';
 import { sanitizeText } from './text/sanitize.js';
 import { BadRequestException, GatewayTimeoutException, ServiceUnavailableException } from '@nestjs/common';
 import type { ApiVehicle } from './tools/format.js';
+import { isToolAllowed } from './tools/allowed-tools.js';
 import { OTHER_BOT_GATEWAY } from './tools/other-bot.js';
+import { WARRANTY_GATEWAY } from './tools/warranty.js';
+import type { WarrantyGateway } from './tools/warranty.js';
+import { redactDocuments } from './text/redact-documents.js';
 import type { OtherBotGateway } from './tools/other-bot.js';
 import { loadOtherBots } from './tools/other-bot-tool.js';
 
@@ -50,6 +54,7 @@ export class ChatService implements OnModuleInit {
     private readonly proposals: ProposalService,
     private readonly api: PublicApiClient,
     @Optional() @Inject(OTHER_BOT_GATEWAY) private readonly otherBots?: OtherBotGateway,
+    @Optional() @Inject(WARRANTY_GATEWAY) private readonly warranty?: WarrantyGateway,
   ) {}
 
   onModuleInit(): void {
@@ -60,7 +65,9 @@ export class ChatService implements OnModuleInit {
 
   async turn(request: TurnRequest): Promise<ChatReplyDto> {
     // Antes de gastar nada: el mensaje se sanea y se rechaza si queda vacío.
-    const message = sanitizeText(request.message, CHAT_MESSAGE_MAX_CHARS);
+    // Con el flujo de garantías activo, un número que parece documento se tapa ANTES de usarlo: no llega al modelo ni al historial.
+    const clean = sanitizeText(request.message, CHAT_MESSAGE_MAX_CHARS);
+    const message = isToolAllowed('reportar_falla_garantia') ? redactDocuments(clean) : clean;
     if (!message) throw new BadRequestException('El mensaje no puede estar vacío');
     if (!this.hourly.tryConsume(request.ip)) {
       throw new ChatRetryException('Llegaste al límite de mensajes por hora. Intenta más tarde.', HttpStatus.TOO_MANY_REQUESTS, this.hourly.retryAfterSeconds(request.ip));
@@ -144,6 +151,7 @@ export class ChatService implements OnModuleInit {
             seenVehicleIds,
             createProposal: (input) => this.proposals.create(sessionId, input),
             ...(otherBots ? { otherBots } : {}),
+            ...(this.warranty ? { warranty: this.warranty } : {}),
             signal: turnSignal,
           }),
         turnSignal,

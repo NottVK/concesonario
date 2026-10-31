@@ -7,6 +7,7 @@ import { executeTool, toolDefinitions } from '../tools/tool-registry.js';
 import type { OtherBotsInput, OtherBotTurn, ThirdPartyCard } from '../tools/other-bot.js';
 import { offerBots } from '../tools/other-bot-tool.js';
 import type { NewProposal, ProposalView, ToolContext, VehicleCard } from '../tools/tool-types.js';
+import type { WarrantyGateway } from '../tools/warranty.js';
 import type { ReadOnlyApi } from '../api/public-api.client.js';
 import { Collected } from './collected.js';
 import { buildSystemPrompt } from './prompt.js';
@@ -27,6 +28,8 @@ export interface AgentInput {
   createProposal(input: NewProposal): Promise<ProposalView>;
   /** Salida hacia otros bots, con los bots activos ya listados; si falta (o no hay bots activos) la tool `preguntar_a_otro_bot` no se ofrece. */
   otherBots?: OtherBotsInput;
+  /** Pasarela del flujo de garantías; si falta, sus tools responden «no disponible». */
+  warranty?: WarrantyGateway;
   signal?: AbortSignal;
   now?: Date;
 }
@@ -74,6 +77,7 @@ export class AgentService {
       now,
       createProposal: (proposal) => input.createProposal(proposal),
       otherBots: this.otherBotsFor(input.otherBots),
+      warranty: input.warranty ?? null,
     };
     const messages: ChatMessage[] = [
       { role: 'system', content: buildSystemPrompt(now) },

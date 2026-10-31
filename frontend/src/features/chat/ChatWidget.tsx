@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { MessageCircle, RotateCcw, Send, Trash2, X } from 'lucide-react'
+import { MessageCircle, RotateCcw, Send, ShieldCheck, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Link, useMatch } from 'react-router-dom'
@@ -11,6 +11,7 @@ import { fetchChatStatus, MAX_MESSAGE } from './chatApi'
 import type { VehicleCardData } from './chatApi'
 import { ProposalCard } from './ProposalCard'
 import { ThirdPartyCard } from './ThirdPartyCard'
+import { WarrantyForm } from './WarrantyForm'
 import { useChat } from './useChat'
 
 function TypingIndicator({ long }: { long: boolean }) {
@@ -53,6 +54,7 @@ function Cards({ cards }: { cards: VehicleCardData[] }) {
 export function ChatWidget({ thinkingAfterMs }: { thinkingAfterMs?: number } = {}) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
+  const [warrantyOpen, setWarrantyOpen] = useState(false)
   const launcher = useRef<HTMLButtonElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
   const log = useRef<HTMLDivElement>(null)
@@ -121,6 +123,9 @@ export function ChatWidget({ thinkingAfterMs }: { thinkingAfterMs?: number } = {
       <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="font-display text-base font-semibold">Asistente AutoMax</h2>
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setWarrantyOpen((value) => !value)} aria-label="Garantía" title="Garantía">
+            <ShieldCheck size={16} aria-hidden="true" />
+          </Button>
           <Button variant="ghost" size="sm" onClick={chat.reset} aria-label="Nueva conversación" title="Nueva conversación">
             <RotateCcw size={16} aria-hidden="true" />
           </Button>
@@ -132,6 +137,15 @@ export function ChatWidget({ thinkingAfterMs }: { thinkingAfterMs?: number } = {
           </Button>
         </div>
       </header>
+      {warrantyOpen && (
+        <WarrantyForm
+          onCancel={() => setWarrantyOpen(false)}
+          onIdentified={(message) => {
+            setWarrantyOpen(false)
+            chat.append({ role: 'note', text: message })
+          }}
+        />
+      )}
 
       <div ref={log} role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación" className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {chat.messages.length === 0 && !chat.sending && (

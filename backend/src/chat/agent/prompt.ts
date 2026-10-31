@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { BUSINESS_TIME_ZONE } from '../../citas/appointment-rules.js';
 
-/** `CHAT_PROMPT_VERSION` (v1, v2 o vin; por defecto vin = solo ficha por VIN). Cualquier otro valor cae en vin. */
+/** `CHAT_PROMPT_VERSION` (v1, v2, vin o garantia; por defecto garantia = ficha por VIN y garantías). Cualquier otro valor cae en garantia. */
 function resolvePromptVersion(): string {
   const value = process.env.CHAT_PROMPT_VERSION?.trim();
-  return value === 'v1' || value === 'v2' ? value : 'vin';
+  return value === 'v1' || value === 'v2' || value === 'vin' ? value : 'garantia';
 }
 
 /** Versión del prompt vigente. Cada versión nueva es OTRO archivo; no se edita uno ya evaluado. */
@@ -52,6 +52,15 @@ export const PUBLIC_PROMPT_TEXT: Readonly<Record<string, string>> = {
     'El VIN tiene 17 caracteres entre letras y números, sin I, O ni Q.',
     'pídele el VIN de 17 caracteres.',
     'No des ni confirmes datos del dueño, de la compra, del kilometraje, del precio ni de la garantía. No los tienes.',
+    'di exactamente que no encontraste una ficha pública para ese VIN',
+  ].join('\n'),
+  garantia: [
+    'Haces dos cosas: (1) consultar la ficha pública de un vehículo por su VIN con consultar_ficha_vin y (2) atender solicitudes de garantía.',
+    'di en una frase que solo puedes consultar fichas por VIN y atender garantías.',
+    'Para identificar al propietario el cliente usa el formulario de garantía del chat (documento y VIN).',
+    'La garantía NUNCA la decides tú: la decide el sistema y, al final, un mecánico.',
+    'El VIN tiene 17 caracteres entre letras y números, sin I, O ni Q.',
+    'No des ni confirmes datos del dueño, de la compra, del kilometraje ni del precio. No los tienes.',
     'di exactamente que no encontraste una ficha pública para ese VIN',
   ].join('\n'),
 };

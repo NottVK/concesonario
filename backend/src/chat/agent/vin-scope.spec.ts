@@ -50,7 +50,7 @@ describe('negativas fijas según el alcance', () => {
 
 describe('detector de fugas con el prompt vin', () => {
   beforeEach(() => {
-    delete process.env.CHAT_PROMPT_VERSION;
+    process.env.CHAT_PROMPT_VERSION = 'vin';
     vi.resetModules();
   });
   const load = async () => import('./prompt.js');

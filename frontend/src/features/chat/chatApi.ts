@@ -98,3 +98,16 @@ export function classifyConfirmError(error: unknown): string {
   if (status === 502) return serverText(error) || 'No recibimos respuesta del sistema de citas; la cita pudo quedar registrada.'
   return 'No pudimos registrar la cita. Intenta de nuevo en un momento.'
 }
+
+/** Formulario de garantía: documento y VIN van directo al servidor, nunca por la conversación. Sin sesión, la crea con un saludo (sin modelo). */
+export async function identifyForWarranty(input: { documento: string; vin: string }): Promise<string> {
+  if (!getChatToken()) await sendChatMessage('hola', null)
+  const { data } = await api.post<{ ok: true; message: string }>('/chat/garantias/identificar', input, { headers: sessionHeaders(), skipReauth: true })
+  return data.message
+}
+
+export function classifyIdentifyError(error: unknown): string {
+  if (isAxiosError(error) && error.response?.status === 429) return serverText(error) || 'Demasiados intentos. Intenta más tarde.'
+  if (isAxiosError(error) && error.response?.status === 404) return serverText(error) || 'No pudimos verificar esos datos.'
+  return 'No pudimos enviar el formulario. Intenta de nuevo.'
+}

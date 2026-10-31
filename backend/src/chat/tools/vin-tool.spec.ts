@@ -29,9 +29,10 @@ describe('lista blanca CHAT_ALLOWED_TOOLS', () => {
   beforeEach(() => { delete process.env.CHAT_ALLOWED_TOOLS; resetVinLimits(); });
   afterEach(() => { process.env.CHAT_ALLOWED_TOOLS = saved.tools; process.env.CHAT_PROMPT_VERSION = saved.prompt; });
 
-  it('por defecto solo se ofrece consultar_ficha_vin', () => {
-    expect([...allowedTools()]).toEqual(['consultar_ficha_vin']);
-    expect(toolDefinitions().map((d) => d.name)).toEqual(['consultar_ficha_vin']);
+  it('por defecto solo se ofrecen la ficha por VIN y las dos tools de garantías', () => {
+    const expected = ['consultar_ficha_vin', 'reportar_falla_garantia', 'consultar_estado_garantia'];
+    expect([...allowedTools()]).toEqual(expected);
+    expect(toolDefinitions().map((d) => d.name)).toEqual(expected);
   });
 
   it('una tool fuera de la lista se rechaza al ejecutarla, aunque el modelo la pida', async () => {
@@ -62,7 +63,7 @@ describe('lista blanca CHAT_ALLOWED_TOOLS', () => {
 
 describe('consultar_ficha_vin', () => {
   beforeEach(() => { delete process.env.CHAT_ALLOWED_TOOLS; resetVinLimits(); });
-  afterEach(() => { process.env.CHAT_ALLOWED_TOOLS = 'buscar_vehiculos,detalle_vehiculo,comparar_vehiculos,simular_credito,agendar_cita,preguntar_a_otro_bot,consultar_ficha_vin'; });
+  afterEach(() => { process.env.CHAT_ALLOWED_TOOLS = 'buscar_vehiculos,detalle_vehiculo,comparar_vehiculos,simular_credito,agendar_cita,preguntar_a_otro_bot,consultar_ficha_vin,reportar_falla_garantia,consultar_estado_garantia'; });
 
   it('devuelve SOLO los ocho campos públicos, nunca dueño, compra, km, precio ni garantía', async () => {
     const result = await executeTool(call(VIN), context(ok(LEAK)));

@@ -9,13 +9,14 @@ import { toolError } from './tool-types.js';
 import type { ChatTool, ToolContext, ToolResult } from './tool-types.js';
 import { buscarVehiculos, compararVehiculos, detalleVehiculo } from './vehicle-tools.js';
 import { consultarFichaVin } from './vin-tool.js';
+import { consultarEstadoGarantia, reportarFallaGarantia } from './warranty-tools.js';
 
 /**
  * Tools registradas. `consultar_cita` queda diferida (el bot solo confirma las citas de la sesión actual).
  * Solo las de CHAT_ALLOWED_TOOLS se ofrecen y se ejecutan (por defecto, `consultar_ficha_vin`); el resto sigue aquí, apagado.
  * `preguntar_a_otro_bot` está registrada pero SOLO se ofrece al modelo en los turnos en que hay bots activos.
  */
-export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot, consultarFichaVin];
+export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot, consultarFichaVin, reportarFallaGarantia, consultarEstadoGarantia];
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
 const logger = new Logger('ChatTools');

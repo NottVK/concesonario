@@ -1,6 +1,7 @@
 import type { ReadOnlyApi } from '../api/public-api.client.js';
 import type { ToolDefinition } from '../model/model-provider.js';
 import type { OtherBotTurn, ThirdPartyCard } from './other-bot.js';
+import type { WarrantyGateway } from './warranty.js';
 
 /** Ficha corta para el widget (campo estructurado: el widget nunca interpreta texto del modelo como HTML). */
 export interface VehicleCard {
@@ -43,6 +44,8 @@ export interface ToolContext {
   createProposal(input: NewProposal): Promise<ProposalView>;
   /** Consulta a otros bots en este turno; null = la tool `preguntar_a_otro_bot` no se ofrece (no hay bots activos). */
   otherBots: OtherBotTurn | null;
+  /** Flujo de garantías (solo la pasarela; la decisión es del código del módulo `garantias`). */
+  warranty?: WarrantyGateway | null;
 }
 
 export interface ToolResult {
