@@ -8,5 +8,6 @@ import { FichasVinService } from './fichas-vin.service.js';
   imports: [TypeOrmModule.forFeature([FichaVin])],
   controllers: [FichasVinController],
   providers: [FichasVinService],
+  exports: [FichasVinService],
 })
 export class FichasVinModule {}

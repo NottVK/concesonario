@@ -27,6 +27,13 @@ export const A2A_DEFAULTS = {
 export const A2A_SKILLS = ['stock', 'precios', 'citas', 'financiacion'] as const;
 export type A2aSkill = (typeof A2A_SKILLS)[number];
 
+/**
+ * Habilidades del contrato de integración v0.1 (sección 5), pensadas para los otros equipos. Las resuelve el módulo de
+ * garantías por medio del registro `ContractSkillRegistry`; el canal A2A no conoce su lógica.
+ */
+export const A2A_CONTRACT_SKILLS = ['consultar_ficha_vin', 'consultar_vehiculo', 'consultar_caso', 'informar_decision_garantia'] as const;
+export type A2aContractSkill = (typeof A2A_CONTRACT_SKILLS)[number];
+
 export function loadA2aConfig(env: Record<string, string | undefined> = process.env): A2aConfig {
   const production = env.NODE_ENV === 'production';
   const raw = env.A2A_PUBLIC_BASE_URL?.trim();

@@ -16,7 +16,7 @@ import { BotAuthGuard, BotPreAuthGuard } from '../mcp/gateway/bot.guards.js';
 import type { BotRequest } from '../mcp/gateway/bot.guards.js';
 import { MCP_DEFAULTS } from '../mcp/mcp.config.js';
 import { readBody } from '../mcp/mcp-http.js';
-import { A2A_CONFIG, A2A_SKILLS } from './a2a.config.js';
+import { A2A_CONFIG, A2A_CONTRACT_SKILLS, A2A_SKILLS } from './a2a.config.js';
 import type { A2aConfig } from './a2a.config.js';
 import { A2aTasksService } from './inbound/tasks.service.js';
 
@@ -41,7 +41,7 @@ export class AgentCardController {
       description: 'Concesionario: stock, precios y citas',
       url: `${this.config.publicBaseUrl}/a2a`,
       version: '1.0.0',
-      skills: [...A2A_SKILLS],
+      skills: [...A2A_SKILLS, ...A2A_CONTRACT_SKILLS],
       authentication: { schemes: ['bearer'], note: 'Authorization: Bearer amx_… (la key la entrega AutoMax al registrar el bot)' },
     };
   }
@@ -88,7 +88,7 @@ export class A2aTasksController {
     }
     let result;
     try {
-      result = await this.tasks.handle(req.bot!, body);
+      result = await this.tasks.handle(req.bot!, body, req.header('idempotency-key'));
     } finally {
       req.releaseQuota?.();
     }

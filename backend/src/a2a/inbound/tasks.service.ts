@@ -7,15 +7,17 @@ import { AuditService } from '../../mcp/audit/audit.service.js';
 import type { AuthenticatedBot } from '../../mcp/gateway/bot-gateway.service.js';
 import { consultarPrecioSchema, consultarStockSchema } from '../../mcp/tools/schemas.js';
 import { ExchangeDirection, ExchangeStatus } from '../entities/bot-exchange.entity.js';
-import { A2A_DEFAULTS } from '../a2a.config.js';
-import type { A2aSkill } from '../a2a.config.js';
+import { A2A_CONTRACT_SKILLS, A2A_DEFAULTS } from '../a2a.config.js';
+import type { A2aContractSkill, A2aSkill } from '../a2a.config.js';
+import { ContractSkillRegistry, IDEMPOTENCY_KEY, IdempotencyStore } from './contract-skills.js';
+import type { ContractReply } from './contract-skills.js';
 import { A2A_NOTE, CITAS_ANSWER, describeVehicles, FINANCING_HINT, formatCop, NEEDS_INPUT_ANSWER } from './answers.js';
 import { detectIntent, foldText } from './intent.js';
 import { financingParamsSchema, taskSchema } from './task.schema.js';
 import type { Task } from './task.schema.js';
 
 export interface A2aHttpResult {
-  status: 200 | 400 | 503;
+  status: 200 | 400 | 403 | 404 | 409 | 503;
   /** JSON ya serializado. */
   body: string;
 }
@@ -24,7 +26,7 @@ type Stock = { total: number; vehicles: (PublicVehicle | SoldVehicle)[] };
 
 /** Resultado de resolver una tarea, antes de darle forma de respuesta HTTP. */
 interface Reply {
-  http: 200 | 400 | 503;
+  http: 200 | 400 | 403 | 404 | 409 | 503;
   status: 'completed' | 'needs_input' | 'rejected' | 'failed';
   skill: A2aSkill | null;
   audit: ExchangeStatus;
@@ -46,7 +48,9 @@ const done = (skill: A2aSkill, extra: Partial<Reply> = {}): Reply => ({ http: 20
 const needsInput = (skill: A2aSkill | null, text: string): Reply => ({ http: 200, status: 'needs_input', skill, audit: ExchangeStatus.OK, text });
 
 /** Claves de `params` que conocemos: solo estas se nombran en la auditoría (las demás las escribe el bot y solo se cuentan). */
-const KNOWN_PARAM_KEYS = new Set(['marca', 'modelo', 'anio', 'estado', 'limite', 'vehiculo_id', 'amount', 'downPayment', 'months']);
+const KNOWN_PARAM_KEYS = new Set(['marca', 'modelo', 'anio', 'estado', 'limite', 'vehiculo_id', 'amount', 'downPayment', 'months', 'vin', 'id', 'caso_id', 'aceptada']);
+
+const isContractSkill = (skill: string | undefined): skill is A2aContractSkill => (A2A_CONTRACT_SKILLS as readonly string[]).includes(skill ?? '');
 
 /** Lo que se guarda como «pregunta»: el mensaje, o la habilidad y las claves CONOCIDAS de `params` (nunca valores ni claves ajenas). */
 function questionOf(task: Task): string {
@@ -70,17 +74,66 @@ export class A2aTasksService {
     private readonly catalog: PublicCatalogService,
     private readonly financing: FinanciacionService,
     private readonly audit: AuditService,
+    private readonly contract: ContractSkillRegistry,
   ) {}
 
-  async handle(bot: AuthenticatedBot, raw: Buffer): Promise<A2aHttpResult> {
+  private readonly idempotency = new IdempotencyStore();
+
+  async handle(bot: AuthenticatedBot, raw: Buffer, idempotencyKey?: string): Promise<A2aHttpResult> {
     const started = performance.now();
     const id = randomUUID();
     const parsed = this.parse(raw);
+    if (parsed.ok && isContractSkill(parsed.task.skill)) {
+      return this.handleContract(bot, id, { skill: parsed.task.skill, params: parsed.task.params ?? {}, idempotencyKey, raw, started });
+    }
     const question = parsed.ok ? questionOf(parsed.task) : '[solicitud no válida]';
     const reply = parsed.ok ? await this.resolve(parsed.task) : reject(null, INVALID_TASK);
     const result = this.render(id, reply);
     await this.record(bot, id, question, reply, result, raw.length, performance.now() - started);
     return result;
+  }
+
+  /** Habilidades del contrato: las resuelve el manejador registrado y la respuesta lleva `status`, `code`, `message` y `request_id`. */
+  private async handleContract(
+    bot: AuthenticatedBot,
+    id: string,
+    call: { skill: A2aContractSkill; params: Record<string, unknown>; idempotencyKey: string | undefined; raw: Buffer; started: number },
+  ): Promise<A2aHttpResult> {
+    const question = questionOf({ skill: call.skill, params: call.params });
+    const reply = await this.runContract(bot, call);
+    const body = JSON.stringify({ status: reply.status, code: reply.code, message: reply.message, answer: reply.answer ?? null, data: reply.data ?? {}, request_id: id });
+    const result: A2aHttpResult = { status: reply.http, body };
+    const audit = reply.status === 'completed' ? ExchangeStatus.OK : reply.status === 'error' ? ExchangeStatus.INTERNAL_ERROR : ExchangeStatus.REJECTED;
+    await this.record(bot, id, question, { http: reply.http, status: 'completed', skill: null, audit, text: reply.message }, result, call.raw.length, performance.now() - call.started);
+    return result;
+  }
+
+  private async runContract(
+    bot: AuthenticatedBot,
+    call: { skill: A2aContractSkill; params: Record<string, unknown>; idempotencyKey: string | undefined },
+  ): Promise<ContractReply> {
+    const handler = this.contract.get(call.skill);
+    if (!handler) return { http: 503, status: 'error', code: 'SERVICE_UNAVAILABLE', message: UNAVAILABLE };
+    const writes = call.skill === 'informar_decision_garantia';
+    if (writes && (call.idempotencyKey === undefined || !IDEMPOTENCY_KEY.test(call.idempotencyKey))) {
+      return { http: 400, status: 'rejected', code: 'INVALID_REQUEST', message: 'Esta habilidad exige el encabezado Idempotency-Key (de 1 a 79 caracteres visibles, sin espacios).' };
+    }
+    const hash = IdempotencyStore.hashOf(call.skill, call.params);
+    if (writes && call.idempotencyKey) {
+      const seen = this.idempotency.lookup(bot.id, call.idempotencyKey, hash);
+      if (seen.kind === 'hit') return seen.reply;
+      if (seen.kind === 'conflict') return { http: 409, status: 'rejected', code: 'IDEMPOTENCY_CONFLICT', message: 'Esa Idempotency-Key ya se usó con otro contenido.' };
+    }
+    let reply: ContractReply;
+    try {
+      reply = await handler({ bot, params: call.params, idempotencyKey: call.idempotencyKey });
+    } catch (error) {
+      this.logger.error(`Falló una habilidad del contrato: ${error instanceof Error ? error.message : 'error desconocido'}`);
+      return { http: 503, status: 'error', code: 'SERVICE_UNAVAILABLE', message: UNAVAILABLE };
+    }
+    // Un `error` es transitorio: no se guarda para que el reintento con la misma clave sí se ejecute.
+    if (writes && call.idempotencyKey && reply.status !== 'error') this.idempotency.save(bot.id, call.idempotencyKey, hash, reply);
+    return reply;
   }
 
   private parse(raw: Buffer): { ok: true; task: Task } | { ok: false } {
@@ -96,10 +149,10 @@ export class A2aTasksService {
 
   private async resolve(task: Task): Promise<Reply> {
     try {
-      return task.skill ? await this.runSkill(task.skill, task.params ?? {}) : await this.runFreeText(task.message ?? '');
+      return task.skill && !isContractSkill(task.skill) ? await this.runSkill(task.skill, task.params ?? {}) : await this.runFreeText(task.message ?? '');
     } catch (error) {
       this.logger.error(`Falló una tarea A2A: ${error instanceof Error ? error.message : 'error desconocido'}`);
-      return { http: 503, status: 'failed', skill: task.skill ?? null, audit: ExchangeStatus.INTERNAL_ERROR, error: UNAVAILABLE };
+      return { http: 503, status: 'failed', skill: task.skill && !isContractSkill(task.skill) ? task.skill : null, audit: ExchangeStatus.INTERNAL_ERROR, error: UNAVAILABLE };
     }
   }
 

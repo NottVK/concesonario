@@ -11,6 +11,7 @@ import { A2aTasksController, AgentCardController } from './a2a.controller.js';
 import { ChatOtherBotGateway } from './chat-bridge/other-bot.gateway.js';
 import { BotExchange } from './entities/bot-exchange.entity.js';
 import { ExternalBot } from './entities/external-bot.entity.js';
+import { ContractSkillRegistry } from './inbound/contract-skills.js';
 import { A2aTasksService } from './inbound/tasks.service.js';
 import { A2aOutboundService, OUTBOUND_RUNTIME } from './outbound/a2a-outbound.service.js';
 import type { OutboundRuntime } from './outbound/a2a-outbound.service.js';
@@ -33,6 +34,7 @@ import type { SettingsSource } from './outbound/target-policy.js';
     // Si A2A_PUBLIC_BASE_URL es inválida (o falta en producción) la API NO arranca.
     { provide: A2A_CONFIG, useFactory: () => loadA2aConfig() },
     A2aTasksService,
+    ContractSkillRegistry,
     {
       // Si A2A_DEV_ALLOWED_TARGETS es inválida o está con NODE_ENV=production la API NO arranca. Se relee en cada llamada
       // (es barato) para que un cambio de entorno en pruebas surta efecto sin reiniciar.
@@ -56,6 +58,6 @@ import type { SettingsSource } from './outbound/target-policy.js';
     // El chat solo conoce esta interfaz (decisión 119): así no importa nada de `a2a/outbound`.
     { provide: OTHER_BOT_GATEWAY, useClass: ChatOtherBotGateway },
   ],
-  exports: [TypeOrmModule, A2aOutboundService, OTHER_BOT_GATEWAY],
+  exports: [TypeOrmModule, A2aOutboundService, OTHER_BOT_GATEWAY, ContractSkillRegistry],
 })
 export class A2aModule {}

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { MONEY_REGEX } from '../../common/money.js';
 import { MAX_MONTHS, MIN_MONTHS } from '../../financiacion/dto/simulate-financing.dto.js';
 import { normalizeText } from '../audit/redact.js';
-import { A2A_DEFAULTS, A2A_SKILLS } from '../a2a.config.js';
+import { A2A_CONTRACT_SKILLS, A2A_DEFAULTS, A2A_SKILLS } from '../a2a.config.js';
 
 /**
  * Tarea que manda otro bot. TODO es dato no confiable: objeto estricto (un campo de más es error), tipos exactos,
@@ -17,7 +17,7 @@ export const taskSchema = z
       .transform(normalizeText)
       .pipe(z.string().max(A2A_DEFAULTS.maxMessageChars))
       .optional(),
-    skill: z.enum(A2A_SKILLS).optional(),
+    skill: z.enum([...A2A_SKILLS, ...A2A_CONTRACT_SKILLS]).optional(),
     params: z.record(z.string().max(40), z.unknown()).optional(),
   })
   // Hace falta algo que responder: un mensaje con texto o una habilidad explícita.

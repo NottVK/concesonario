@@ -66,7 +66,7 @@ describe('A2A entrante: tarjeta y /a2a/tasks (e2e)', () => {
         name: 'AutoMax Bot',
         description: 'Concesionario: stock, precios y citas',
         url: 'https://bot.automax.test/a2a',
-        skills: ['stock', 'precios', 'citas', 'financiacion'],
+        skills: ['stock', 'precios', 'citas', 'financiacion', 'consultar_ficha_vin', 'consultar_vehiculo', 'consultar_caso', 'informar_decision_garantia'],
       });
       expect(JSON.stringify(res.body)).not.toMatch(/atacante|amx_[0-9a-f]{8}_|pepper|secret/i);
       expect(res.headers['content-type']).toMatch(/application\/json/);

@@ -32,7 +32,7 @@ export function acceptedView(parts: string[]): WarrantyView {
   return {
     state: 'accepted',
     parts,
-    message: `Tu garantía fue aceptada y el concesionario asume el costo. Repuestos: ${parts.join(', ')}.`,
+    message: `Tu garantía fue aceptada y el concesionario asume el costo.${parts.length > 0 ? ` Repuestos: ${parts.join(', ')}.` : ''}`,
   };
 }
 

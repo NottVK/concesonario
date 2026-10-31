@@ -25,14 +25,21 @@ export class FichasVinService {
   async find(rawVin: string): Promise<FichaVinView> {
     const vin = normalizeVin(rawVin);
     if (!isValidVin(vin)) throw new BadRequestException(VIN_INVALID_MESSAGE);
-    const ficha = await this.fichas
-      .createQueryBuilder('f')
-      .innerJoinAndSelect('f.vehicle', 'v')
-      .innerJoinAndSelect('v.brand', 'b')
-      .where('f.vin = :vin', { vin })
-      .andWhere('v.status != :sold', { sold: VehicleStatus.SOLD })
-      .getOne();
-    if (!ficha) throw new NotFoundException(VIN_NOT_FOUND_MESSAGE);
+    const view = await this.lookup(vin, false);
+    if (!view) throw new NotFoundException(VIN_NOT_FOUND_MESSAGE);
+    return view;
+  }
+
+  /** Ficha de un vehículo YA VENDIDO a un propietario (para Taller y Tienda). Solo se llama con un VIN que ya es de un propietario. */
+  findOwned(vin: string): Promise<FichaVinView | null> {
+    return this.lookup(vin, true);
+  }
+
+  private async lookup(vin: string, includeSold: boolean): Promise<FichaVinView | null> {
+    const query = this.fichas.createQueryBuilder('f').innerJoinAndSelect('f.vehicle', 'v').innerJoinAndSelect('v.brand', 'b').where('f.vin = :vin', { vin });
+    if (!includeSold) query.andWhere('v.status != :sold', { sold: VehicleStatus.SOLD });
+    const ficha = await query.getOne();
+    if (!ficha) return null;
     const { vehicle } = ficha;
     return {
       brand: vehicle.brand.name,

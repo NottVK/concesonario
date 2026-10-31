@@ -116,7 +116,7 @@ export class GarantiasService {
   }
 
   /** Paso 5: decisión del mecánico. Aceptar cobra a Pagos con una Idempotency-Key fija por caso; repetir no duplica. */
-  async decide(caseId: string, mechanicId: number, action: 'aceptar' | 'rechazar', reason: string | undefined, parts: string[] | undefined): Promise<WarrantyView> {
+  async decide(caseId: string, mechanicId: number | null, action: 'aceptar' | 'rechazar', reason: string | undefined, parts: string[] | undefined): Promise<WarrantyView> {
     const kase = await this.cases.findOneBy({ id: caseId });
     if (!kase) throw new NotFoundException('No existe ese caso de garantía');
     const wanted = action === 'aceptar' ? WarrantyStatus.ACCEPTED : WarrantyStatus.REJECTED;
@@ -128,11 +128,21 @@ export class GarantiasService {
     return this.finish(kase, mechanicId, { status: wanted, chargeRef: charge.value.chargeRef, parts: parts ?? [] });
   }
 
-  private async finish(kase: CasoGarantia, mechanicId: number, patch: Partial<CasoGarantia>): Promise<WarrantyView> {
+  private async finish(kase: CasoGarantia, mechanicId: number | null, patch: Partial<CasoGarantia>): Promise<WarrantyView> {
     Object.assign(kase, patch, { decidedBy: mechanicId, decidedAt: new Date() });
     await this.cases.save(kase);
     this.logger.log(`Garantía ${kase.id}: ${kase.status} por el usuario ${mechanicId}`);
     return this.viewOf(kase);
+  }
+
+  /** Estado de un caso para el Taller (sin datos del cliente); `null` si no existe. */
+  async caseState(caseId: string): Promise<WarrantyStatus | null> {
+    return (await this.cases.findOneBy({ id: caseId }))?.status ?? null;
+  }
+
+  /** Propietario por su id cliente-vehículo (el que viaja entre sistemas); `null` si no existe. */
+  ownerById(id: number): Promise<PropietarioVin | null> {
+    return this.owners.findOneBy({ id });
   }
 
   /** Lista para el mecánico (sin documentos; el VIN sí, para que vea el vehículo). */
