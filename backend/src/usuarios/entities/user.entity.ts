@@ -5,6 +5,8 @@ export enum UserRole {
   ADMIN = 'admin',
   SELLER = 'vendedor',
   CUSTOMER = 'cliente',
+  /** Decide las solicitudes de garantía (acepta o rechaza con motivo). */
+  MECHANIC = 'mecanico',
 }
 
 @Entity('usuarios')

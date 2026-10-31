@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { buildDataSourceOptions, loadRootEnv } from '../db.config.js';
+import { seedGarantias } from '../../garantias/garantias.seed.js';
 import { seedFichasVin } from '../../fichas-vin/fichas-vin.seed.js';
 import { runSeed, seedEmbeddings } from './seed.service.js';
 
@@ -13,6 +14,7 @@ try {
     `Seed listo: ${result.brands} marcas, ${result.vehicles} vehículos, ${result.users} usuarios.`,
   );
   console.log(`Fichas VIN: ${await seedFichasVin(dataSource)}.`);
+  console.log(`Propietarios de garantía: ${await seedGarantias(dataSource)}.`);
   console.log(await seedEmbeddings(dataSource));
 } catch (error: unknown) {
   console.error('Falló el seed:', error);
