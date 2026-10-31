@@ -123,8 +123,9 @@ export function ChatWidget({ thinkingAfterMs }: { thinkingAfterMs?: number } = {
       <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="font-display text-base font-semibold">Asistente AutoMax</h2>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setWarrantyOpen((value) => !value)} aria-label="Garantía" title="Garantía">
+          <Button variant="ghost" size="sm" onClick={() => setWarrantyOpen((value) => !value)} aria-label="Garantía" title="Garantía: identifícate con documento y VIN">
             <ShieldCheck size={16} aria-hidden="true" />
+            <span className="ml-1 text-xs">Garantía</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={chat.reset} aria-label="Nueva conversación" title="Nueva conversación">
             <RotateCcw size={16} aria-hidden="true" />
@@ -152,6 +153,11 @@ export function ChatWidget({ thinkingAfterMs }: { thinkingAfterMs?: number } = {
           <p className="text-sm text-muted">
             ¡Hola! Soy el asistente de AutoMax. Pregúntame por precios, disponibilidad, créditos o agenda un test-drive.
           </p>
+        )}
+        {chat.messages.length === 0 && !chat.sending && !warrantyOpen && (
+          <Button variant="outline" size="sm" onClick={() => setWarrantyOpen(true)}>
+            <ShieldCheck size={16} aria-hidden="true" className="mr-1" /> Gestionar una garantía
+          </Button>
         )}
         {chat.messages.map((message) => (
           <div key={message.id} className={cn('flex flex-col', message.role === 'user' ? 'items-end' : 'items-start')}>

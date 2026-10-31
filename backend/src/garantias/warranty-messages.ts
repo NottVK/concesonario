@@ -6,7 +6,7 @@ const whenFormat = new Intl.DateTimeFormat('es-CO', { timeZone: BUSINESS_TIME_ZO
 /** Los textos para el cliente los arma el código: el modelo no inventa ni decide la garantía. */
 export const NEEDS_IDENTIFICATION: WarrantyView = {
   state: 'needs_identification',
-  message: 'Para revisar tu garantía primero debes identificarte con el formulario de garantía (documento y VIN).',
+  message: 'Para revisar tu garantía primero identifícate: en la web del chat pulsa el botón «Garantía» (escudo, arriba) y llena el formulario con tu documento y el VIN. No recibimos el documento por aquí.',
 };
 
 export const IDENTIFIED: WarrantyView = { state: 'identified', message: 'Ya te identificamos. Cuéntame qué falla presenta el vehículo.' };
