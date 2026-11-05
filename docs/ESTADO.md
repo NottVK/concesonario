@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 2026-10-20 (Fase 6 hasta la subfase 6.7). Pruebas: 794 unitarias y 538 e2e de backend, 649 de frontend. Cómo levantarlo: `README.md`. Cómo mostrarlo: `docs/DEMO.md`.
+Última actualización: 2026-11-05 (integración con el taller, VIN, garantía y tienda de repuestos preparada). Pruebas: 892 unitarias y 554 e2e de backend, 650 de frontend. Resumen de todo lo hecho: `docs/AutoMax.md`. Cómo levantarlo: `README.md`. Cómo mostrarlo: `docs/DEMO.md`. Cómo está construido: `docs/DOCUMENTACION-TECNICA.md`.
 
 ## Pendientes
 
@@ -52,6 +52,8 @@ Ordenados por lo que bloquea. «Dónde» indica dónde está el detalle.
 | 6.8 | Revisión final con Codex, correcciones, `CLAUDE.md` y demo | **pendiente** (punto 3) |
 
 Después de la 6.7 se hicieron además: la corrección de la portada en móvil (`d2215da`), el guion de la demo (`838853e`) y el README final (`4c7d2cd`).
+
+**Integración con el taller y VIN (29/10 a 04/11/2026, decisiones 129 a 134) — hecha, sin commit:** registro y lectura de VIN con la NHTSA; relaciones cliente–vehículo cifradas; el agente organiza con tools la garantía bot a bot con el MCP del Taller Pulgas Locas (identifica con documento y VIN, el bot del taller decide la sede, horas por rango, aparta la hora y agenda con `id_prediagnostico` e `id_reserva`); nuestro MCP publica para el bot con permiso `taller` `consultar_relacion`, `decodificar_vin`, `validar_garantia` y `notificar_estado_vehiculo`. Probado de punta a punta en las dos direcciones el 04/11/2026 (OT-0022 y OT-0023, esta última cancelada por ser de prueba). La IP del taller (`192.168.110.202`) y la nuestra (`192.168.110.4`) no son fijas: si cambian, se actualizan `TALLER_MCP_URL` y `MCP_ALLOWED_HOSTS` en el `.env`.
 
 ## Qué sigue
 1. Cuando se renueve la cuota: la **6.8** (pendiente 3).

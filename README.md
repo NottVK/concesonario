@@ -11,13 +11,16 @@ Plataforma de concesionario con catálogo, panel de administración, API REST, u
 | Conexión entre bots | Servidor MCP (solo lectura) y A2A (tarjeta + tareas, entrante y saliente) |
 | Pruebas | Vitest, Supertest y Playwright (smoke) |
 
-Documentación: reglas del proyecto en [`CLAUDE.md`](CLAUDE.md), requisitos en [`docs/PRD.md`](docs/PRD.md), **estado y pendientes en [`docs/ESTADO.md`](docs/ESTADO.md)**, decisiones de diseño en [`docs/DECISIONES.md`](docs/DECISIONES.md), guion de la demo en [`docs/DEMO.md`](docs/DEMO.md) y cómo correr el modelo de IA en otra máquina en [`docs/GUIA-IA-COMPANEROS.md`](docs/GUIA-IA-COMPANEROS.md).
+Documentación: **cómo está construido (arquitectura, datos, API, chatbot, MCP, A2A y taller) en [`docs/DOCUMENTACION-TECNICA.md`](docs/DOCUMENTACION-TECNICA.md)**, reglas del proyecto en [`CLAUDE.md`](CLAUDE.md), requisitos en [`docs/PRD.md`](docs/PRD.md), **estado y pendientes en [`docs/ESTADO.md`](docs/ESTADO.md)**, decisiones de diseño en [`docs/DECISIONES.md`](docs/DECISIONES.md), guion de la demo en [`docs/DEMO.md`](docs/DEMO.md) y cómo correr el modelo de IA en otra máquina en [`docs/GUIA-IA-COMPANEROS.md`](docs/GUIA-IA-COMPANEROS.md).
 
 ## Qué incluye
 
 - **Catálogo** de 60 vehículos reales de ejemplo (10 marcas) con filtros, búsqueda por significado, detalle con **simulador de crédito**, **test-drive** con horas ocupadas (hora de Bogotá) y **comparador** de hasta 3 autos.
 - **Panel de administración** (`/admin`): citas, clientes, registrar venta y, solo para el admin, métricas, inventario con control de ediciones simultáneas, historial de ventas y **bots externos**.
 - **Asistente de chat**: responde con datos reales del catálogo (nunca inventa precios), simula créditos y **prepara** citas que la persona debe confirmar ella misma. Puede **consultar a otros bots** y muestra su respuesta aparte, como "tercero no verificado".
+- **Bot de Telegram**: el mismo asistente en Telegram, con agendamiento de test-drive por botones (se enciende con `TELEGRAM_BOT_TOKEN`).
+- **Citas en el taller**: el agente del chat organiza los pasos con tools que consultan el MCP del taller: pide cédula y VIN, pregunta qué le pasa al carro, pide el prediagnóstico, muestra la sede recomendada, los servicios probables con precio y las horas libres del taller, y agenda cuando el cliente dice «sí» (taller simulado mientras no haya URL del real).
+- **Consulta por VIN**: con solo escribirle el VIN, el bot responde marca, modelo, año, versión, carrocería, motor y transmisión (`GET /api/vin/:vin`; con los 8 VIN de prueba del taller de MotorRed).
 - **MCP y A2A**: otros bots consultan el catálogo público con su propia key; AutoMax puede preguntarle a bots amigos con una política estricta contra llamadas a redes internas. Nunca se comparten datos de clientes.
 
 ## Qué falta (resumen)
@@ -148,10 +151,12 @@ concesionario/
 │                     chat/ (asistente: agente, tools, proveedores de modelo, seguridad)
 │                     embeddings/ (búsqueda por significado)   catalogo/ (catálogo público para terceros)
 │                     mcp/ (servidor MCP y administración de bots)   a2a/ (tarjeta, tareas entrantes y cliente saliente)
+│                     telegram/ (el asistente por Telegram, long polling)   vin/ (registro y lectura de VIN)
+│                     relaciones/ (cliente–vehículo, cédula cifrada)   taller/ (cliente MCP del taller, simulado y tools del agente)
 ├── backend/test/     pruebas e2e (Supertest) y los bots de prueba para ellas
 ├── frontend/src/     pages, features (catálogo, detalle, chat, panel…), components, api
 ├── chatbot/          herramientas de desarrollo: bench/ (medir el modelo), eval/ (las 20 preguntas), a2a-demo/ (bots de prueba)
-├── docs/             PRD, ESTADO, DECISIONES, DEMO, planes y guías
+├── docs/             DOCUMENTACION-TECNICA, PRD, ESTADO, DECISIONES, DEMO, planes y guías
 └── docker-compose.yml
 ```
 
@@ -159,6 +164,8 @@ concesionario/
 
 - **Proveedor del modelo**: `CHAT_PROVIDER` = `ollama`, `groq` o `mock`. Con `groq` el texto de la persona sale de la máquina y el widget lo avisa. El simulado solo prueba la lógica del chat, no la calidad.
 - **Saludos al instante**: «hola», «gracias» o «chao» (solos) se contestan con un texto fijo sin llamar al modelo; cualquier pregunta real va al modelo (decisión 125).
+- **Taller**: con «quiero llevar mi carro al taller» el modelo sigue los pasos con sus tools: cédula + VIN → qué le pasa → prediagnóstico y sede → horas libres del taller → «sí» → agenda (decisión 131). Sin `TALLER_MCP_URL` usa el taller simulado; para el real, define `TALLER_MCP_URL` (por ejemplo `http://192.168.50.247:3417/mcp` en la LAN) y `TALLER_MCP_TOKEN` en `.env`, y al arrancar el log no debe decir «taller SIMULADO». Cédulas de prueba: REL-1005 = 39765432 con el VIN 9FBHJD204LM500005; las demás están en `backend/src/database/seeds/relaciones-data.ts`.
+- **VIN al instante**: si el mensaje trae un VIN, el bot responde los datos del vehículo sin llamar al modelo; si el VIN no está registrado, da la marca y el año que dice su estructura (decisión 129).
 - **Seguridad del chat**: el prompt es fijo y versionado (hoy `v2`); lo que escribe el usuario y lo que devuelven las herramientas se tratan como datos, nunca como instrucciones; los montos en pesos se validan contra lo que devolvieron las herramientas; las citas solo se crean con la confirmación de la persona en una tarjeta; los datos de contacto nunca llegan al modelo.
 - **MCP** (`POST /api/mcp`, JSON-RPC sin estado, `Authorization: Bearer <key>`): herramientas de **solo lectura** `consultar_stock`, `consultar_precio` y `listar_marcas`. `agendar_cita` no se expone.
 - **A2A**: `GET /.well-known/agent.json` (tarjeta pública) y `POST /a2a/tasks` (habilidades `stock`, `precios`, `citas` —solo informativa— y `financiacion`), deterministas y sin modelo de lenguaje. Mismo 401 idéntico y misma cuota diaria que MCP.
@@ -166,7 +173,8 @@ concesionario/
 - **Lo que viene de otro bot es un dato no confiable**: se convierte en texto plano (sin HTML, enlaces, correos ni teléfonos), se muestra en una tarjeta aparte y el modelo nunca lo ve.
 - **Protección contra llamadas a redes internas (SSRF)**: https obligatorio, se resuelve el DNS y se fija la IP validada, sin redirecciones ni proxy, tope de tamaño y de tiempo, límites y circuit breaker. `A2A_DEV_ALLOWED_TARGETS` (IP:puerto exactos, solo desarrollo) es la única excepción.
 - **A2A en producción**: define `A2A_PUBLIC_BASE_URL` (https). Para recibir llamadas con un nombre de host propio, ese host se acepta solo; otros nombres van en `MCP_ALLOWED_HOSTS`.
-- Detalle y justificación: decisiones 95 a 123 de `docs/DECISIONES.md`.
+- **Telegram**: crea el bot con **@BotFather** (`/newbot`), pon el token en `.env` como `TELEGRAM_BOT_TOKEN=...` y reinicia la API; en el log sale «Bot de Telegram encendido». No necesita URL pública. Responde solo en chats privados; `/start` da la bienvenida, `/borrar` borra la conversación y `/cancelar` cancela una cita en curso. Para agendar, el bot propone la hora con botones y el propio código (no la IA) pide nombre y correo antes de confirmar (decisión 128).
+- Detalle y justificación: decisiones 95 a 131 de `docs/DECISIONES.md`.
 
 ## Mantenimiento
 

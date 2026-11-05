@@ -38,6 +38,10 @@ concesionario/
 │   ├── catalogo/        ← PublicCatalogService: catálogo público con campos explícitos (nunca entidades); lo usa el MCP
 │   ├── mcp/             ← servidor MCP de solo lectura DENTRO de Nest (POST /api/mcp): keys de bots, puerta de entrada y límites, auditoría, tools
 │   ├── a2a/             ← agent.json, tareas entrantes deterministas y cliente saliente con protección SSRF (decisiones 108 a 120)
+│   ├── telegram/        ← el mismo asistente por Telegram: long polling con Axios, solo chats privados, citas con confirmación humana (decisión 128)
+│   ├── relaciones/      ← relación cliente–vehículo (REL-####): cédula, nombre y teléfono cifrados + HMAC de la cédula; garantía calculada (decisión 130)
+│   ├── taller/          ← cliente MCP del taller (real con TALLER_MCP_URL o simulado), gateway de las tools del agente para agendar y copia de órdenes (decisiones 130 y 131)
+│   ├── vin/             ← registro de VIN (`vehiculos_vin`, sin datos del propietario) y `GET /api/vin/:vin` con lectura por estructura (decisión 129)
 │   ├── database/{migrations/, seeds/}
 │   └── common/          ← guards, filters, interceptors
 ├── backend/test/        ← e2e con Supertest
@@ -71,6 +75,8 @@ Mínimo 5 modelos reales por marca en `backend/src/database/seeds/` (año, preci
 - **Tools del bot** (todas llaman a la API, jamás a la BD directo):
   `buscar_vehiculos`, `detalle_vehiculo`, `comparar_vehiculos`, `simular_credito`, `agendar_cita`, `consultar_cita`, `preguntar_a_otro_bot`.
   Excepción: `preguntar_a_otro_bot` llama a la API del OTRO bot (solo destinos de `bots_externos` activos, el modelo no elige URLs) a través de `A2aOutboundService`; tampoco toca la BD (decisión 119). Lo que responde el otro bot es un dato no confiable: se muestra en una tarjeta aparte y el modelo nunca lo ve.
+- **Sin modelo:** los saludos (decisión 125) y los mensajes con un VIN fuera de una conversación del taller (decisión 129, datos de `GET /vin/:vin` con plantilla) se responden al instante, sin cola ni tools.
+- **Taller (decisión 131):** el modelo organiza los pasos con las tools `identificar_cliente_taller`, `prediagnosticar_taller`, `listar_sedes_taller`, `consultar_horarios_taller` y `agendar_cita_taller` (interfaz `WORKSHOP_GATEWAY`); la cédula nunca llega al modelo y solo se agenda una hora ofrecida por el taller con el «sí» del cliente.
 - Personalidad: amable, vendedor honesto, español colombiano neutro, respuestas cortas.
 - **Nunca inventar** precios o stock: si no hay dato, usa una tool o dice que no sabe.
 - Memoria: historial por sesión en tabla `conversaciones` (últimos 10 turnos al prompt).
@@ -79,7 +85,7 @@ Mínimo 5 modelos reales por marca en `backend/src/database/seeds/` (año, preci
 ## 7. Conexión entre chatbots
 Dos canales, ambos obligatorios:
 
-**A) MCP** — módulo `backend/src/mcp/` (POST `/api/mcp`, JSON-RPC sin estado) expone, **solo lectura**: `consultar_stock`, `consultar_precio` y `listar_marcas`. **`agendar_cita` NO se expone** (decisión 97 de DECISIONES.md): un bot externo no puede dar la confirmación humana que exige una cita. Cada bot tiene su API key (guardada como HMAC, mostrada una sola vez), su límite propio y se puede desactivar (`bots_externos`).
+**A) MCP** — módulo `backend/src/mcp/` (POST `/api/mcp`, JSON-RPC sin estado) expone, **solo lectura**: `consultar_stock`, `consultar_precio` y `listar_marcas`. **`agendar_cita` NO se expone** (decisión 97 de DECISIONES.md): un bot externo no puede dar la confirmación humana que exige una cita. Cada bot tiene su API key (guardada como HMAC, mostrada una sola vez), su límite propio y se puede desactivar (`bots_externos`). **Excepción del taller (decisión 134):** un bot con el permiso `taller` (columna `permisos`) ve además `consultar_relacion`, `decodificar_vin`, `validar_garantia` y `notificar_estado_vehiculo`, que llevan datos de clientes; un bot sin ese permiso no las ve ni las puede llamar (responden como inexistentes). Lo que cambian lo hace el módulo `taller/`, nunca el protocolo MCP, y la auditoría guarda solo identificadores.
 
 **B) A2A** — el bot publica su "tarjeta" (sin autenticación; la `url` sale de `A2A_PUBLIC_BASE_URL`, nunca de la cabecera `Host`). Ambas rutas quedan **fuera del prefijo `api`**:
 ```json
