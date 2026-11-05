@@ -7,6 +7,7 @@ import { testBotConnection } from './api'
 import type { Bot, ConnectionTest } from './api'
 import { formatDate, ROW_GRID } from './format'
 import { AUTH_LABELS, STATUS_HINTS } from './labels'
+import { hasWorkshopAccess } from './validation'
 
 /** Estado del bot: texto + icono + forma del borde, de modo que no dependa solo del color. */
 export function ActiveBadge({ active }: { active: boolean }) {
@@ -77,8 +78,13 @@ export function BotRow({ bot, busy, onEdit, onToggle, onRotate }: BotRowProps) {
       <div className={cn('grid gap-3 md:gap-4', ROW_GRID)}>
         <div className="min-w-0">
           <h2 className="break-words text-base font-medium">{bot.name}</h2>
-          <div className="mt-1.5">
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             <ActiveBadge active={bot.active} />
+            {hasWorkshopAccess(bot) && (
+              <span className="inline-flex items-center rounded-full border border-accent/60 px-2 py-0.5 text-xs" title="Ve las herramientas del taller (datos de clientes)">
+                Acceso de taller
+              </span>
+            )}
           </div>
           <p className="mt-2 break-all text-sm text-muted">{bot.url ?? 'Sin dirección: AutoMax no puede preguntarle'}</p>
         </div>

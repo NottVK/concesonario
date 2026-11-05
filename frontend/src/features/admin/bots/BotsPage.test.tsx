@@ -18,6 +18,7 @@ const bot = (id: number, name: string, over: Partial<Bot> = {}): Bot => ({
   name,
   url: `https://bot${id}.example.com/a2a`,
   active: true,
+  permissions: [],
   keyPrefix: `0000000${id}`,
   hasKey: true,
   hasOutboundKey: id % 2 === 1,

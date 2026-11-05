@@ -335,6 +335,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vin/{vin}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Datos de fábrica de un vehículo por su VIN (público, 30 por minuto)
+         * @description Siempre devuelve qué significa cada parte del VIN (`structure`: país, fabricante, dígito verificador, año, planta y serie). Los datos salen del registro del concesionario si está; si no, de la base pública de la NHTSA (`external`) y, si tampoco, solo la marca y el año por la estructura. Nunca devuelve datos del propietario.
+         */
+        get: operations["VinController_lookup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/metricas/resumen": {
         parameters: {
             query?: never;
@@ -1101,6 +1121,121 @@ export interface components {
             /** @description Quien registró la venta: solo id y nombre */
             seller: components["schemas"]["SalePersonDto"];
         };
+        VinStructureDto: {
+            /**
+             * @description Posiciones 1 a 3 (WMI): fabricante y país
+             * @example 9FB
+             */
+            wmi: string;
+            /** @example Renault */
+            manufacturer: string | null;
+            /**
+             * @description Región por la posición 1
+             * @example Suramérica
+             */
+            region: string;
+            /**
+             * @description País por las posiciones 1 y 2
+             * @example Colombia
+             */
+            country: string | null;
+            /**
+             * @description Posiciones 4 a 8 (VDS): modelo, carrocería y motor, según el fabricante
+             * @example HJD20
+             */
+            vds: string;
+            /**
+             * @description Posición 9: dígito verificador
+             * @example 4
+             */
+            checkDigit: string;
+            /**
+             * @description El dígito que corresponde según el cálculo de la norma
+             * @example 7
+             */
+            checkDigitExpected: string;
+            /**
+             * @description Obligatorio solo en Norteamérica: muchos VIN latinoamericanos no lo cumplen
+             * @example false
+             */
+            checkDigitValid: boolean;
+            /**
+             * @description Posición 10: año modelo
+             * @example L
+             */
+            yearCode: string;
+            /** @example 2020 */
+            year: number | null;
+            /**
+             * @description Posición 11: planta de ensamble
+             * @example M
+             */
+            plantCode: string;
+            /**
+             * @description Posiciones 12 a 17: número de serie
+             * @example 500005
+             */
+            serial: string;
+        };
+        VinExternalDto: {
+            /** @example NHTSA vPIC */
+            source: string;
+            /** @example Honda */
+            make: string | null;
+            /** @example Accord */
+            model: string | null;
+            /** @example 2003 */
+            year: number | null;
+            /** @example EX-V6 */
+            trim: string | null;
+            /** @example Coupe */
+            bodyClass: string | null;
+            /** @example 2 */
+            doors: number | null;
+            /** @example 3.0 L, 6 cilindros */
+            engine: string | null;
+            /** @example Gasolina */
+            fuel: string | null;
+            /** @example Automática */
+            transmission: string | null;
+            /** @example United States (usa) */
+            plantCountry: string | null;
+            /** @example AMERICAN HONDA MOTOR CO., INC. */
+            manufacturer: string | null;
+        };
+        VinInfoDto: {
+            /** @example 9FBHJD204LM500005 */
+            vin: string;
+            /** @description true si el VIN está en el registro del concesionario */
+            registered: boolean;
+            /**
+             * @description De dónde salen marca, modelo, año y el resto
+             * @enum {string}
+             */
+            source: "registro" | "nhtsa" | "estructura";
+            /** @example Renault */
+            brand: string | null;
+            /** @example Duster */
+            model: string | null;
+            /** @example 2020 */
+            year: number | null;
+            /** @example Intens 1.3 Turbo */
+            version: string | null;
+            /** @example SUV */
+            bodyType: string | null;
+            /** @example 5 */
+            doors: number | null;
+            /** @example 1.3 L turbo */
+            engine: string | null;
+            /** @example Gasolina */
+            fuel: string | null;
+            /** @example Automática CVT */
+            transmission: string | null;
+            /** @description Qué significa cada parte del VIN */
+            structure: components["schemas"]["VinStructureDto"];
+            /** @description Ficha de la NHTSA, o null si no la conoce, no respondió o está apagada */
+            external: components["schemas"]["VinExternalDto"] | null;
+        };
         SummaryDto: {
             /**
              * @description Mes calendario de las ventas, en hora de Bogotá
@@ -1206,10 +1341,10 @@ export interface components {
             /** @description Nombres de las tools que llamó el modelo en este turno */
             tools: string[];
             /**
-             * @description none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija
+             * @description none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija; quick = saludo sin modelo; vin = datos de un VIN sin modelo
              * @enum {string}
              */
-            fallback: "none" | "template" | "refusal";
+            fallback: "none" | "template" | "refusal" | "quick" | "vin";
             /** @description Resultados de las tools de este turno (los que vio el modelo) */
             results: Record<string, never>[];
         };
@@ -1321,6 +1456,8 @@ export interface components {
             outboundAuth: "bearer" | "x_api_key";
             /** @description Máximo de consultas por minuto de AutoMax a ese bot */
             outboundLimitPerMinute: number;
+            /** @description Permisos extra: `taller` ve las herramientas con datos de clientes */
+            permissions: "taller"[];
             /** Format: date-time */
             createdAt: string;
         };
@@ -1345,6 +1482,13 @@ export interface components {
             outboundAuth?: "bearer" | "x_api_key";
             /** @description Máximo de consultas por minuto de AutoMax a ese bot (por defecto 10) */
             outboundLimitPerMinute?: number;
+            /**
+             * @description Permisos extra. `taller`: el bot ve y usa las herramientas del taller (consultar_relacion, decodificar_vin, validar_garantia, notificar_estado_vehiculo), que llevan datos de clientes. Sin permisos solo ve el catálogo público
+             * @example [
+             *       "taller"
+             *     ]
+             */
+            permissions?: "taller"[];
         };
         BotWithKeyDto: {
             bot: components["schemas"]["BotViewDto"];
@@ -1369,6 +1513,13 @@ export interface components {
             outboundAuth?: "bearer" | "x_api_key";
             /** @description Máximo de consultas por minuto de AutoMax a ese bot (por defecto 10) */
             outboundLimitPerMinute?: number;
+            /**
+             * @description Permisos extra. `taller`: el bot ve y usa las herramientas del taller (consultar_relacion, decodificar_vin, validar_garantia, notificar_estado_vehiculo), que llevan datos de clientes. Sin permisos solo ve el catálogo público
+             * @example [
+             *       "taller"
+             *     ]
+             */
+            permissions?: "taller"[];
         };
     };
     responses: never;
@@ -2247,6 +2398,35 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VinController_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 17 caracteres, sin I, O ni Q (mayúsculas o minúsculas) */
+                vin: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VinInfoDto"];
+                };
+            };
+            /** @description El VIN no tiene el formato de 17 caracteres */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -91,7 +91,7 @@ export function BotsPage() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Bots externos</h1>
-          <p className="mt-1 max-w-2xl text-muted">Otros asistentes con los que AutoMax intercambia información pública. Nunca se comparten datos de clientes.</p>
+          <p className="mt-1 max-w-2xl text-muted">Otros asistentes con los que AutoMax intercambia información pública. Solo el bot marcado como «del taller» ve datos de clientes, para atender sus órdenes.</p>
         </div>
         <Button onClick={() => setForm({ kind: 'create' })}>
           <Plus size={16} aria-hidden="true" />

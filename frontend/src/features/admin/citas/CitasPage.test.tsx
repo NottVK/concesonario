@@ -222,7 +222,9 @@ describe('lista de citas', () => {
     await screen.findByRole('list', { name: 'Citas' })
     const first = rowOf('Ana Pérez')
     expect(within(first).getByText(formatShortDate(db[0].scheduledAt))).toBeInTheDocument()
-    expect(within(first).getByText(`${formatTime(db[0].scheduledAt)} a ${formatTime('2099-11-01T16:00:00.000Z')}`)).toBeInTheDocument()
+    // Intl separa «a. m.» con un espacio no separable que varía según el sistema: se compara con los espacios normalizados.
+    const range = `${formatTime(db[0].scheduledAt)} a ${formatTime('2099-11-01T16:00:00.000Z')}`.replace(/\s+/g, ' ')
+    expect(within(first).getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').replace(/\s+/g, ' ').trim() === range)).toBeInTheDocument()
     expect(within(first).getByText('ana@correo.co')).toBeInTheDocument()
     expect(within(first).getByText('300 123 451')).toBeInTheDocument()
     expect(within(first).getByRole('link', { name: 'Mazda Modelo 1 2024' })).toHaveAttribute('href', '/catalogo/101')

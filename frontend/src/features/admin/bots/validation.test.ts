@@ -6,6 +6,7 @@ const bot = (over: Partial<Bot> = {}): Bot => ({
   name: 'SegurosYa',
   url: 'https://seguros.example.com/a2a',
   active: true,
+  permissions: [],
   keyPrefix: '1a2b3c4d',
   hasKey: true,
   hasOutboundKey: true,
@@ -118,5 +119,17 @@ describe('cuerpos que se envían', () => {
   it('editar: vaciar la dirección manda null', () => {
     const existing = bot({ hasOutboundKey: false })
     expect(buildUpdateBody(existing, { ...toForm(existing), url: '' })).toEqual({ url: null })
+  })
+
+  it('el permiso del taller: se envía al registrar y solo cambia si se marca o desmarca', () => {
+    expect(buildCreateBody({ ...EMPTY_FORM, name: 'Taller Pulgas Locas', workshopAccess: true })).toMatchObject({ permissions: ['taller'] })
+    expect(buildCreateBody({ ...EMPTY_FORM, name: 'Bot Amigo' })).not.toHaveProperty('permissions')
+    const existing = bot()
+    expect(toForm(existing).workshopAccess).toBe(false)
+    expect(buildUpdateBody(existing, toForm(existing))).not.toHaveProperty('permissions')
+    expect(buildUpdateBody(existing, { ...toForm(existing), workshopAccess: true })).toEqual({ permissions: ['taller'] })
+    const workshop = bot({ permissions: ['taller'] })
+    expect(toForm(workshop).workshopAccess).toBe(true)
+    expect(buildUpdateBody(workshop, { ...toForm(workshop), workshopAccess: false })).toEqual({ permissions: [] })
   })
 })

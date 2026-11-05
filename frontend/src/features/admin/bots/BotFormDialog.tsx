@@ -180,6 +180,21 @@ function Editor({ target, busyRef, onClose, onCreated, onSaved }: EditorProps) {
             {(props) => <input {...props} type="text" inputMode="numeric" value={form.limitPerDay} onChange={(event) => set('limitPerDay')(event.target.value)} />}
           </Field>
         </div>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.workshopAccess}
+            onChange={(event) => setForm((previous) => ({ ...previous, workshopAccess: event.target.checked }))}
+          />
+          <span>
+            Es el bot del taller
+            <span className="block text-xs text-muted">
+              Ve las herramientas del taller: consultar_relacion, decodificar_vin, validar_garantia y notificar_estado_vehiculo. Llevan datos de clientes (cédula,
+              nombre y teléfono): márcalo solo para el taller.
+            </span>
+          </span>
+        </label>
         {!existing && <p className="text-xs text-muted">Al registrar el bot se genera la key con la que él nos consulta. Se muestra una sola vez.</p>}
       </fieldset>
 

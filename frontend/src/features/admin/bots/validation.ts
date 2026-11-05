@@ -22,6 +22,8 @@ export interface BotForm {
   outboundLimitPerMinute: string
   limitPerMinute: string
   limitPerDay: string
+  /** Permiso `taller`: el bot ve las herramientas del taller, que llevan datos de clientes (decisión 134). */
+  workshopAccess: boolean
 }
 
 export type BotFormErrors = Partial<Record<keyof BotForm, string>>
@@ -35,6 +37,7 @@ export const EMPTY_FORM: BotForm = {
   outboundLimitPerMinute: '10',
   limitPerMinute: '30',
   limitPerDay: '2000',
+  workshopAccess: false,
 }
 
 export const toForm = (bot: Bot): BotForm => ({
@@ -46,7 +49,11 @@ export const toForm = (bot: Bot): BotForm => ({
   outboundLimitPerMinute: String(bot.outboundLimitPerMinute),
   limitPerMinute: String(bot.limitPerMinute),
   limitPerDay: String(bot.limitPerDay),
+  workshopAccess: hasWorkshopAccess(bot),
 })
+
+/** ¿El bot tiene el permiso `taller`? */
+export const hasWorkshopAccess = (bot: Bot): boolean => (bot.permissions ?? []).includes('taller')
 
 const integerIn = (text: string, [min, max]: readonly [number, number]): number | null => {
   if (!/^\d{1,6}$/.test(text.trim())) return null
@@ -106,6 +113,7 @@ export function buildCreateBody(form: BotForm): CreateBotInput {
     outboundLimitPerMinute: num(form.outboundLimitPerMinute),
     limitPerMinute: num(form.limitPerMinute),
     limitPerDay: num(form.limitPerDay),
+    ...(form.workshopAccess ? { permissions: ['taller'] } : {}),
   }
 }
 
@@ -120,5 +128,6 @@ export function buildUpdateBody(existing: Bot, form: BotForm): UpdateBotInput {
   if (num(form.outboundLimitPerMinute) !== existing.outboundLimitPerMinute) body.outboundLimitPerMinute = num(form.outboundLimitPerMinute)
   if (num(form.limitPerMinute) !== existing.limitPerMinute) body.limitPerMinute = num(form.limitPerMinute)
   if (num(form.limitPerDay) !== existing.limitPerDay) body.limitPerDay = num(form.limitPerDay)
+  if (form.workshopAccess !== hasWorkshopAccess(existing)) body.permissions = form.workshopAccess ? ['taller'] : []
   return body
 }
