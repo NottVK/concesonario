@@ -7,10 +7,12 @@ import { executeTool, toolDefinitions } from '../tools/tool-registry.js';
 import type { OtherBotsInput, OtherBotTurn, ThirdPartyCard } from '../tools/other-bot.js';
 import { offerBots } from '../tools/other-bot-tool.js';
 import type { NewProposal, ProposalView, ToolContext, VehicleCard } from '../tools/tool-types.js';
+import type { WorkshopGateway } from '../tools/workshop.js';
 import type { ReadOnlyApi } from '../api/public-api.client.js';
 import { Collected } from './collected.js';
 import { buildSystemPrompt } from './prompt.js';
 import { checkReply, correctionNote, GENERIC_FALLBACK, PROMPT_REFUSAL } from './reply-checks.js';
+import { withPrediagnosis, withWarrantyReason } from './workshop-template.js';
 import type { Problem } from './reply-checks.js';
 
 export interface AgentInput {
@@ -25,6 +27,8 @@ export interface AgentInput {
   createProposal(input: NewProposal): Promise<ProposalView>;
   /** Salida hacia otros bots, con los bots activos ya listados; si falta (o no hay bots activos) la tool `preguntar_a_otro_bot` no se ofrece. */
   otherBots?: OtherBotsInput;
+  /** Tools del taller (decisión 131); si falta, no se ofrecen. */
+  workshop?: WorkshopGateway;
   signal?: AbortSignal;
   now?: Date;
 }
@@ -40,8 +44,11 @@ export interface AgentOutput {
   toolsCalled: string[];
   /** Resultados de las tools de este turno (solo se exponen en el modo de depuración). */
   toolResults: { tool: string; data: Record<string, unknown> }[];
-  /** 'none' = respuesta del modelo; 'template' = armada con datos de las tools; 'refusal' = negativa fija; 'quick' = saludo sin modelo. */
-  fallback: 'none' | 'template' | 'refusal' | 'quick';
+  /**
+   * 'none' = respuesta del modelo; 'template' = armada con datos de las tools; 'refusal' = negativa fija;
+   * 'quick' = saludo sin modelo; 'vin' = datos de un VIN sin modelo (decisión 129).
+   */
+  fallback: 'none' | 'template' | 'refusal' | 'quick' | 'vin';
 }
 
 /** Los datos de una tool viajan entre delimitadores, en JSON, y los propios datos no pueden cerrarlos. */
@@ -71,6 +78,7 @@ export class AgentService {
       now,
       createProposal: (proposal) => input.createProposal(proposal),
       otherBots: this.otherBotsFor(input.otherBots),
+      workshop: input.workshop ? { gateway: input.workshop, userMessage: input.userMessage } : null,
     };
     const messages: ChatMessage[] = [
       { role: 'system', content: buildSystemPrompt(now) },
@@ -88,7 +96,7 @@ export class AgentService {
       }
       const reply = response.content.trim();
       const problems: Problem[] = reply ? checkReply(reply, collected, input.userMessage) : ['empty'];
-      if (problems.length === 0) return this.finish(reply, collected, seen, toolsCalled, 'none');
+      if (problems.length === 0) return this.finish(context.workshop ? withWarrantyReason(reply, input.userMessage) : reply, collected, seen, toolsCalled, 'none');
       if (problems.includes('prompt')) return this.finish(PROMPT_REFUSAL, collected, seen, toolsCalled, 'refusal');
       this.logger.warn(`Respuesta del modelo rechazada (${problems.join(', ')})`);
       if (retried) break;
@@ -136,7 +144,7 @@ export class AgentService {
     fallback: AgentOutput['fallback'],
   ): AgentOutput {
     return {
-      reply: truncate(reply, CHAT_REPLY_MAX_CHARS),
+      reply: truncate(fallback === 'refusal' ? reply : withPrediagnosis(reply, collected), CHAT_REPLY_MAX_CHARS),
       cards: collected.cards,
       proposal: collected.proposal,
       thirdParty: collected.thirdParty,

@@ -1,8 +1,10 @@
 import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { AgentService } from './agent/agent.service.js';
+import type { AgentOutput } from './agent/agent.service.js';
 import { PROMPT_VERSION } from './agent/prompt.js';
 import { quickReply } from './agent/quick-replies.js';
+import { findVin, mentionsInvalidVin, VIN_INVALID_REPLY, VIN_UNAVAILABLE_REPLY, vinReply } from './agent/vin-reply.js';
 import { PublicApiClient } from './api/public-api.client.js';
 import { chatDebugEnabled, chatEvalMode, chatPerHourLimit, CHAT_MESSAGE_MAX_CHARS, CHAT_QUEUE_LENGTH, chatTurnTimeoutMs } from './chat.config.js';
 import { ChatRetryException, MODEL_SLOW_MESSAGE, MODEL_UNAVAILABLE_MESSAGE } from './chat.errors.js';
@@ -19,6 +21,8 @@ import { sanitizeText } from './text/sanitize.js';
 import { BadRequestException, GatewayTimeoutException, ServiceUnavailableException } from '@nestjs/common';
 import type { ApiVehicle } from './tools/format.js';
 import { OTHER_BOT_GATEWAY } from './tools/other-bot.js';
+import { WORKSHOP_GATEWAY } from './tools/workshop.js';
+import type { WorkshopGateway } from './tools/workshop.js';
 import type { OtherBotGateway } from './tools/other-bot.js';
 import { loadOtherBots } from './tools/other-bot-tool.js';
 
@@ -50,6 +54,7 @@ export class ChatService implements OnModuleInit {
     private readonly proposals: ProposalService,
     private readonly api: PublicApiClient,
     @Optional() @Inject(OTHER_BOT_GATEWAY) private readonly otherBots?: OtherBotGateway,
+    @Optional() @Inject(WORKSHOP_GATEWAY) private readonly workshop?: WorkshopGateway,
   ) {}
 
   onModuleInit(): void {
@@ -71,10 +76,12 @@ export class ChatService implements OnModuleInit {
     await this.sessions.beginTurn(session.id);
 
     const history = await this.conversations.context(session.id);
-    const output = await this.runAgent(request, session.id, message, history, session.seenVehicleIds);
+    // Conversación del taller: la cédula queda en el servidor y ni el modelo ni el historial la ven (decisión 131).
+    const visible = this.workshop ? this.workshop.capture(session.id, message) : message;
+    const output = await this.runAgent(request, session.id, visible, history, session.seenVehicleIds);
 
     await this.conversations.save(session.id, [
-      { role: ConversationRole.USER, message },
+      { role: ConversationRole.USER, message: visible },
       { role: ConversationRole.ASSISTANT, message: output.reply, promptVersion: PROMPT_VERSION, model: this.provider.model },
     ]);
     await this.sessions.addSeen(session, output.seenVehicleIds);
@@ -124,11 +131,8 @@ export class ChatService implements OnModuleInit {
     history: Awaited<ReturnType<ConversationService['context']>>,
     seenVehicleIds: number[],
   ): ReturnType<AgentService['run']> {
-    // Saludo, gracias o despedida: respuesta fija al instante, sin cola, sin modelo y sin tools (decisión 125).
-    const quick = quickReply(message);
-    if (quick) {
-      return { reply: quick, cards: [], proposal: null, thirdParty: null, seenVehicleIds, toolsCalled: [], toolResults: [], fallback: 'quick' };
-    }
+    const instant = await this.instantReply(sessionId, message, seenVehicleIds);
+    if (instant) return instant;
     const turnSignal = AbortSignal.any([request.signal, AbortSignal.timeout(this.turnTimeoutMs)]);
     // Fuera de la cola de inferencia (de una plaza): la consulta a la base no debe alargar el turno de nadie.
     const otherBots = await loadOtherBots(this.otherBots, (message) => this.logger.warn(message));
@@ -143,12 +147,36 @@ export class ChatService implements OnModuleInit {
             seenVehicleIds,
             createProposal: (input) => this.proposals.create(sessionId, input),
             ...(otherBots ? { otherBots } : {}),
+            ...(this.workshop ? { workshop: this.workshop } : {}),
             signal: turnSignal,
           }),
         turnSignal,
       );
     } catch (error) {
       throw this.mapError(error, request.signal);
+    }
+  }
+
+  /**
+   * Respuestas al instante, sin cola, sin modelo y sin tools: un saludo, gracias o despedida (decisión 125), y un mensaje
+   * con un VIN, que se responde con los datos de `GET /vin/:vin` (decisión 129), salvo en una conversación del taller:
+   * ahí el VIN es para identificar al cliente y lo maneja el modelo con sus tools (decisión 131).
+   */
+  private async instantReply(sessionId: string, message: string, seenVehicleIds: number[]): Promise<AgentOutput | null> {
+    const quick = quickReply(message);
+    const inWorkshop = this.workshop?.isActive(sessionId) ?? false;
+    const vin = quick || inWorkshop ? null : findVin(message);
+    const reply = quick ?? (vin ? await this.vinText(vin) : !inWorkshop && mentionsInvalidVin(message) ? VIN_INVALID_REPLY : null);
+    if (reply === null) return null;
+    return { reply, cards: [], proposal: null, thirdParty: null, seenVehicleIds, toolsCalled: [], toolResults: [], fallback: quick ? 'quick' : 'vin' };
+  }
+
+  private async vinText(vin: string): Promise<string> {
+    try {
+      return await vinReply(this.api, vin);
+    } catch (error) {
+      this.logger.warn(`No se pudo consultar el VIN: ${error instanceof Error ? error.message : 'error'}`);
+      return VIN_UNAVAILABLE_REPLY;
     }
   }
 

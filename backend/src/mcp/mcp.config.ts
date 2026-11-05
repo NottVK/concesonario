@@ -22,6 +22,8 @@ export const MCP_DEFAULTS = {
   /** Tamaños. */
   maxBodyBytes: 16_384,
   maxResponseBytes: 4_096,
+  /** Para un bot con el permiso `taller` (decisión 134): su tools/list publica 7 esquemas y sus respuestas traen más datos. */
+  maxPartnerResponseBytes: 16_384,
   maxResults: 10,
   defaultResults: 5,
   /** Argumentos de texto. */

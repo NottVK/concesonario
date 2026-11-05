@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { consultarPrecioSchema, consultarStockSchema, INPUT_JSON_SCHEMAS, listarMarcasSchema } from './tools/schemas.js';
-import { TOOLS } from './tools/tools.js';
+import { TOOLS, toolsFor } from './tools/tools.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const srcRoot = join(here, '..');
@@ -44,8 +44,15 @@ describe('higiene del servidor MCP: solo habla con el catálogo público', () =>
     }
   });
 
-  it('ninguna tool es de escritura y agendar_cita no existe en ninguna parte del servidor MCP', () => {
-    expect(TOOLS.map((t) => t.name).sort()).toEqual(['consultar_precio', 'consultar_stock', 'listar_marcas']);
+  it('el catálogo sigue siendo de solo lectura, las del taller solo con permiso, y agendar_cita no existe en ninguna parte del servidor MCP', () => {
+    const names = (list: readonly { name: string }[]): string[] => list.map((t) => t.name).sort();
+    expect(names(TOOLS.filter((t) => t.scope === 'catalogo'))).toEqual(['consultar_precio', 'consultar_stock', 'listar_marcas']);
+    expect(TOOLS.filter((t) => t.scope === 'catalogo').every((t) => t.readOnly)).toBe(true);
+    // Las del taller (decisión 134) llevan datos de clientes: un bot sin el permiso `taller` no las ve.
+    expect(names(TOOLS.filter((t) => t.scope === 'taller'))).toEqual(['consultar_relacion', 'decodificar_vin', 'notificar_estado_vehiculo', 'validar_garantia']);
+    expect(names(toolsFor([]))).toEqual(['consultar_precio', 'consultar_stock', 'listar_marcas']);
+    expect(names(toolsFor(['taller']))).toHaveLength(7);
+    // Ningún archivo del protocolo escribe en la base: lo que cambia algo vive en el módulo del taller.
     for (const file of protocol) {
       expect(readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''), relative(srcRoot, file)).not.toMatch(/agendar_cita|createAppointment|\.save\(|\.insert\(|\.update\(/);
     }

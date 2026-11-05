@@ -2,6 +2,7 @@ import { parseColombianNumber } from '../text/amounts.js';
 import { formatPesos } from '../tools/format.js';
 import type { ThirdPartyCard } from '../tools/other-bot.js';
 import type { ProposalView, ToolResult, VehicleCard } from '../tools/tool-types.js';
+import { workshopTemplate } from './workshop-template.js';
 
 /** Campos de las tools que son dinero en pesos: lo único que el validador acepta como "respaldado". */
 const MONEY_KEYS = new Set([
@@ -12,6 +13,8 @@ const MONEY_KEYS = new Set([
   'total_a_pagar',
   'intereses',
   'diferencia_precio',
+  // Mano de obra del prediagnóstico del taller (decisión 131).
+  'precio_mano_obra',
 ]);
 
 /** Texto de un dato de tool para la plantilla; lo que no sea texto o número queda vacío. */
@@ -40,6 +43,8 @@ export class Collected {
   proposal: ProposalView | null = null;
   /** Respuesta de otro bot de este turno: solo para el widget. No entra a `results`, a `text()` ni a ningún prompt. */
   thirdParty: ThirdPartyCard | null = null;
+  /** `agendar_cita_taller` agendó en este turno: solo entonces el bot puede decir que la cita del taller quedó agendada. */
+  workshopBooked = false;
 
   add(tool: string, result: ToolResult): void {
     this.results.push({ tool, data: result.data });
@@ -57,6 +62,7 @@ export class Collected {
     for (const id of result.seen ?? []) this.seen.add(id);
     if (result.proposal) this.proposal = result.proposal;
     if (result.thirdParty) this.thirdParty = result.thirdParty;
+    if (tool === 'agendar_cita_taller' && result.data.agendada === true) this.workshopBooked = true;
   }
 
   /** Todo el texto que devolvieron las tools en el turno. */
@@ -64,7 +70,7 @@ export class Collected {
     return this.results.map((r) => JSON.stringify(r.data)).join(' ');
   }
 
-  private last(tool: string): Record<string, unknown> | undefined {
+  last(tool: string): Record<string, unknown> | undefined {
     return [...this.results].reverse().find((r) => r.tool === tool && !('error' in r.data))?.data;
   }
 
@@ -77,6 +83,8 @@ export class Collected {
       return `${this.proposal.summary}. Revisa la tarjeta y confírmala con tus datos; todavía no está agendada.`;
     }
     if (this.thirdParty) return `Le consulté a ${this.thirdParty.botName}. Su respuesta está en la tarjeta de abajo; es de un tercero no verificado, no de AutoMax.`;
+    const workshop = workshopTemplate(this);
+    if (workshop) return workshop;
     const other = this.last('preguntar_a_otro_bot');
     if (other && typeof other.motivo === 'string') return `${other.motivo}`;
     const credit = this.last('simular_credito');

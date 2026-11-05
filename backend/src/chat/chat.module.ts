@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { A2aModule } from '../a2a/a2a.module.js';
+import { TallerModule } from '../taller/taller.module.js';
 import { AgentService } from './agent/agent.service.js';
 import { PublicApiClient } from './api/public-api.client.js';
 import { AppointmentConfirmService } from './appointment-confirm.service.js';
@@ -19,7 +20,8 @@ import { SessionService } from './session/session.service.js';
 
 @Module({
   // A2aModule provee OTHER_BOT_GATEWAY: la única forma en que el chat llega a otros bots.
-  imports: [TypeOrmModule.forFeature([Conversation, ChatSession, AppointmentProposal]), A2aModule],
+  // TallerModule provee WORKSHOP_GATEWAY: las tools del taller que usa el modelo (decisión 131).
+  imports: [TypeOrmModule.forFeature([Conversation, ChatSession, AppointmentProposal]), A2aModule, TallerModule],
   controllers: [ChatController],
   providers: [
     // El proveedor se elige con CHAT_PROVIDER (ollama, groq o mock); una configuración mala impide arrancar.
@@ -35,6 +37,7 @@ import { SessionService } from './session/session.service.js';
     PurgeService,
   ],
   // InternalSecret lo usa el límite global de peticiones (AppModule) para reconocer las llamadas internas.
-  exports: [TypeOrmModule, MODEL_PROVIDER, InternalSecret],
+  // ChatService y AppointmentConfirmService los usa el bot de Telegram (decisión 128): el mismo asistente por otro canal.
+  exports: [TypeOrmModule, MODEL_PROVIDER, InternalSecret, ChatService, AppointmentConfirmService],
 })
 export class ChatModule {}

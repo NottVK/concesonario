@@ -5,6 +5,9 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeor
  * - la que ÉL nos presenta (entrante, para el servidor MCP): solo prefijo y HMAC, la key en claro se muestra una vez;
  * - la que NOSOTROS le enviamos (saliente, Fase 6): hay que poder recuperarla, así que va cifrada con AES-256-GCM.
  */
+export const BOT_PERMISSIONS = ['taller'] as const;
+export type BotPermission = (typeof BOT_PERMISSIONS)[number];
+
 @Entity('bots_externos')
 export class ExternalBot {
   @PrimaryGeneratedColumn()
@@ -55,6 +58,10 @@ export class ExternalBot {
 
   @Column({ name: 'limite_diario', type: 'int', default: 2000 })
   limitPerDay: number;
+
+  /** Permisos extra del bot (decisión 134). `taller`: ve y usa las herramientas del taller, que llevan datos de clientes. */
+  @Column({ name: 'permisos', type: 'text', array: true, default: () => "'{}'" })
+  permissions: BotPermission[];
 
   @CreateDateColumn({ name: 'creado_en', type: 'timestamptz' })
   createdAt: Date;

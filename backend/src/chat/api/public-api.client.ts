@@ -42,6 +42,8 @@ export const ALLOWED_ROUTES: readonly AllowedRoute[] = [
   { method: 'GET', path: /^\/vehiculos\/\d{1,10}$/ },
   { method: 'GET', path: /^\/vehiculos\/\d{1,10}\/disponibilidad$/ },
   { method: 'POST', path: /^\/financiacion\/simular$/ },
+  // Datos de fábrica por VIN (decisión 129): el bot responde sin el modelo cuando el mensaje trae un VIN.
+  { method: 'GET', path: /^\/vin\/[A-HJ-NPR-Z0-9]{17}$/ },
 ];
 
 const CREATE_APPOINTMENT_ROUTE = '/citas';

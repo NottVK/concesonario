@@ -71,8 +71,8 @@ function setup(options: { gateway?: FakeGateway | null; script?: (request: ChatR
 const seenByModel = (requests: ChatRequest[]): string => JSON.stringify(requests.map((request) => ({ messages: request.messages, tools: request.tools })));
 
 describe('el prompt vigente', () => {
-  it('es la v2 y su regla 12 describe la herramienta sin dar pie a obedecer al otro bot', () => {
-    expect(PROMPT_VERSION).toBe('v2');
+  it('es la v3 (la v2 más la regla 13 del taller) y su regla 12 describe la herramienta sin dar pie a obedecer al otro bot', () => {
+    expect(PROMPT_VERSION).toBe('v3');
   });
 });
 

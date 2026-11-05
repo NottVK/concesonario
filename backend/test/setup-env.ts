@@ -10,6 +10,8 @@ process.env.THROTTLE_PUBLIC_LIMIT = '10000';
 process.env.JWT_SECRET ??= 'secreto-solo-para-pruebas-e2e';
 // Las pruebas nunca llaman a un modelo real: el proveedor es el simulado.
 process.env.CHAT_PROVIDER = 'mock';
+// Las pruebas no salen a internet: la NHTSA queda apagada (el decodificador se prueba con un doble).
+process.env.VIN_DECODER_EXTERNAL = 'false';
 // Embeddings simulados y umbral bajo (el mock solo compara palabras); sin pausa ni topes del chat salvo en sus pruebas de límites.
 process.env.EMBEDDING_PROVIDER = 'mock';
 process.env.SEARCH_MIN_SIMILARITY = '0.1';
@@ -24,3 +26,11 @@ delete process.env.MCP_KEY_PEPPER_VERSION;
 // URL pública del bot para la tarjeta A2A: fija en pruebas (nunca la del .env del usuario).
 process.env.A2A_PUBLIC_BASE_URL = 'https://bot.automax.test';
 delete process.env.A2A_DEV_ALLOWED_TARGETS;
+// Taller de MotorRed: siempre el SIMULADO y nunca el bot de Telegram en pruebas. Se fijan vacías (no se borran) para que
+// ConfigModule no las vuelva a leer del .env del usuario.
+process.env.TALLER_MCP_URL = '';
+process.env.TALLER_MCP_TOKEN = '';
+// Tienda de repuestos (decisión 135): siempre sin conexión en pruebas, aunque el .env ya la tenga.
+process.env.REPUESTOS_MCP_URL = '';
+process.env.REPUESTOS_MCP_TOKEN = '';
+process.env.TELEGRAM_BOT_TOKEN = '';

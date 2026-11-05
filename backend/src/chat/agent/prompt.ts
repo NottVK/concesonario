@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { BUSINESS_TIME_ZONE } from '../../citas/appointment-rules.js';
 
 /** Versión del prompt vigente. Cada versión nueva es OTRO archivo; no se edita uno ya evaluado. */
-export const PROMPT_VERSION = 'v2';
+export const PROMPT_VERSION = 'v3';
 export const CANARY = 'CANARIO-9F3K-7Q2X';
 
 let cached: string | null = null;
@@ -30,6 +30,16 @@ function words(text: string): string[] {
 }
 
 const NGRAM = 7;
+
+/**
+ * Frases del prompt que el modelo SÍ debe decirle al cliente (no son una fuga): pedir el documento y el VIN para
+ * identificarlo en el taller y, si viene por la garantía, el motivo del reclamo (regla 13).
+ */
+export const SAYABLE_PHRASES = [
+  'su número de documento (DNI) y el número VIN del vehículo (17 caracteres; está en la tarjeta de propiedad)',
+  'que te explique el motivo por el cual está cobrando la garantía',
+] as const;
+export const SAYABLE_PROMPT_TEXT = SAYABLE_PHRASES.join(' · ');
 let promptGrams: Set<string> | null = null;
 
 function grams(): Set<string> {

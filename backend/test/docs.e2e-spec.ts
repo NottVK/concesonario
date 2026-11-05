@@ -49,7 +49,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
     expect(doc.components.securitySchemes).toHaveProperty('bearer');
   });
 
-  it('documenta exactamente las 44 operaciones de la API', () => {
+  it('documenta exactamente las 45 operaciones de la API', () => {
     const operations = Object.entries(doc.paths)
       .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
       .sort();
@@ -79,6 +79,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       'GET /api/vehiculos/{id}/disponibilidad',
       'GET /api/ventas',
       'GET /api/ventas/{id}',
+      'GET /api/vin/{vin}',
       'PATCH /api/admin/bots/{id}',
       'PATCH /api/citas/{id}/estado',
       'POST /a2a/tasks',
@@ -118,6 +119,7 @@ describe('Contrato OpenAPI (/api/docs)', () => {
       ['get', '/api/vehiculos'], ['get', '/api/vehiculos/buscar'], ['get', '/api/vehiculos/comparar'], ['get', '/api/vehiculos/{id}'],
       ['post', '/api/chat'], ['post', '/api/chat/citas/confirmar'], ['delete', '/api/chat/sesion'], ['get', '/api/chat/estado'], ['post', '/api/mcp'],
       ['get', '/api/vehiculos/{id}/disponibilidad'], ['post', '/api/clientes'], ['post', '/api/citas'], ['post', '/api/financiacion/simular'],
+      ['get', '/api/vin/{vin}'],
     ];
     const privateRoutes: [string, string][] = [
       ['get', '/api/auth/me'], ['post', '/api/marcas'], ['put', '/api/marcas/{id}'],

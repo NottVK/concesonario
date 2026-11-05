@@ -5,16 +5,23 @@ import { createEmbeddingProvider } from '../../embeddings/embedding-factory.js';
 import type { EmbeddingProvider } from '../../embeddings/embedding-provider.js';
 import { EmbeddingSync } from '../../embeddings/embedding-sync.js';
 import { Brand } from '../../marcas/entities/brand.entity.js';
+import { ContactCrypto } from '../../relaciones/contact-crypto.js';
+import { Relationship } from '../../relaciones/entities/relationship.entity.js';
 import { User, UserRole } from '../../usuarios/entities/user.entity.js';
 import { Vehicle } from '../../vehiculos/entities/vehicle.entity.js';
+import { VinRecord } from '../../vin/entities/vin-record.entity.js';
+import { RELATION_RECORDS } from './relaciones-data.js';
 import { BRANDS, VEHICLES } from './seed-data.js';
 import { MODEL_PROFILES } from './seed-profiles.js';
+import { VIN_RECORDS } from './vin-data.js';
 import type { VehicleRow } from './seed-data.js';
 
 export interface SeedResult {
   brands: number;
   vehicles: number;
   users: number;
+  vins: number;
+  relations: number;
 }
 
 const DEMO_USERS = [
@@ -108,6 +115,22 @@ async function seedVehicles(ds: DataSource, brands: Brand[]): Promise<void> {
     .execute();
 }
 
+/** VIN de prueba del taller (decisión 129). Al repetir el seed se actualizan con los datos del archivo. */
+async function seedVins(ds: DataSource): Promise<void> {
+  await ds.getRepository(VinRecord).upsert(VIN_RECORDS.map((row) => ({ ...row })), ['vin']);
+}
+
+/** Relaciones de prueba del taller (decisión 130): la cédula, el nombre y el teléfono se guardan cifrados. */
+async function seedRelations(ds: DataSource): Promise<void> {
+  const crypto = ContactCrypto.fromEnv();
+  const rows = RELATION_RECORDS.map(({ cedula, nombre, telefono, ...row }) => ({
+    ...row,
+    cedulaHmac: crypto.cedulaHmac(cedula),
+    encryptedContact: crypto.seal(row.id, { cedula, nombre, telefono }),
+  }));
+  await ds.getRepository(Relationship).upsert(rows, ['id']);
+}
+
 async function seedUsers(ds: DataSource): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Los usuarios demo no se cargan en producción (NODE_ENV=production)');
@@ -132,10 +155,14 @@ export async function runSeed(ds: DataSource): Promise<SeedResult> {
   const brands = await seedBrands(ds);
   await seedVehicles(ds, brands);
   await seedUsers(ds);
+  await seedVins(ds);
+  await seedRelations(ds);
   return {
     brands: await ds.getRepository(Brand).count(),
     vehicles: await ds.getRepository(Vehicle).count(),
     users: await ds.getRepository(User).count(),
+    vins: await ds.getRepository(VinRecord).count(),
+    relations: await ds.getRepository(Relationship).count(),
   };
 }
 

@@ -180,7 +180,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
         'GET /api/vehiculos/:id/disponibilidad', 'GET /api/vehiculos/comparar', 'GET /api/vehiculos/buscar', 'POST /api/auth/login',
         'POST /api/citas', 'POST /api/clientes', 'POST /api/financiacion/simular',
         'POST /api/chat', 'POST /api/chat/citas/confirmar', 'DELETE /api/chat/sesion', 'GET /api/chat/estado', 'POST /api/mcp',
-        'GET /.well-known/agent.json', 'POST /a2a/tasks',
+        'GET /.well-known/agent.json', 'POST /a2a/tasks', 'GET /api/vin/:vin',
       ].sort());
     });
   });
@@ -189,7 +189,7 @@ describe('Autorización de todas las rutas (e2e)', () => {
     const samples: [string, string][] = [
       ['GET', '/api/marcas'], ['GET', '/api/vehiculos'], ['GET', '/api/vehiculos/comparar'], ['GET', '/api/vehiculos/buscar'],
       ['GET', '/api/vehiculos/:id'], ['GET', '/api/vehiculos/:id/disponibilidad'], ['POST', '/api/financiacion/simular'],
-      ['POST', '/api/citas'],
+      ['POST', '/api/citas'], ['GET', '/api/vin/:vin'],
     ];
     for (const [method, path] of samples) {
       const route = routes.find((r) => r.method === method && r.path === path);

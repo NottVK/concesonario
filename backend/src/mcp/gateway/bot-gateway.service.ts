@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { BotPermission } from '../../a2a/entities/external-bot.entity.js';
 import { AuditService } from '../audit/audit.service.js';
 import { BotKeysService } from '../keys/bot-keys.service.js';
 import { gateConfig, MCP_DEFAULTS } from '../mcp.config.js';
@@ -12,6 +13,8 @@ export interface AuthenticatedBot {
   name: string;
   limitPerMinute: number;
   limitPerDay: number;
+  /** Permisos extra (decisión 134): sin `taller`, el bot solo ve el catálogo público. */
+  permissions?: readonly BotPermission[];
 }
 
 /** Cupo concedido: `release` libera la reserva del tope diario cuando la llamada ya quedó auditada. */

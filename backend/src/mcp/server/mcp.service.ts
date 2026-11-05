@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from '@modelcontextprotocol/sdk/types.js';
 import type { CallToolResult, JSONRPCMessage, RequestId } from '@modelcontextprotocol/sdk/types.js';
@@ -9,7 +9,9 @@ import type { ValidatedArgs } from '../audit/args-summary.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedBot } from '../gateway/bot-gateway.service.js';
 import { MCP_DEFAULTS } from '../mcp.config.js';
-import { TOOL_BY_NAME, TOOLS } from '../tools/tools.js';
+import { WORKSHOP_PARTNER } from '../tools/partner.js';
+import type { WorkshopPartner } from '../tools/partner.js';
+import { TOOL_BY_NAME, toolsFor } from '../tools/tools.js';
 import { OneShotTransport } from './one-shot-transport.js';
 
 export interface McpHttpResult {
@@ -23,6 +25,8 @@ const METHOD_FORMAT = /^[A-Za-z0-9/_.-]{1,64}$/;
 const ID_FORMAT = /^[A-Za-z0-9._:-]{1,64}$/;
 const TOOL_NAME_FORMAT = /^[a-z_]{1,40}$/;
 const REPLY_TIMEOUT_MS = 5_000;
+// validar_garantia consulta al taller y a la tienda mientras responde (decisión 135): más plazo para el bot del taller.
+const PARTNER_REPLY_TIMEOUT_MS = 25_000;
 
 // Mensajes FIJOS: nada de lo que mande el bot vuelve en una respuesta.
 const INVALID_ARGS = 'Parámetros no válidos: revisa marca, modelo, año, estado o límite.';
@@ -35,6 +39,8 @@ interface CallRecord {
   tool: string;
   args: ValidatedArgs | null;
   status: ExchangeStatus;
+  /** Permisos del bot que llama: sin `taller` no ve ni puede usar las herramientas del taller (decisión 134). */
+  permissions: readonly string[];
 }
 
 type Parsed =
@@ -77,6 +83,11 @@ function validCallParams(params: unknown): params is { name: string; arguments?:
   return params.arguments === undefined || isPlainObject(params.arguments);
 }
 
+/** Tope de la respuesta: 4 KB para el catálogo; más para el bot del taller, que ve más herramientas y datos. */
+function maxBytes(call: CallRecord): number {
+  return call.permissions.includes('taller') ? MCP_DEFAULTS.maxPartnerResponseBytes : MCP_DEFAULTS.maxResponseBytes;
+}
+
 function errorResult(text: string): CallToolResult {
   return { content: [{ type: 'text', text }], isError: true };
 }
@@ -98,11 +109,13 @@ export class McpService {
   constructor(
     private readonly catalog: PublicCatalogService,
     private readonly audit: AuditService,
+    // Lo provee TallerModule; sin él (pruebas del MCP) las herramientas del taller responden como no válidas.
+    @Optional() @Inject(WORKSHOP_PARTNER) private readonly partner?: WorkshopPartner,
   ) {}
 
   async handle(bot: AuthenticatedBot, raw: Buffer): Promise<McpHttpResult> {
     const started = performance.now();
-    const call: CallRecord = { tool: 'mensaje_invalido', args: null, status: ExchangeStatus.VALIDATION_ERROR };
+    const call: CallRecord = { tool: 'mensaje_invalido', args: null, status: ExchangeStatus.VALIDATION_ERROR, permissions: bot.permissions ?? [] };
     const result = await this.dispatch(raw, call);
     await this.record(bot, call, raw.length, result.body, performance.now() - started);
     return result;
@@ -131,8 +144,8 @@ export class McpService {
       return { status: 200, body: rpcError(parsed.id, -32603, UNAVAILABLE) };
     }
     const body = JSON.stringify(reply);
-    if (Buffer.byteLength(body) > MCP_DEFAULTS.maxResponseBytes) {
-      this.logger.error(`Respuesta MCP de ${Buffer.byteLength(body)} bytes: pasa el tope de ${MCP_DEFAULTS.maxResponseBytes}`);
+    if (Buffer.byteLength(body) > maxBytes(call)) {
+      this.logger.error(`Respuesta MCP de ${Buffer.byteLength(body)} bytes: pasa el tope de ${maxBytes(call)}`);
       call.status = ExchangeStatus.INTERNAL_ERROR;
       return { status: 200, body: rpcError(parsed.id, -32603, UNAVAILABLE) };
     }
@@ -150,7 +163,7 @@ export class McpService {
         method: request.method,
         ...(request.params === undefined ? {} : { params: request.params as Record<string, unknown> }),
       };
-      return await transport.request(message, REPLY_TIMEOUT_MS);
+      return await transport.request(message, call.permissions.includes('taller') ? PARTNER_REPLY_TIMEOUT_MS : REPLY_TIMEOUT_MS);
     } finally {
       await server.close().catch(() => undefined);
     }
@@ -159,12 +172,12 @@ export class McpService {
   private buildServer(call: CallRecord): Server {
     const server = new Server({ name: 'automax-mcp', version: '1.0.0' }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
     server.setRequestHandler(ListToolsRequestSchema, () => ({
-      tools: TOOLS.map((tool) => ({
+      tools: toolsFor(call.permissions).map((tool) => ({
         name: tool.name,
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema as { type: 'object' },
-        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        annotations: { readOnlyHint: tool.readOnly, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       })),
     }));
     server.setRequestHandler(CallToolRequestSchema, (request, extra) => this.callTool(request.params, extra.requestId, call));
@@ -172,7 +185,9 @@ export class McpService {
   }
 
   private async callTool(params: { name: string; arguments?: Record<string, unknown> }, requestId: RequestId, call: CallRecord): Promise<CallToolResult> {
-    const tool = TOOL_BY_NAME.get(params.name);
+    const found = TOOL_BY_NAME.get(params.name);
+    // Una herramienta del taller pedida por un bot sin ese permiso responde igual que una que no existe.
+    const tool = found && (found.scope === 'catalogo' || call.permissions.includes(found.scope)) ? found : undefined;
     if (!tool) {
       call.tool = 'desconocida';
       call.status = ExchangeStatus.VALIDATION_ERROR;
@@ -181,7 +196,7 @@ export class McpService {
     call.tool = tool.name;
     let run;
     try {
-      run = await tool.execute(params.arguments ?? {}, this.catalog);
+      run = await tool.execute(params.arguments ?? {}, { catalog: this.catalog, ...(this.partner ? { partner: this.partner } : {}) });
     } catch (error) {
       this.logger.error(`Falló ${tool.name}: ${error instanceof Error ? error.message : 'error desconocido'}`);
       call.status = ExchangeStatus.INTERNAL_ERROR;
@@ -189,14 +204,14 @@ export class McpService {
     }
     if (run.kind === 'invalid') {
       call.status = ExchangeStatus.VALIDATION_ERROR;
-      return errorResult(INVALID_ARGS);
+      return errorResult(tool.invalidMessage ?? INVALID_ARGS);
     }
     call.args = run.summary;
     // La respuesta completa (con el sobre JSON-RPC) no pasa de 4 KB: se reduce el NÚMERO de elementos, nunca se corta el JSON.
     // El tamaño crece con el número de elementos: se busca el mayor que cabe con una búsqueda binaria (no una prueba por elemento).
     const fits = (count: number): string | null => {
       const text = JSON.stringify(run.make(count));
-      return envelopeBytes(requestId, text) <= MCP_DEFAULTS.maxResponseBytes ? text : null;
+      return envelopeBytes(requestId, text) <= maxBytes(call) ? text : null;
     };
     let low = 0;
     let high = run.available;

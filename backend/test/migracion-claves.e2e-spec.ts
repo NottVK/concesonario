@@ -120,7 +120,8 @@ describe('Migraciones de las keys de bots: api_key → api_key_saliente (008) y 
 
   it('009: varias keys enc:v1 pasan a enc:v2 y TODAS descifran; la de un bot sin url sigue legible como v1', async () => {
     await ds.destroy();
-    ds = new DataSource({ ...buildDataSourceOptions(), migrations: all });
+    // Hasta la 009: las migraciones posteriores (010 en adelante) no son parte de este escenario y el `down` de abajo debe deshacer la 009.
+    ds = new DataSource({ ...buildDataSourceOptions(), migrations: all.filter((migration) => timestampOf(migration) <= 1700000000009) });
     await ds.initialize();
     await ds.runMigrations(); // 009
     expect(await columns()).toContain('auth_saliente');

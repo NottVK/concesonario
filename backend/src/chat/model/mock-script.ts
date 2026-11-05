@@ -1,5 +1,6 @@
 import { DATA_CLOSE, DATA_OPEN } from '../text/sanitize.js';
 import type { ChatMessage, ChatRequest, ChatResponse } from './model-provider.js';
+import { workshopMockReply } from './mock-workshop.js';
 
 /**
  * Comportamiento por defecto del mock: reglas por palabras clave, siempre iguales para la misma entrada.
@@ -185,6 +186,8 @@ function otherBotCall(request: ChatRequest, user: string): ChatResponse | null {
 
 export function defaultMockScript(request: ChatRequest): ChatResponse {
   const last = request.messages[request.messages.length - 1];
+  const workshop = workshopMockReply(request, realUserMessage(request.messages));
+  if (workshop) return workshop;
   if (last?.role === 'tool') return last.toolName === 'buscar_vehiculos' ? followUp(request, last) : answerFromTool(last);
   const user = realUserMessage(request.messages);
   if (last && CORRECTION.test(last.content)) return text('Disculpa, no pude confirmar ese dato. ¿Quieres que revise el catálogo?');

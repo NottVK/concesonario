@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import { BOT_PERMISSIONS } from '../../a2a/entities/external-bot.entity.js';
+import type { BotPermission } from '../../a2a/entities/external-bot.entity.js';
 import { MCP_DEFAULTS } from '../mcp.config.js';
 
 const [MIN_PER_MINUTE, MAX_PER_MINUTE] = MCP_DEFAULTS.botPerMinuteRange;
@@ -58,6 +60,13 @@ export class CreateBotDto {
   @Min(1)
   @Max(MAX_OUTBOUND_PER_MINUTE)
   outboundLimitPerMinute?: number;
+
+  @ApiPropertyOptional({ enum: BOT_PERMISSIONS, isArray: true, example: ['taller'], description: 'Permisos extra. `taller`: el bot ve y usa las herramientas del taller (consultar_relacion, decodificar_vin, validar_garantia, notificar_estado_vehiculo), que llevan datos de clientes. Sin permisos solo ve el catálogo público' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(BOT_PERMISSIONS.length)
+  @IsIn(BOT_PERMISSIONS, { each: true, message: 'permissions solo acepta: taller' })
+  permissions?: BotPermission[];
 }
 
 export class UpdateBotDto {
@@ -107,6 +116,13 @@ export class UpdateBotDto {
   @Min(1)
   @Max(MAX_OUTBOUND_PER_MINUTE)
   outboundLimitPerMinute?: number;
+
+  @ApiPropertyOptional({ enum: BOT_PERMISSIONS, isArray: true, example: ['taller'], description: 'Permisos extra. `taller`: el bot ve y usa las herramientas del taller (consultar_relacion, decodificar_vin, validar_garantia, notificar_estado_vehiculo), que llevan datos de clientes. Sin permisos solo ve el catálogo público' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(BOT_PERMISSIONS.length)
+  @IsIn(BOT_PERMISSIONS, { each: true, message: 'permissions solo acepta: taller' })
+  permissions?: BotPermission[];
 }
 
 /** Lo que se ve de un bot: nunca el hash, el pepper ni la key saliente. */
@@ -124,6 +140,7 @@ export class BotViewDto {
   @ApiProperty() limitPerDay: number;
   @ApiProperty({ enum: OUTBOUND_AUTH, description: 'Cómo se autentica la llamada saliente de AutoMax a ese bot' }) outboundAuth: string;
   @ApiProperty({ description: 'Máximo de consultas por minuto de AutoMax a ese bot' }) outboundLimitPerMinute: number;
+  @ApiProperty({ enum: BOT_PERMISSIONS, isArray: true, description: 'Permisos extra: `taller` ve las herramientas con datos de clientes' }) permissions: string[];
   @ApiProperty({ type: String, format: 'date-time' }) createdAt: Date;
 }
 

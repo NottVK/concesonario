@@ -44,6 +44,9 @@ describe('higiene de imports de la A2A saliente', () => {
       'chat/model/http-errors.ts',
       'chat/model/ollama.provider.ts',
       'embeddings/ollama-embedding.provider.ts',
+      'taller/partner/parts-store-check.cli.ts', // `npm run tienda:probar`: comando a mano, solo a REPUESTOS_MCP_URL del entorno, sin redirecciones (decisión 135)
+      'telegram/telegram-api.client.ts', // Bot API de Telegram: host fijo api.telegram.org, nunca una URL de afuera (decisión 128)
+      'vin/nhtsa-vin.client.ts', // base pública de la NHTSA: host fijo vpic.nhtsa.dot.gov, solo envía el VIN (decisión 132)
     ]);
   });
 

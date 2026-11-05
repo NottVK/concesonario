@@ -7,20 +7,25 @@ import { otherBotDefinition, preguntarAOtroBot } from './other-bot-tool.js';
 import { toolError } from './tool-types.js';
 import type { ChatTool, ToolContext, ToolResult } from './tool-types.js';
 import { buscarVehiculos, compararVehiculos, detalleVehiculo } from './vehicle-tools.js';
+import { WORKSHOP_TOOL_NAMES, WORKSHOP_TOOLS } from './workshop-tools.js';
 
 /**
  * Tools registradas. `consultar_cita` queda diferida (el bot solo confirma las citas de la sesión actual).
- * `preguntar_a_otro_bot` está registrada pero SOLO se ofrece al modelo en los turnos en que hay bots activos.
+ * `preguntar_a_otro_bot` está registrada pero SOLO se ofrece al modelo en los turnos en que hay bots activos, y las del
+ * taller solo si el módulo del taller está cargado (decisión 131).
  */
-export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot];
+export const TOOLS: readonly ChatTool[] = [buscarVehiculos, detalleVehiculo, compararVehiculos, simularCredito, agendarCita, preguntarAOtroBot, ...WORKSHOP_TOOLS];
+
+const WORKSHOP_NAMES = new Set<string>(WORKSHOP_TOOL_NAMES);
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
 const logger = new Logger('ChatTools');
 
 /** Definiciones que se le ofrecen al modelo en este turno: la de otros bots lleva como enum los bots activos, y falta si no hay ninguno. */
-export function toolDefinitions(context?: Pick<ToolContext, 'otherBots'>): ToolDefinition[] {
+export function toolDefinitions(context?: Pick<ToolContext, 'otherBots' | 'workshop'>): ToolDefinition[] {
   const offered = context?.otherBots?.offered ?? [];
   return TOOLS.flatMap((tool) => {
+    if (WORKSHOP_NAMES.has(tool.name)) return context?.workshop ? [tool.definition] : [];
     if (tool.name !== preguntarAOtroBot.name) return [tool.definition];
     return offered.length > 0 ? [otherBotDefinition(offered)] : [];
   });

@@ -16,10 +16,12 @@ import { buildDataSourceOptions } from './database/db.config.js';
 import { FinanciacionModule } from './financiacion/financiacion.module.js';
 import { MarcasModule } from './marcas/marcas.module.js';
 import { McpModule } from './mcp/mcp.module.js';
+import { TelegramModule } from './telegram/telegram.module.js';
 import { MetricasModule } from './metricas/metricas.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
 import { VehiculosModule } from './vehiculos/vehiculos.module.js';
 import { VentasModule } from './ventas/ventas.module.js';
+import { VinModule } from './vin/vin.module.js';
 
 @Module({
   imports: [
@@ -39,10 +41,13 @@ import { VentasModule } from './ventas/ventas.module.js';
     UsuariosModule,
     CitasModule,
     VentasModule,
+    VinModule,
     MetricasModule,
     ChatModule,
     McpModule,
     A2aModule,
+    // Bot de Telegram: solo escucha si TELEGRAM_BOT_TOKEN está en .env (decisión 128).
+    TelegramModule,
   ],
   // El orden importa: primero el límite de peticiones, luego autenticación, luego roles.
   providers: [

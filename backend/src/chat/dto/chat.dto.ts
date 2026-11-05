@@ -50,7 +50,11 @@ export class ThirdPartyCardDto {
 
 export class ChatDebugDto {
   @ApiProperty({ type: [String], description: 'Nombres de las tools que llamó el modelo en este turno' }) tools: string[];
-  @ApiProperty({ enum: ['none', 'template', 'refusal'], description: 'none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija' }) fallback: string;
+  @ApiProperty({
+    enum: ['none', 'template', 'refusal', 'quick', 'vin'],
+    description: 'none = respuesta del modelo; template = armada con datos de las tools; refusal = negativa fija; quick = saludo sin modelo; vin = datos de un VIN sin modelo',
+  })
+  fallback: string;
   @ApiProperty({ description: 'Resultados de las tools de este turno (los que vio el modelo)', type: 'array', items: { type: 'object' } }) results: { tool: string; data: Record<string, unknown> }[];
 }
 

@@ -9,7 +9,7 @@ try {
   await dataSource.initialize();
   const result = await runSeed(dataSource);
   console.log(
-    `Seed listo: ${result.brands} marcas, ${result.vehicles} vehículos, ${result.users} usuarios.`,
+    `Seed listo: ${result.brands} marcas, ${result.vehicles} vehículos, ${result.users} usuarios, ${result.vins} VIN y ${result.relations} relaciones de prueba.`,
   );
   console.log(await seedEmbeddings(dataSource));
 } catch (error: unknown) {

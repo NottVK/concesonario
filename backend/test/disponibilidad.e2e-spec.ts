@@ -122,7 +122,8 @@ describe('Disponibilidad de test-drive (e2e)', () => {
     it('filtra por rango y respeta los bordes: una franja que termina en from o empieza en to no cuenta', async () => {
       expect(await busyOf(carA.id, `?from=${wed9}&to=${plus(wed9, 3 * HOUR_MS)}`)).toEqual([iso(wed9)]);
       // La cita de martes 10:00 termina justo a las 11:00: no ocupa desde las 11:00.
-      expect(await busyOf(carA.id, `?from=${tue11}&to=${wed9}`)).toEqual([]);
+      // Hasta el día siguiente a las 9:00 (calculado desde el martes: el «próximo miércoles» puede caer antes que el martes).
+      expect(await busyOf(carA.id, `?from=${tue11}&to=${plus(tue11, 22 * HOUR_MS)}`)).toEqual([]);
       // Un rango que corta la mitad de la franja sí la incluye.
       expect(await busyOf(carA.id, `?from=${plus(tue10, 30 * 60_000)}&to=${tue11}`)).toEqual([iso(tue10)]);
     });

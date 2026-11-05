@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BotExchange } from '../a2a/entities/bot-exchange.entity.js';
 import { ExternalBot } from '../a2a/entities/external-bot.entity.js';
 import { CatalogoModule } from '../catalogo/catalogo.module.js';
+import { TallerModule } from '../taller/taller.module.js';
 import { AdminBotsController } from './admin/admin-bots.controller.js';
 import { AuditPurgeService } from './audit/audit-purge.service.js';
 import { AuditService } from './audit/audit.service.js';
@@ -14,7 +15,8 @@ import { loadMcpSecrets, MCP_SECRETS } from './mcp.config.js';
 import { McpService } from './server/mcp.service.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ExternalBot, BotExchange]), CatalogoModule],
+  // TallerModule provee WORKSHOP_PARTNER: las herramientas que el taller llama en nuestro MCP (decisión 134).
+  imports: [TypeOrmModule.forFeature([ExternalBot, BotExchange]), CatalogoModule, TallerModule],
   controllers: [AdminBotsController, McpController],
   providers: [
     // Si falta MCP_KEY_PEPPER o BOT_KEY_ENCRYPTION_KEY (o son inválidos) la API NO arranca.

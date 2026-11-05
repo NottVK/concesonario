@@ -24,6 +24,7 @@
     "migration:run": "npm run build && npm run typeorm -- migration:run",
     "migration:revert": "npm run build && npm run typeorm -- migration:revert",
     "seed": "npm run build && node dist/database/seeds/run-seed.js",
+    "tienda:probar": "npm run build && node dist/taller/partner/parts-store-check.cli.js",
     "embeddings:sync": "npm run build && node dist/embeddings/sync-cli.js",
     "chat:purge": "npm run build && node dist/chat/purge-cli.js",
     "clean": "rimraf dist tsconfig.build.tsbuildinfo"

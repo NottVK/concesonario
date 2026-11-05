@@ -4,7 +4,8 @@ import { MCP_DEFAULTS } from '../mcp.config.js';
 export type ValidatedArgs = Readonly<Record<string, string | number | boolean | undefined>>;
 
 // Nombres de argumento permitidos en el resumen: una lista cerrada, no lo que mande el bot.
-const KNOWN_KEYS = new Set(['marca', 'modelo', 'anio', 'estado', 'limite', 'vehiculo_id']);
+// id_relacion, codigo y servicios (un conteo) son de las herramientas del taller: identificadores, nunca datos personales.
+const KNOWN_KEYS = new Set(['marca', 'modelo', 'anio', 'estado', 'limite', 'vehiculo_id', 'id_relacion', 'codigo', 'servicios']);
 // Defensa extra por si un valor validado llegara con algo raro: solo caracteres simples.
 const SAFE_VALUE = /[^\p{L}\p{N} .,_-]/gu;
 

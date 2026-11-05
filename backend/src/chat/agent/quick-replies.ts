@@ -5,7 +5,7 @@
  */
 
 export const GREETING_REPLY =
-  '¡Hola! Soy el asistente de AutoMax. ¿En qué te puedo colaborar? Puedo buscarte carros por marca o presupuesto, compararlos, simular un crédito o prepararte un test-drive.';
+  '¡Hola! Soy el asistente de AutoMax. ¿En qué te puedo colaborar?';
 export const THANKS_REPLY = '¡Con mucho gusto! ¿Te ayudo con algo más?';
 export const GOODBYE_REPLY = '¡Gracias por escribirnos! Cuando quieras, aquí estoy para ayudarte a encontrar tu próximo carro.';
 

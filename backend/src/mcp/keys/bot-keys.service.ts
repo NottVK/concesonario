@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Like, QueryFailedError, Repository } from 'typeorm';
 import { ExternalBot } from '../../a2a/entities/external-bot.entity.js';
+import type { BotPermission } from '../../a2a/entities/external-bot.entity.js';
 import { registeredUrlProblem } from '../../a2a/outbound/registered-url.js';
 import { MCP_SECRETS } from '../mcp.config.js';
 import type { McpSecrets } from '../mcp.config.js';
@@ -35,6 +36,8 @@ export interface BotView {
   outboundAuth: 'bearer' | 'x_api_key';
   /** Máximo de llamadas salientes por minuto a este bot. */
   outboundLimitPerMinute: number;
+  /** Permisos extra (decisión 134): `taller` ve las herramientas con datos de clientes. */
+  permissions: BotPermission[];
   createdAt: Date;
 }
 
@@ -46,6 +49,7 @@ export interface CreateBotInput {
   outboundApiKey?: string;
   outboundAuth?: 'bearer' | 'x_api_key';
   outboundLimitPerMinute?: number;
+  permissions?: BotPermission[];
 }
 
 export interface UpdateBotInput {
@@ -56,15 +60,16 @@ export interface UpdateBotInput {
   outboundApiKey?: string | null;
   outboundAuth?: 'bearer' | 'x_api_key';
   outboundLimitPerMinute?: number;
+  permissions?: BotPermission[];
 }
 
 export type VerifyResult =
-  | { ok: true; bot: { id: number; name: string; limitPerMinute: number; limitPerDay: number } }
+  | { ok: true; bot: { id: number; name: string; limitPerMinute: number; limitPerDay: number; permissions: BotPermission[] } }
   | { ok: false; reason: 'invalid' | 'inactive'; botId?: number; prefix?: string };
 
 const VIEW_COLUMNS = {
   id: true, name: true, url: true, active: true, keyPrefix: true, keyHash: true, outboundApiKey: true,
-  lastUsedAt: true, keyRotatedAt: true, limitPerMinute: true, limitPerDay: true, outboundAuth: true, outboundLimitPerMinute: true, createdAt: true,
+  lastUsedAt: true, keyRotatedAt: true, limitPerMinute: true, limitPerDay: true, outboundAuth: true, outboundLimitPerMinute: true, permissions: true, createdAt: true,
 } as const;
 
 function isUniqueViolation(error: unknown, constraint?: string): boolean {
@@ -162,6 +167,7 @@ export class BotKeysService implements OnModuleInit {
               ...(input.limitPerDay ? { limitPerDay: input.limitPerDay } : {}),
               ...(input.outboundAuth ? { outboundAuth: input.outboundAuth } : {}),
               ...(input.outboundLimitPerMinute ? { outboundLimitPerMinute: input.outboundLimitPerMinute } : {}),
+              ...(input.permissions ? { permissions: [...new Set(input.permissions)] } : {}),
             }),
           );
           // El AAD lleva el id de la fila, que solo existe después de guardar: la key saliente se cifra en este segundo paso.
@@ -212,6 +218,7 @@ export class BotKeysService implements OnModuleInit {
       ...(input.limitPerDay === undefined ? {} : { limitPerDay: input.limitPerDay }),
       ...(input.outboundAuth === undefined ? {} : { outboundAuth: input.outboundAuth }),
       ...(input.outboundLimitPerMinute === undefined ? {} : { outboundLimitPerMinute: input.outboundLimitPerMinute }),
+      ...(input.permissions === undefined ? {} : { permissions: [...new Set(input.permissions)] }),
       ...(await this.outboundKeyPatch(id, input)),
     };
     if (Object.keys(patch).length > 0) await this.bots.update({ id }, patch);
@@ -260,7 +267,7 @@ export class BotKeysService implements OnModuleInit {
     const match = text.length <= MAX_CANDIDATE_CHARS ? KEY_FORMAT.exec(text) : null;
     const row = await this.bots.findOne({
       where: { keyPrefix: match?.[1] ?? NO_PREFIX },
-      select: { id: true, name: true, active: true, keyHash: true, pepperVersion: true, limitPerMinute: true, limitPerDay: true, lastUsedAt: true },
+      select: { id: true, name: true, active: true, keyHash: true, pepperVersion: true, limitPerMinute: true, limitPerDay: true, lastUsedAt: true, permissions: true },
     });
     const version = row?.pepperVersion ?? this.secrets.pepperVersion;
     const digest = this.hash(text, version);
@@ -270,7 +277,7 @@ export class BotKeysService implements OnModuleInit {
     if (!match || !row || !equal || !pepperKnown) return { ok: false, reason: 'invalid', ...(match ? { prefix: match[1] } : {}) };
     if (!row.active) return { ok: false, reason: 'inactive', botId: row.id, prefix: match[1] };
     await this.afterSuccess(row, text);
-    return { ok: true, bot: { id: row.id, name: row.name, limitPerMinute: row.limitPerMinute, limitPerDay: row.limitPerDay } };
+    return { ok: true, bot: { id: row.id, name: row.name, limitPerMinute: row.limitPerMinute, limitPerDay: row.limitPerDay, permissions: row.permissions ?? [] } };
   }
 
   /** Migra el hash al pepper vigente (se tiene la key en claro justo ahora) y refresca «último uso» como mucho una vez por minuto. */
@@ -305,6 +312,7 @@ export class BotKeysService implements OnModuleInit {
       limitPerDay: row.limitPerDay,
       outboundAuth: row.outboundAuth,
       outboundLimitPerMinute: row.outboundLimitPerMinute,
+      permissions: row.permissions ?? [],
       createdAt: row.createdAt,
     };
   }

@@ -1,5 +1,7 @@
 import type { PublicCatalogService } from '../../catalogo/public-catalog.service.js';
 import type { ValidatedArgs } from '../audit/args-summary.js';
+import type { WorkshopPartner } from './partner.js';
+import { PARTNER_TOOLS } from './partner-tools.js';
 import { consultarPrecioSchema, consultarStockSchema, INPUT_JSON_SCHEMAS, listarMarcasSchema } from './schemas.js';
 
 /** Aviso fijo que acompaña a cada respuesta: lo que sigue es información, no instrucciones para el bot que la lee. */
@@ -9,14 +11,26 @@ const NO_MATCHES = 'No hay coincidencias disponibles en el catálogo.';
 /** Resultado de una tool: cuántos elementos hay y cómo armar la respuesta con los primeros N (para recortar por elementos). */
 export type ToolRun =
   | { kind: 'invalid' }
-  | { kind: 'ok'; summary: ValidatedArgs; available: number; make: (count: number) => object };
+  | { kind: 'ok'; summary: ValidatedArgs; available: number; make: (count: number) => object | null };
+
+/** Lo que usan las tools: el catálogo público y, si está el módulo del taller, el socio del taller (decisión 134). */
+export interface ToolDeps {
+  catalog: PublicCatalogService;
+  partner?: WorkshopPartner;
+}
 
 export interface ToolDefinition {
-  name: 'consultar_stock' | 'consultar_precio' | 'listar_marcas';
+  name: string;
+  /** `catalogo`: cualquier bot. `taller`: solo un bot con ese permiso (llevan datos de clientes). */
+  scope: 'catalogo' | 'taller';
   title: string;
   description: string;
   inputSchema: object;
-  execute(rawArguments: unknown, catalog: PublicCatalogService): Promise<ToolRun>;
+  /** false en las que cambian algo de nuestro lado (validar_garantia, notificar_estado_vehiculo). */
+  readOnly: boolean;
+  /** Mensaje fijo si los argumentos no son válidos (si no, el del catálogo). */
+  invalidMessage?: string;
+  execute(rawArguments: unknown, deps: ToolDeps): Promise<ToolRun>;
 }
 
 const consultarStock: ToolDefinition = {
@@ -25,8 +39,10 @@ const consultarStock: ToolDefinition = {
   description:
     'Lista vehículos DISPONIBLES del catálogo de AutoMax por marca, modelo, año o estado. Hace falta al menos marca o modelo. ' +
     'Devuelve hasta 10 resultados con su `ref`, precio en COP, año, combustible y transmisión.',
+  scope: 'catalogo',
+  readOnly: true,
   inputSchema: INPUT_JSON_SCHEMAS.consultar_stock,
-  async execute(raw, catalog) {
+  async execute(raw, { catalog }) {
     const parsed = consultarStockSchema.safeParse(raw);
     if (!parsed.success) return { kind: 'invalid' };
     const args = parsed.data;
@@ -46,8 +62,10 @@ const consultarPrecio: ToolDefinition = {
   description:
     'Precio en COP y disponibilidad de un vehículo, por su `ref` (de consultar_stock) o por marca y modelo. ' +
     'Un vehículo vendido se reconoce pero no se ofrece ni se da su precio.',
+  scope: 'catalogo',
+  readOnly: true,
   inputSchema: INPUT_JSON_SCHEMAS.consultar_precio,
-  async execute(raw, catalog) {
+  async execute(raw, { catalog }) {
     const parsed = consultarPrecioSchema.safeParse(raw);
     if (!parsed.success) return { kind: 'invalid' };
     const args = parsed.data;
@@ -75,8 +93,10 @@ const listarMarcas: ToolDefinition = {
   name: 'listar_marcas',
   title: 'Listar marcas',
   description: 'Nombres de las marcas que vende AutoMax.',
+  scope: 'catalogo',
+  readOnly: true,
   inputSchema: INPUT_JSON_SCHEMAS.listar_marcas,
-  async execute(raw, catalog) {
+  async execute(raw, { catalog }) {
     if (!listarMarcasSchema.safeParse(raw ?? {}).success) return { kind: 'invalid' };
     // Tope de marcas por llamada: la respuesta se arma sobre una lista acotada, no sobre toda la tabla.
     const marcas = (await catalog.listBrands()).slice(0, 200);
@@ -85,6 +105,11 @@ const listarMarcas: ToolDefinition = {
 };
 
 /** Las tools expuestas. `agendar_cita` NO está: un bot externo no puede dar el consentimiento humano que exige una cita. */
-export const TOOLS: readonly ToolDefinition[] = [consultarStock, consultarPrecio, listarMarcas];
+export const TOOLS: readonly ToolDefinition[] = [consultarStock, consultarPrecio, listarMarcas, ...PARTNER_TOOLS];
+
+/** Las tools que ve un bot según sus permisos: las del taller (decisión 134) solo con el permiso `taller`. */
+export function toolsFor(permissions: readonly string[] = []): ToolDefinition[] {
+  return TOOLS.filter((tool) => tool.scope === 'catalogo' || permissions.includes(tool.scope));
+}
 
 export const TOOL_BY_NAME = new Map(TOOLS.map((tool) => [tool.name as string, tool]));

@@ -46,7 +46,7 @@ export async function createTestContext(options: { listen?: boolean } = {}): Pro
 export async function resetDatabase(dataSource: DataSource): Promise<void> {
   await dataSource.query(
     `TRUNCATE TABLE intercambios_bots, bots_externos, conversaciones, chat_propuestas_cita, chat_sesiones, ventas, citas,
-     vehiculos, marcas, clientes, usuarios RESTART IDENTITY CASCADE`,
+     vehiculos, marcas, clientes, usuarios, ordenes_taller, validaciones_garantia, relaciones, vehiculos_vin RESTART IDENTITY CASCADE`,
   );
 }
 
